@@ -105,6 +105,7 @@ sub performAction
       
       map { $_->delete } $sAlS->as_list;
       map { $_->delete } $bRS->as_list;
+      map { $_->unique_identifier } $sAsS->as_list;
       map { $_->delete } $sAsS->as_list;
       $seq->delete;
 
