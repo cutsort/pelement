@@ -44,6 +44,7 @@ my $session = new Session();
 #         -lane Name        process a lane by filename
 #         -lane_id Number   process a lane by internal db number id
 #         -seq Name         process a seq by name
+#         -end [35]         restrict to one end only
 #         -force            replace an existing sequence record.
 #         -test             do not update db records.
 
@@ -52,6 +53,11 @@ my ($gel_name,$gel_id,$lane_name,$lane_id,$process_seq,$force);
 my $minSeqSize = 12;
 my $maxSeqSize = 0;
 my $test = 1;      # test mode only. No inserts or updates.
+my $score = '';    # min match when running phrap. Should be set separately in
+                   # individual cases only
+my $save;          # save tmp phrap files.
+my $singlets = 0;  # do we call an assembly something built from 1 read
+my $end;
 
 GetOptions('gel=s'      => \$gel_name,
            'gel_id=i'   => \$gel_id,
@@ -62,6 +68,10 @@ GetOptions('gel=s'      => \$gel_name,
            'max=i'      => \$maxSeqSize,
            'force!'     => \$force,
            'test!'      => \$test,
+           'score=i'    => \$score,
+           'save!'      => \$save,
+           'singlets!'  => \$singlets,
+           'end=i'      => \$end,
           );
 
 # processing hierarchy. In case multiple things are specified, we have to
@@ -104,6 +114,12 @@ foreach my $lane (@lanes) {
 
    $session->log($Session::Info,"Processing lane ".$lane->seq_name);
 
+   if ($end && $lane->end_sequenced ne $end) {
+      $session->info("Not processing this end. Skipping.");
+      next LANE;
+   }
+
+
    # and we'll need the strain and processing info.
    my $strain = new Strain($session,{-strain_name=>$lane->seq_name})->select;
    unless ($strain && $strain->collection) {
@@ -139,7 +155,7 @@ foreach my $lane (@lanes) {
    my @phred_seq = ();
    # find the associated phred called sequences.
    foreach my $l ($laneSet->as_list ) {
-      next LANE if PCommon::is_true($l->failure);
+      next if PCommon::is_true($l->failure);
       push @phred_seq, new Phred_Seq($session,{-lane_id=>$l->id})->select_if_exists;
    }
 
@@ -155,6 +171,7 @@ foreach my $lane (@lanes) {
    # keep records of all the phred_seq id's and whether any have been vector trimmed.
    my $foundVec = 0;
    my %pidH = ();
+   my $shortestLength;
    foreach my $p (@phred_seq)  {
       next unless $p && $p->id;
 
@@ -163,6 +180,10 @@ foreach my $lane (@lanes) {
       my ($trimSeq,$start_flag,$end_flag) = $p->trimmed_seq;
 
       next unless $trimSeq;
+
+      # keep a record of the shortest (non-zero) length
+      $shortestLength = length($trimSeq) if !$shortestLength || length($trimSeq) < $shortestLength;
+
       my $trimQual = $qual->trimmed_qual($p);
 
       $foundVec = 1 if $start_flag eq 'v';
@@ -180,7 +201,17 @@ foreach my $lane (@lanes) {
 
    my $insert_pos = $foundVec?$t_p->insertion_offset:-1;
 
-   my $phrap = new PhrapInterface($session,{-file=>$seqFile,-save=>0});
+
+   # decide on the score and match parameters. If the seq is very
+   # short, be agressive but not overly so;
+   unless ($score) {
+      if ($shortestLength < 14) {
+         $score = ($shortestLength>8)?$shortestLength:8;
+      } else {
+         $score = 14;
+      }
+   }
+   my $phrap = new PhrapInterface($session,{-file=>$seqFile,-save=>$save,-score=>$score,-match=>$score});
    unless ( $phrap->run ) {
       $session->warn("Some trouble running phrap.");
       next LANE;
@@ -197,7 +228,7 @@ foreach my $lane (@lanes) {
 
    # we're insisting on clean seq.
    if ($nC != 1) {
-      if ($nC == 0 && $nS == 1) {
+      if ($nC == 0 && $nS == 1 && $singlets ) {
          # this is a special case: there was only 1 input sequence.
          # phrap calls this a singlet, but we call it an assembly
          @contigs = $phrap->singlets;
@@ -262,11 +293,7 @@ foreach my $lane (@lanes) {
 
       # delete the old records
       map { $_->delete('src_seq_id') } ($s_a->as_list) unless $test;
-      # and put in the new ones
-      my $new_ass = new Seq_Assembly($session,{-seq_name => $seq_name,
-                                            -src_seq_src => 'phred_seq',
-                                          -assembly_date => 'today'});
-      map { $new_ass->src_seq_id($_); $new_ass->insert } (keys %pidH) unless $test;
+
         
       my $action = 'insert';
       if ($seqRecord->db_exists) {
@@ -278,6 +305,12 @@ foreach my $lane (@lanes) {
          # but do not update if there are no changes.
          if ($seq eq $seqRecord->sequence && $insert_pos == $seqRecord->insertion_pos) {
             $session->info("Sequence record has not changed; maintaining old time stamp.");
+            # but we do need to reinsert the assembly record; this may be different
+            # (besides - we deleted it already)
+            my $new_ass = new Seq_Assembly($session,{-seq_name => $seq_name,
+                                                     -src_seq_src => 'phred_seq',
+                                                     -assembly_date => 'today'});
+            map { $new_ass->src_seq_id($_); $new_ass->insert } (keys %pidH) unless $test;
             next LANE;
          } else {
             $session->log($Session::Info,"Sequence record has changed and making an update.");
@@ -285,12 +318,18 @@ foreach my $lane (@lanes) {
             $action = 'update';
          }
       }
-
       $seqRecord->sequence($seq);
       $seqRecord->insertion_pos($insert_pos);
       $seqRecord->strain_name($strain->strain_name);
       $seqRecord->last_update('today');
       $seqRecord->$action unless $test;
+
+      # and install the assembly record
+      my $new_ass = new Seq_Assembly($session,{-seq_name => $seq_name,
+                                               -src_seq_src => 'phred_seq',
+                                               -assembly_date => 'today'});
+      map { $new_ass->src_seq_id($_); $new_ass->insert } (keys %pidH) unless $test;
+
 
       $session->log($Session::Info,"Sequence record for ".$strain->strain_name." ".$action."'ed.");
    }
