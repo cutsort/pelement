@@ -33,6 +33,7 @@ my $seq_name = $ARGV[0];
 # a configurable parameter of whether to extrapolate the insertion
 # position beyond the HSP. If false, the last position of the HSP
 # is reported.
+my $test = 0;
 my $extrapolate = 0;
 
 # todo: change this in to a BlastInterface object
@@ -61,7 +62,11 @@ my $insert_pos = $seq->insertion_pos;
 
 # out with the old
 my $sSet = new Seq_AlignmentSet($session,{-seq_name=>$seq_name})->select;
-map { $_->delete } $sSet->as_list;
+if ($test) {
+   map { $session->info("An old alignment is at ".$_->scaffold." at ".$_->s_insert) } $sSet->as_list;
+} else {
+   map { $_->delete } $sSet->as_list;
+}
 
 
 # todo: change this into a looping over BlastHsp objects
@@ -140,19 +145,20 @@ while (@records) {
          $sql .= $session->db->quote($var).",";
       }
       $sql =~ s/,$/);/;
+      $session->info("A new alignment is at ".$name." at ".$s_insert) if $test;
    }
 }
 
   
 $session->log($Session::Verbose,"SQL: $sql.");
-$session->db->do($sql) if $sql;
+$session->db->do($sql) if $sql && !$test;
 
 my $numHits = $session->db->select_value("select count(seq_name) from seq_alignment where ".
                                          "seq_name='$seq_name'");
 if( $numHits == 1 ) {
    $session->log($Session::Verbose,"Declaring this alignment unique.");
    $session->db->do(qq(update seq_alignment set status='unique' where
-                       seq_name='$seq_name' and status='multiple'));
+                       seq_name='$seq_name' and status='multiple')) unless $test;
 }
 
 $session->exit();
