@@ -13,6 +13,7 @@ use LaneSet;
 use Phred_Seq;
 use PelementCGI;
 use PelementDBI;
+use Processing;
 
 $cgi = new PelementCGI;
 
@@ -81,6 +82,13 @@ sub reportGel
    }
 
    $gel->select;
+
+   # what sort of meta info do we have on this:
+   if ( my $batch = Processing::batch_id($gel->ipcr_name) ) {
+      print $cgi->center($cgi->em($gel->name." is from batch "),
+                         $cgi->a({-href=>"batchReport.pl?batch=$batch"},$batch),
+                         $cgi->em(", and was registered ".$gel->gel_date.".")),$cgi->br,"\n";
+   }
 
 
    my @tableRows = ();
