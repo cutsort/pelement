@@ -146,10 +146,14 @@ foreach my $lane (@lanes) {
       $seq = substr($phred_seq->seq,$start-1,$length);
    } else {
   
+      my $found_junction = 1;
       unless ( $phred_seq->v_trim_start ) {
          $session->log($Session::Warn,"Sequence for ".$phred_seq->id.
                                          " is not vector trimmed at the start.");
-         next;
+         # if we have not found the vector junction, then start with
+         # the quality. We'll check next that this exists.
+         $phred_seq->v_trim_start($phred_seq->q_trim_start);
+         $found_junction = 0;
       }
 
       unless ( defined($phred_seq->q_trim_start) && $phred_seq->q_trim_end ) {
@@ -190,7 +194,8 @@ foreach my $lane (@lanes) {
       }
 
       # this references the insertion position in an interbase coordinate.
-      $insert_pos = $t_p->insertion_offset;
+      # if we have not found the junction, then this is -1. (before the seq)
+      $insert_pos = $found_junction?$t_p->insertion_offset:-1;
 
       $seq = substr($phred_seq->seq,$phred_seq->v_trim_start,
                                      $extent-$phred_seq->v_trim_start);
