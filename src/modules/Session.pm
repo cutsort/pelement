@@ -257,7 +257,7 @@ sub log_level
     $self->{log_level} = $level;
     $self->log($Session::Info,"log level set to $level.");
   } else {
-    $self->error("Invalid Parameter","value for log level: $level not valid.");
+    $self->error("Value for log level: $level not valid.");
   }
   return;
 }
@@ -272,7 +272,7 @@ sub log
 {
   my $self = shift;
   my $level = shift;
-  my $message = shift;
+  my $message = join("",@_);
 
   print {$self->{log_file}} &time_value(),"\t$message\n"
                      if $level <= $self->log_level;
@@ -329,6 +329,10 @@ sub at_exit
   Installs various error handlers into the current session. This
   requires 2 arguments: a tag for the error class, and block of code
   to run.
+ 
+  I'm having doubts about this implementation right now; it relies on
+  passing a > 1 element list to error and using the first element as
+  a key to the error handler.
 
 =cut
 sub on_error
@@ -346,11 +350,25 @@ sub on_error
 sub error
 {
   my $self = shift;
-  my $tag = shift;
-  my $message = shift;
+  my $message = join("",@_);
+  my $tag = $_[0];
 
   (&{$self->{error}->{$tag}} and return) if exists $self->{error}->{$tag};
+
   $self->log($Session::Error,$message);
   $self->exit();
 }
+
+=head2 die
+
+   An error call with process exit
+
+=cut
+sub die
+{
+  my $self = shift;
+  $self->error(@_);
+  &CORE::exit(2);
+}
+
 1;
