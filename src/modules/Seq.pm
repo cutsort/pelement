@@ -16,9 +16,40 @@ package Seq;
 =cut
 
 use strict;
-use Pelement;
-use PCommon;
-use PelementDBI;
 use DbObject;
+
+=head1
+
+  to_fasta(filename,{options})
+
+  Write the current sequence to a fasta file. 
+  An optional hashref with keys -name and -desc can
+  be used to embellish the header.
+
+=cut
+sub to_fasta
+{
+  my $self = shift;
+  my $filename = shift;
+  my $args = shift || {};
+
+  open(FIL,">$filename") or 
+        ($self->{_session}->error("Cannot open file $filename: $!") and exit(1));
+
+  if (!exists($args->{-name}) ) {
+     $args->{-name} = $self->seq_name;
+  }
+  my $header = ">".$args->{-name};
+  $header .= " ".$args->{-desc} if exists($args->{-desc});
+  print FIL "$header\n";
+  my $output = $self->sequence;
+  $output =~ s/(.{50})/$1\n/g;
+  $output .= "\n";
+  $output =~ s/\n\n/\n/;
+  print FIL $output;
+  close(FIL);
+
+  $self->{fasta} = $filename;
+}
 
 1;

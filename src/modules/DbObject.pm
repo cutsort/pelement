@@ -26,7 +26,7 @@ use Carp;
 
 @ISA = qw(Exporter);
 @EXPORT = qw(new initialize_self select select_if_exists db_exists insert
-             update delete resolve_ref AUTOLOAD DESTROY);
+             get_next_id set_id update delete resolve_ref session AUTOLOAD DESTROY);
 
 =head1
 
@@ -78,12 +78,21 @@ sub initialize_self
   $self->{_session} = $sessionHandle;
   $self->{_constraint} = '';
 
-  my $cols = [];
 
-  my $sql = $sessionHandle->db->prepare("Select * from $tablename limit 0");
-  $sql->execute();
+  # try to read a cached (a.k.a.stashed) record of
+  # column names for this table.
+  unless ( exists $self->{_cols} &&
+           scalar @{$self->{_cols} = [ @{$self->{_session}->{col_hash}->{$tablename}} ]} ) {
+     my $sql = $sessionHandle->db->prepare(qq(
+                    Select * from $tablename where false;));
+     # why do I need the execute? Other drivers seem to
+     # require this. But it don't hurt.
+     $sql->execute();
+     $self->{_session}->{col_hash}->{$tablename} = [@{$sql->{NAME}}];
+     $self->{_cols} = \@{$sql->{NAME}};
+     $sql->finish();
+  }
 
-  $self->{_cols} = \@{$sql->{NAME}};
   # process any specified arguments
   map { $self->{$_} = PCommon::parseArgs($args,$_) } @{$self->{_cols}};
 
@@ -92,7 +101,7 @@ sub initialize_self
   foreach my $is_null (@{PCommon::parseArgs($args,'null') || [] }) {
      $self->{_constraint} .= " $is_null is null and";
   }
-  # not equals, greater than's and less than's are specified by hashes
+  # not equals, greater than's and less than's and likes are specified by hashes
   # of key/values
   my $ne_constraint = PCommon::parseArgs($args,'not_equal') || {};
   foreach my $not_equal (keys %$ne_constraint) {
@@ -106,22 +115,26 @@ sub initialize_self
   }
   my $lt_constraint = PCommon::parseArgs($args,'less_than') || {};
   foreach my $less_than (keys %$lt_constraint) {
-     $self->{_constraint} .= " $not_equal < ".
+     $self->{_constraint} .= " $less_than < ".
              $sessionHandle->db->quote($lt_constraint->{$less_than})." and";
   }
   my $ge_constraint = PCommon::parseArgs($args,'greater_than_or_equal') || {};
-  foreach my $greater_than (keys %$ge_constraint) {
-     $self->{_constraint} .= " $greater_than >= ".
-             $sessionHandle->db->quote($ge_constraint->{$greater_than})." and";
+  foreach my $greater_than_or_equal (keys %$ge_constraint) {
+     $self->{_constraint} .= " $greater_than_or_equal >= ".
+             $sessionHandle->db->quote($ge_constraint->{$greater_than_or_equal})." and";
   }
   my $le_constraint = PCommon::parseArgs($args,'less_than_or_equal') || {};
-  foreach my $less_than (keys %$le_constraint) {
-     $self->{_constraint} .= " $not_equal <= ".
-             $sessionHandle->db->quote($le_constraint->{$less_than})." and";
+  foreach my $less_than_or_equal (keys %$le_constraint) {
+     $self->{_constraint} .= " $less_than_or_equal <= ".
+             $sessionHandle->db->quote($le_constraint->{$less_than_or_equal})." and";
+  }
+  my $like_constraint = PCommon::parseArgs($args,'like') || {};
+  foreach my $like (keys %$like_constraint) {
+     $self->{_constraint} .= " $like like ".
+             $sessionHandle->db->quote($like_constraint->{$like})." and";
   }
   $self->{_constraint} =~ s/ and$//;
 
-  $sql->finish();
 
   return $self;
 }
@@ -289,7 +302,7 @@ sub insert
 
    foreach my $col (@{$self->{_cols}}) {
       $self->{$col} = $self->resolve_ref($self->{$col});
-      next if $col eq "id";
+      #next if $col eq "id";
       next unless defined $self->{$col};
       $sql .= $col.",";
       $sqlVal .= $self->{_session}->db->quote($self->{$col}).",";
@@ -307,6 +320,75 @@ sub insert
    $self->{id} = $self->{_session}->db->select_value($qSql);
 
    return $self->{id};
+}
+
+=head1 get_next_id
+
+   This is bound to be db specific. We use this to get and 'reserve' the
+   next serial counter for a table. For db's that implement sequences this
+   will look up and bump up the sequence associated with the id. Normally
+   this is expected to be the 'id' column, but can another counter name
+   can be supplied
+
+=cut
+
+sub get_next_id
+{
+   my $self = shift;
+   my $sessionHandle = $self->session || 
+                die "Session handle when getting id";
+
+   return unless $self->{_table} && $self->{_cols};
+
+   my $col = shift || 'id';
+
+   # postgres
+   if ($sessionHandle->db->{dbh}->{Driver}->{Name} eq 'Pg') {
+      my $iGot =  $sessionHandle->db->select_value("select nextval('".$self->{_table}."_".$col."_seq')");
+      return $iGot;
+   } else {
+      $sessionHandle->error("Unimplemented DB driver for get_next_id.");
+   }
+}
+
+=head1 set_id
+
+   If we have manipulated a sequence variable manually, we may have to
+   reset the corresponding sequence to keep things in sync. This will return
+   the set value
+
+=cut
+
+sub set_id
+{
+   my $self = shift;
+   my $sessionHandle = $self->{_session} || 
+                die "Session handle when setting id";
+
+   my $val =  shift;
+   return unless $self->{_table} && $self->{_cols};
+
+   my $col = shift || 'id';
+
+   # postgres
+   if ($sessionHandle->db->{dbh}->{Driver}->{Name} eq 'Pg') {
+      my $iGot =  $sessionHandle->db->select_value("select setval('".$self->{_table}."_".$col."_seq',$val)");
+      print "next_id is $iGot.\n";
+      return $iGot;
+   } else {
+      $sessionHandle->error("Unimplemented DB driver for set_id.");
+   }
+}
+
+
+=head1 session
+
+  returns the session object
+
+=cut
+sub session
+{
+  return shift->{_session};
 }
    
 =head1 resolve_ref

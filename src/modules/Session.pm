@@ -31,6 +31,7 @@ no strict 'refs';
 use Pelement;
 use PCommon;
 use PelementDBI;
+use Files;
 
 
 # global static definitions
@@ -76,13 +77,14 @@ sub new
   my $log_level = defined(PCommon::parseArgs($args,"log_level"))?
                           PCommon::parseArgs($args,"log_level"):$Session::Info;
 
-  my $self = {"exit_code"=>[],
-              "error_code"=>{},
-              "caller"=>$caller,
-              "log_level"=>$log_level,
-              "log_file"=>*LOG,
-              "interactive"=>(-t STDOUT),
-              "id"=>$id,
+  my $self = {"exit_code"     => [],
+              "error_code"    => {},
+              "caller"        => $caller,
+              "log_level"     => $log_level,
+              "log_file"      => *LOG,
+              "interactive"   => (-t STDOUT),
+              "id"            => $id,
+              "col_hash"      => {},
              };
 
   if ($self->{log_level} ) {
@@ -119,10 +121,10 @@ sub exit
   my $self = shift;
   # first we execute the stack of exit routines
   # make this work.
-  #foreach my $block (reverse @{$self->{exit_code}}) {
-  #  $self->log($Session::Verbose,"Executing block of exit code.");
-  #  &$block;
-  #}
+  foreach my $block (reverse @{$self->{exit_code}}) {
+    $self->log($Session::Verbose,"Executing block of exit code.");
+    &$block;
+  }
 
   # now close the db handle
   $self->log($Session::Verbose,"Disconnecting from db.") if $self->{db};

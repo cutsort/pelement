@@ -126,4 +126,9 @@ sub delete
    return unlink shift;
 }
 
+sub copy
+{
+   return File::Copy::copy(@_);
+}
+
 1;

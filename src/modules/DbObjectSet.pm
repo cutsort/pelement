@@ -25,7 +25,7 @@ use Session;
 use Carp;
 
 @ISA = qw(Exporter);
-@EXPORT = qw(initialize_self select as_list as_list_ref AUTOLOAD DESTROY);
+@EXPORT = qw(new initialize_self select as_list as_list_ref AUTOLOAD DESTROY);
 
 
 =head1

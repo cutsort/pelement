@@ -80,7 +80,7 @@ $PELEMENT_JAVABIN = "/bin/java";
 # include paths for blast tools
 $BLAST_PATH = "/usr/local/bdgp/wublast/";
 $BLAST_DB = "/data/pelement/blast/";
-$ENV{BLASTDB} = $BLASTDB;
+$ENV{BLASTDB} = $BLAST_DB;
 $ENV{BLASTMAT} = "$BLAST_PATH/matrix";
 $ENV{BLASTFILTER} = "$BLAST_PATH/filter";
 
