@@ -304,10 +304,12 @@ sub reportBatch
                      my $saSeq = new Seq($session,
                              {-seq_name=>$sa->seq_name})->select_if_exists;
                      if ($saSeq->sequence && length($saSeq->sequence) >= 25) {
-                        $builtSeq{$lane->end_sequenced} = 1;
+                        $builtSeq{$lane->end_sequenced} = ($saSeq->qualifier?$saSeq->qualifier:1);
                         my $al = new Seq_AlignmentSet($session,
                                       {-seq_name=>$sa->seq_name})->select;
-                        push @{$seqs{$lane->end_sequenced}},$al->as_list;
+                        map
+                         { push @{$seqs{$lane->end_sequenced}},$_ unless $_->status =~ /deselected/}
+                                                                                   $al->as_list;
                      }
                   }
                }
@@ -325,7 +327,10 @@ sub reportBatch
                     ($builtSeq{5}?'5':
                     ($builtSeq{3}?'3':'n')));
          $conSeqH{$cons}++;
-                    
+         # qualify this
+         foreach my $e qw(5 3) {
+            $cons .= "($e:$builtSeq{$e})" if ($builtSeq{$e} && $builtSeq{$e} ne '1');
+         }
 
 
          # do we have alignments? 
@@ -488,6 +493,7 @@ sub reportBatch
                             qq(5 -> sequence for 5' end only),
                             qq(3 -> sequence for 3' end only),
                             qq(n -> sequence for neither end),
+                            qq(a parenthetical note on sequences indicates one or both ends is not the current consensus),
                                                     ]))), "\n",
          $cgi->em('Alignment Key:',
          $cgi->ul($cgi->li([ 
