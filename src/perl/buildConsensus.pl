@@ -107,7 +107,8 @@ foreach my $lane (@lanes) {
    # and we'll need the strain and processing info.
    my $strain = new Strain($session,{-strain_name=>$lane->seq_name})->select;
    unless ($strain && $strain->collection) {
-      $session->die("No collection identifier for ".$lane->seq_name);
+      $session->warn("No collection identifier for ".$lane->seq_name);
+      next LANE;
    }
 
    # things that we'll need when locating the insertion.
@@ -116,8 +117,9 @@ foreach my $lane (@lanes) {
                         -like=>{end_sequenced=>'%'.$lane->end_sequenced.'%'}}
                                                      )->select;
    unless ($c_p->protocol_id) {
-      $session->die("Cannot determine trimming protocol for ".
+      $session->warn("Cannot determine trimming protocol for ".
                                                           $strain->collection);
+      next LANE;
    }
 
    my $t_p = new Trimming_Protocol($session,{-id=>$c_p->protocol_id})->select;
@@ -125,8 +127,9 @@ foreach my $lane (@lanes) {
       $session->info("Using trimming protocol ".$t_p->protocol_name)
                                                           if $t_p->protocol_name;
    } else {
-      $session->die("Cannot determine trimming protocol for ".
+      $session->warn("Cannot determine trimming protocol for ".
                                                           $strain->collection);
+      next LANE;
    }
 
    # look for all phred seq for this end and this seq
