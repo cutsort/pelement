@@ -52,7 +52,7 @@ my $arm;
 my $start;
 my $end;
 my $gbUnit;
-my $db = 'gadflyi';
+my $db = 'gadfly';
 GetOptions("arm=s"   => \$arm,
            "start=i" => \$start,
            "end=i"   => \$end,
@@ -85,7 +85,7 @@ if ($gbUnit) {
 my %centromere_name_map = (
 #            '2R.wgs3_centromere_extension' => '2R.wgs3_centromere',
 #            '3L.wgs3_centromere_extension' => '3L.wgs3_centromere',
-#            'X.wgs3_centromere_extensionB' => 'X.wgs3_centromere',
+#            'X.wgs3_centromere_extensionB' => 'X.wgs3_centromere_extension',
 #            '3R.wgs3_centromere_extension' => '3R.wgs3_centromere',
 #            '2L_wgs3_centromere_extension' => '2L.wgs3_centromere',
              );
