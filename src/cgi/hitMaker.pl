@@ -329,8 +329,8 @@ sub alignSeq
    $arm = 'arm_'.$arm if ($arm eq '2L' || $arm eq '2R' || $arm eq '3L' ||
                                   $arm eq '3R' || $arm eq 'X' || $arm eq '4');
 
-   my $strand = $cgi->param('strand'); $strand = 0 unless $strand eq
-   '1' || $strand eq '-1';
+   my $strand = $cgi->param('strand');
+   $strand = 0 unless $strand eq '1' || $strand eq '-1';
 
    my $armSeq = seq_extract("/data/pelement/blast/release3_genomic",$arm,$start,$end);
    #print "arm sequence is $armSeq.<br>";
@@ -377,8 +377,8 @@ sub alignSeq
             $bR->query_end($exon->{to2});
          } elsif ($r->{match_orientation} eq 'reverse') {
             $bR->strand(-1);
-            $bR->query_end($exon->{from2});
-            $bR->query_begin($exon->{to2});
+            $bR->query_begin(length($seq->sequence) +1 - $exon->{from2});
+            $bR->query_end(length($seq->sequence) + 1 - $exon->{to2});
          } else {
             print $cgi->center($cgi->h3("Serious internal problem parsing sim4 results."));
             return;
@@ -405,7 +405,7 @@ sub alignSeq
       }
 
      if ($cgi->param('Align') eq 'Save' ) {
-        #print "these results would be saved; this is still in testing and disabled.<br>";
+        print $cgi->center("Inserting record into db."),"\n";
         $brS->insert({-program=>'sim4'});
      } else {
         print $cgi->start_form(),
@@ -414,6 +414,7 @@ sub alignSeq
               $cgi->hidden(-name=>'arm',-value=>$cgi->param('arm')),"\n",
               $cgi->hidden(-name=>'center',-value=>$cgi->param('center')),"\n",
               $cgi->hidden(-name=>'region',-value=>$cgi->param('region')),"\n",
+              $cgi->hidden(-name=>'strand',-value=>$cgi->param('strand')),"\n",
               $cgi->submit(-name=>'Align',-value=>'Save'),"\n",
               " button to record the results."),
               $cgi->end_form(),"\n";
