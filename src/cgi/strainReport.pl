@@ -22,9 +22,10 @@ $cgi = new PelementCGI;
 my $strain = $cgi->param('strain');
 
 print $cgi->header;
-print $cgi->init_page;
+print $cgi->init_page({-title=>"$strain Strain Report"});
 print $cgi->banner;
 
+$cgi->param('max_hits',10) unless $cgi->param('max_hits');
 
 if ($strain) {
    reportStrain($cgi,$strain);
@@ -240,7 +241,6 @@ sub reportStrain
 
   foreach $db (sort keys %db_name) {
 
-
      # when did we do this?
      my $sql = qq(select seq_name,date from blast_run where 
                  seq_name in ).$seq_names.qq(and db=').$db.
@@ -263,7 +263,9 @@ sub reportStrain
 
      if (@values) {
 
-        print $cgi->h3("Hits to $db_name{$db}"),$cgi->br,"\n";
+        print $cgi->h3("Hits to $db_name{$db}"),
+              $cgi->a({-href=>"strainReport.pl?strain=$strain&max_hits=all"},
+                       'Show all blast hits'),$cgi->br,"\n";
 
         # the mini_table is a hash indexed by seq_name with elements references to
         # a list of blast hit list references
@@ -300,9 +302,15 @@ sub reportStrain
               } else {
                  $gb_info = '&nbsp';
               }
-              push @{$mini_table{$sn}}, [$flank_range,$b2,$c."-".$d,$gb_info,$detailLink,$alignLink];
+              push @{$mini_table{$sn}},
+                   [$flank_range,$b2,$c."-".$d,$gb_info,$detailLink,$alignLink]
+                      unless ($cgi->param('max_hits') =~ /^\d+$/ &&
+                              scalar(@{$mini_table{$sn}}) > $cgi->param('max_hits'));
            } else {
-              push @{$mini_table{$sn}}, [$flank_range,$b2,$c."-".$d,$detailLink,$alignLink];
+              push @{$mini_table{$sn}},
+                   [$flank_range,$b2,$c."-".$d,$detailLink,$alignLink]
+                      unless ($cgi->param('max_hits') =~ /^\d+$/ &&
+                              scalar(@{$mini_table{$sn}}) > $cgi->param('max_hits'));
            }
         }
 
