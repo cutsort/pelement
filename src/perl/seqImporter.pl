@@ -58,11 +58,16 @@ my $session = new Session();
 #         -gel_id Number    process a gel by internal db number id
 #         -lane Name        process a lane by filename
 #         -lane_id Number   process a lane by internal db number id
+#         -seq seq_name     process a lane by a seq name (with optional end)
+#                           this will only import the earliest sequence if there
+#                           is more than 1.
 # These options are possible only if we're importing sequence from
 # a single lane record
 #         -start            starting coordinate of first imported base
 #                           (indexed from 1)
 #         -length           length of the imported
+#
+#         -attr key=value   override a key,value combination when processing
 # 
 # These options specify how to process the lane(s). Default is
 # to import a sequence record for a strain in which there is no
@@ -70,24 +75,27 @@ my $session = new Session();
 #         -force            replace an existing sequence record.
 #         -recheck          import a lane as an 'unconfirmed recheck'
 
-my ($gel_name,$gel_id,$lane_name,$lane_id,$force,$recheck);
+my ($gel_name,$gel_id,$lane_name,$lane_id,$seq_name,$force,$recheck);
 
 my $minSeqSize = 12;
 my $maxSeqSize = 0;
 my $start = 0;
 my $length = 0;
+my @attributes;
 my $test = 0;      # test mode only. No inserts or updates.
 
 GetOptions('gel=s'      => \$gel_name,
            'gel_id=i'   => \$gel_id,
            'lane=s'     => \$lane_name,
            'lane_id=i'  => \$lane_id,
+           'seq=s'      => \$seq_name,
            'min=i'      => \$minSeqSize,
            'max=i'      => \$maxSeqSize,
            'force!'     => \$force,
            'recheck!'   => \$recheck,
            'start=i'    => \$start,
            'length=i'   => \$length,
+           'attr=s@'    => \@attributes,
            'test!'      => \$test,
           );
 
@@ -120,6 +128,15 @@ if ($gel_name || $gel_id) {
    @lanes = (new Lane($session,{-file=>$lane_name})->select_if_exists);
 } elsif ( $lane_id ) {
    @lanes = (new Lane($session,{-id=>$lane_id})->select_if_exists);
+} elsif ( $seq_name ) {
+   my ($seq,$end) = Seq::parse($seq_name);
+   undef $end if $end eq 'b';
+   my @all_lanes = new LaneSet($session,{-seq_name=>$seq,-end_sequenced=>$end})->select->as_list;
+   # a temp hash to keep track of the ends
+   my %earliest;
+   map { $earliest{$_->end_sequenced} = $_ if !exists($earliest{$_->end_sequenced})
+                 || $_->run_date < $earliest{$_->end_sequenced}->run_date } @all_lanes;
+   @lanes = values %earliest;
 } else {
    $session->die("No options specified for trimming.");
 }
@@ -135,6 +152,10 @@ LANE:
 foreach my $lane (@lanes) {
 
    $session->log($Session::Info,"Processing lane ".$lane->seq_name);
+
+   map { my ($key,$value) = split(/\s*=\s*/,$_);
+         $lane->$key($value) if $key && $value;
+       } @attributes;
 
    if (is_true($lane->failure)) {
       $session->info("This lane has been marked as a failure. Skipping.");
