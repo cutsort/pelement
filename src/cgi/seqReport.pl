@@ -152,8 +152,8 @@ sub reportSeq
    my $seq_title = $lane->seq_name."-".$lane->end_sequenced.(($cgi->param('db') eq 'seq')?'':' (untrimmed)');
    my $trimmed_seq_title = $lane->seq_name."-".$lane->end_sequenced.(($cgi->param('db') eq 'seq')?'':' (trimmed)');
 
-   $seq_title = 'PelementDB|'.$seq->id.'|'.$seq_title if $seq->id;
-   $trimmed_seq_title = 'PelementDB|'.$seq->id.'|'.$trimmed_seq_title if $seq->id;
+   $seq_title = 'PelementDBLane|PSeq'.$seq->id.'|'.$seq_title if $seq->id;
+   $trimmed_seq_title = 'Pelement|PSeq'.$seq->id.'|'.$trimmed_seq_title if $seq->id;
 
    if ($cgi->param('show') eq 'trim') {
       print ">$trimmed_seq_title<br>\n";
@@ -191,7 +191,7 @@ sub reportSeq
    if ($table eq 'lane' || $table eq 'phred_seq' ) {
       print $cgi->ul($cgi->li(["Quality trimming start: ".($seq->q_trim_start || 'Not set'),
                                "Quality trimming end: ".($seq->q_trim_end || 'Not set'),
-                               "Vector trimming start: ".($seq->v_trim_end || 'Not set'),
+                               "Vector trimming start: ".($seq->v_trim_start || 'Not set'),
                                "Vector trimming end: ".($seq->v_trim_end || 'Not set')])),$cgi->br,"\n"; 
 
    }
