@@ -75,6 +75,10 @@ my $force = 0;
 # variables associated with the gel/lane to process
 my ($gel_name,$gel_id);
 
+# is there a specific gel version to process? The default is
+# the highest number only.
+my $version = '';
+
 GetOptions('lane=s@'     => $comment_db{lane},
            'well=s@'     => $comment_db{well},
            'run_date=s@' => $comment_db{run_date},
@@ -84,6 +88,7 @@ GetOptions('lane=s@'     => $comment_db{lane},
            'force!'      => \$force,
            'gel=s'       => \$gel_name,
            'gel_id=i'    => \$gel_id,
+           'version=i'   => \$version,
           );
 map { $comment_db{$_} = $def_comment_db{$_} unless scalar(@{$comment_db{$_}}) } keys %def_comment_db;
 
@@ -101,13 +106,15 @@ unless ($gel && $gel->id) {
 
 # first, look for a directory with the gel name
 # next, a directory with a number attached
+$version = ".".$version if $version;
+
 my $dir;
 my @dirs;
 if( $path =~ /^\// ) {
-   $dir = (glob("$path/".$gel->name))[0];
+   $dir = (glob("$path/".$gel->name.$version))[0];
    @dirs = glob("$path/".$gel->name.".[0-9]*");
 } else {
-   $dir = (glob("$PELEMENT_TRACE/$path/".$gel->name))[0];
+   $dir = (glob("$PELEMENT_TRACE/$path/".$gel->name.$version))[0];
    @dirs = glob("$PELEMENT_TRACE/$path/".$gel->name.".[0-9]*");
 }
  
