@@ -123,6 +123,15 @@ sub reportChromat
       createPNG($chromat_path,$png);
 
    }
+
+   # what do we want to display here?
+   print $cgi->center($cgi->em('Sequence of '.$lane->seq_name.
+                               ($lane->end_sequenced?
+                                   ('-'.$lane->end_sequenced):('')).
+                               ' from '.$lane->directory.$lane->file.
+                               ' run on '.$lane->run_date));
+                               
+
    print $cgi->center($cgi->img({-src=>'chromatReport.pl?img='.$w_p->id})),"\n";
 
    print $cgi->em(qq(Note: the base calls in the chromat are from the ABI
@@ -138,9 +147,10 @@ sub createPNG
    my $path = shift;
    my $png = shift;
 
-   my $data_per_line = 1000;
+   my $data_per_line = 700;
    my $image_width = 700;
-   my $panel_height = 90;
+   my $panel_height = 100;
+   my $char_height = 12;
 
    my $chromat_type = EditTrace::TraceData::chromat_type($path);
    my $chromat = new $chromat_type;
@@ -169,27 +179,27 @@ sub createPNG
          $hi = $nPts-1;
       }
       my $ytrans = $panel_height*($nPanels-1-$i);
-      $drawable->{ytext} = $ytrans+15;
+      $drawable->{ytext} = $ytrans+$char_height;
       $drawable->{color} = $red;
       $chromat->plot($drawable,{bases=>['A'],
                                 xrange=>[0,$xhi],
                                 dataRangeX=>[$lo,$hi],
-                                yrange=>[$ytrans+15,$ytrans+$panel_height]});
+                        yrange=>[$ytrans+$char_height,$ytrans+$panel_height]});
       $drawable->{color} = $blue;
       $chromat->plot($drawable,{bases=>['C'],
                                 xrange=>[0,$xhi],
                                 dataRangeX=>[$lo,$hi],
-                                yrange=>[$ytrans+15,$ytrans+$panel_height]});
+                        yrange=>[$ytrans+$char_height,$ytrans+$panel_height]});
       $drawable->{color} = $black;
       $chromat->plot($drawable,{bases=>['G','N'],
                                 xrange=>[0,$xhi],
                                 dataRangeX=>[$lo,$hi],
-                                yrange=>[$ytrans+15,$ytrans+$panel_height]});
+                        yrange=>[$ytrans+$char_height,$ytrans+$panel_height]});
       $drawable->{color} = $green;
       $chromat->plot($drawable,{bases=>['T'],
                                 xrange=>[0,$xhi],
                                 dataRangeX=>[$lo,$hi],
-                                yrange=>[$ytrans+15,$ytrans+$panel_height]});
+                        yrange=>[$ytrans+$char_height,$ytrans+$panel_height]});
    }
 
    open(FIL,"> $png") or return;
