@@ -49,9 +49,14 @@ my $session = new Session();
 #         -lane_id Number   process a lane by internal db number id
 #         -enzyme Name      specify the restriction enzyme used (mainly for
 #                           offline processing of individual lanes)
+#         -vector <seq>     specify a vector-insert junction (for offline
+#                           processing of individual lanes)
+#         -insert Number    specify an offset location of the insert relative
+#                           to the vector-insert junction (for offline
+#                           processing)
 #         -test             testmode only; no updates
 
-my ($gel_name,$gel_id,$lane_name,@lane_id,$enzyme);
+my ($gel_name,$gel_id,$lane_name,@lane_id,$enzyme,$vector_junc,$offset);
 my $test = 0;
 
 GetOptions('gel=s'      => \$gel_name,
@@ -60,6 +65,8 @@ GetOptions('gel=s'      => \$gel_name,
            'lane_id=i@' => \@lane_id,
            'enzyme=s'   => \$enzyme,
            'test!'      => \$test,
+           'vector=s'   => \$vector_junc,
+           'insert=i'   => \$offset,
           );
 
 # processing hierarchy. In case multiple things are specified, we have to
@@ -147,33 +154,49 @@ foreach my $lane (@lanes) {
                     "No quality for lane $lane->id.") and next )
                                                    unless $phred_qual;
       
-   my $strain = new Strain($session,{-strain_name=>$lane->seq_name})->select;
-   unless ($strain && $strain->collection) {
-      $session->die("No collection identifier for ".$lane->seq_name);
-   }
+   my $vector;
+   my $t_p;
 
-   my $c_p = new Collection_Protocol($session,
-                       {-collection=>$strain->collection,
-                        -like=>{end_sequenced=>'%'.$lane->end_sequenced.'%'}}
-                                                     )->select;
-   unless ($c_p->protocol_id) {
-      $session->die("Cannot determine trimming protocol for ".
+   # default is to look in the database for trimming protocol based
+   # on the collection. overridable on the command line by specifying
+   # a vector sequence and an offset
+   if ($offset eq '' || !$vector_junc) {
+
+      my $strain = new Strain($session,{-strain_name=>$lane->seq_name})->select;
+      unless ($strain && $strain->collection) {
+         $session->die("No collection identifier for ".$lane->seq_name);
+      }
+
+      my $c_p = new Collection_Protocol($session,
+                          {-collection=>$strain->collection,
+                           -like=>{end_sequenced=>'%'.$lane->end_sequenced.'%'}}
+                                                        )->select;
+      unless ($c_p->protocol_id) {
+         $session->die("Cannot determine trimming protocol for ".
+                                                             $strain->collection);
+      }
+
+      $t_p = new Trimming_Protocol($session,{-id=>$c_p->protocol_id})->select;
+      if ($t_p->id) {
+         $session->log($Session::Info,"Using trimming protocol ".
+                                                             $t_p->protocol_name)
+                                                          if $t_p->protocol_name;
+      } else {
+         $session->die("Cannot determine trimming protocol for ".
                                                           $strain->collection);
-   }
-
-   my $t_p = new Trimming_Protocol($session,{-id=>$c_p->protocol_id})->select;
-   if ($t_p->id) {
-      $session->log($Session::Info,"Using trimming protocol ".
-                                                          $t_p->protocol_name)
-                                                       if $t_p->protocol_name;
-   } else {
-      $session->die("Cannot determine trimming protocol for ".
-                                                       $strain->collection);
-   }
+      }
    
-   my $vector = new Vector($session,{-id=>$t_p->vector_id})->select;
+      $vector = new Vector($session,{-id=>$t_p->vector_id})->select;
 
-   # if there is a vector limit, use that to constrain the vector junction
+      # if there is a vector limit, use that to constrain the vector junction
+
+   } else {
+      $vector = new Vector($session);
+      $vector->sequence($vector_junc);
+      $t_p = new Trimming_Protocol($session);
+      $t_p->vector_offset($offset);
+   }
+
    my $seq_to_trim;
    if ($t_p->vector_limit) {
       $seq_to_trim = substr($phred_seq->seq,0,$t_p->vector_limit);
@@ -332,10 +355,11 @@ sub qualityTrim
 sub vectorTrim
 {
    my ($s,$v) = @_;
-   my $r = GH::Sim4::sim4(uc($s),uc($v),{W=>8,K=>8});
+   my $r = GH::Sim4::sim4(uc($s),uc($v),{W=>8,K=>12});
 
    return unless $r->{exons}[0];
-   return $r->{exons}[0]{to1};
+   # always look for the last exon of the hit
+   return $r->{exons}[-1]{to1};
 }
 
 sub siteTrim
