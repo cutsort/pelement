@@ -82,16 +82,17 @@ sub reportGel
 
    $gel->select;
 
-   print $cgi->center($cgi->h3("Lanes in Gel ".$gel->name),$cgi->br),"\n";
 
    my @tableRows = ();
    my $laneSet = new LaneSet($session,{-gel_id=>$gel->id})->select;
    foreach my $s ($laneSet->as_list) {
       my $p = new Phred_Seq($session,{-lane_id=>$s->id})->select_if_exists;
       push @tableRows, [$s->seq_name || 'Unknown',
-                        $s->well || '&nbsp',
-                        $s->id?$cgi->a({-href=>"seqReport.pl?id=".$s->id,-target=>"_seq"},length($p->seq)):$cgi->nbsp,
-                        $s->id?$cgi->a({-href=>"chromatReport.pl?id=".$s->id,-target=>"_chromat"},$p->q30 ."/". $p->q20):$cgi->nbsp,
+                        $s->well || $cgi->nbsp,
+                        $s->id?$cgi->a({-href=>"seqReport.pl?id=".$s->id,-target=>"_seq"},
+                                       length($p->seq)):$cgi->nbsp,
+                        $s->id?$cgi->a({-href=>"chromatReport.pl?id=".$s->id,-target=>"_chromat"},
+                                       $p->q30 ."/". $p->q20):$cgi->nbsp,
                         $p->q_trim_start || $cgi->nbsp,
                         $p->v_trim_start || $cgi->nbsp,
                         $p->v_trim_end || $cgi->nbsp,
@@ -104,7 +105,8 @@ sub reportGel
                        my ($br,$bc) = ($b->[1]=~/(.)(\d+)/);
                        (uc($ar) cmp uc($br)) || ($ac <=> $bc) } @tableRows;
 
-   print $cgi->center($cgi->table({-border=>2,
+   print $cgi->center($cgi->h3("Lanes in Gel ".$gel->name),$cgi->br),"\n",
+         $cgi->center($cgi->table({-border=>2,
                                     -width=>"80%",
                               -bordercolor=>$HTML_TABLE_BORDERCOLOR},
             $cgi->Tr( [
@@ -117,9 +119,10 @@ sub reportGel
                        "Quality".$cgi->br."End",]),
                         (map { $cgi->td({-align=>"center"}, $_ ) } @tableRows),
                        ] )
-                     )),"\n";
-
-  print $cgi->br,"\n";
+                     )),"\n",
+         $cgi->br,"\n",
+         $cgi->html_only($cgi->a({-href=>"gelReport.pl?format=text&id=".$gel->id},
+                  "View as Tab delimited list"),$cgi->br,"\n");
 
   $session->exit();
 }
