@@ -4,7 +4,7 @@ SRC = login.pl retrieveXML.pl strainReport.pl blastReport.pl \
       seqStatusReport.pl
 
 install: check
-	for I in $(SRC); do (/bin/sed -e '1s/-I\.\./-I$(SEDINSTALLDIR)/' $$I > $(INSTALLDIR)/$$I; chmod +x $(INSTALLDIR)/$$I ); done
+	for I in $(SRC); do (/bin/sed -e '1s:-I\.\.:-I$(INSTALLDIR):' $$I > $(INSTALLDIR)/$$I; chmod +x $(INSTALLDIR)/$$I ); done
 
 check:	$(SRC) 
 	for I in $?; do ( perl -c $$I ); done
