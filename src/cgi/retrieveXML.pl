@@ -24,7 +24,7 @@ $name =~ s/\.xml$//;
 
 # strip off any possible directory references. It's not
 # polite to try to hack in.
-$name =~ s:.*[./]::;
+$name =~ s:.*[/]::;
 
 &error($cgi,"<No scaffold specified>") unless $name;
 
