@@ -68,6 +68,7 @@ my $minSeqSize = 12;
 my $maxSeqSize = 0;
 my $start = 0;
 my $length = 0;
+my $test = 0;      # test mode only. No inserts or updates.
 
 GetOptions('gel=s'      => \$gel_name,
            'gel_id=i'   => \$gel_id,
@@ -78,6 +79,7 @@ GetOptions('gel=s'      => \$gel_name,
            'force!'     => \$force,
            'start=i'    => \$start,
            'length=i'   => \$length,
+           'test!'      => \$test,
           );
 
 # processing hierarchy. In case multiple things are specified, we have to
@@ -164,6 +166,12 @@ foreach my $lane (@lanes) {
 
       my $extent;
       if ( defined($phred_seq->v_trim_end) ) {
+         # these will be ambiguous; the entired seq may be low quality.
+         if (!$found_junction && $phred_seq->v_trim_end < $phred_seq->q_trim_start) {
+            $session->info("Sequence has no vector junction and high quality after ".
+                           "a possible end site. Skipping.");
+            next;
+         }
          $extent = ($phred_seq->q_trim_end > $phred_seq->v_trim_end)?
                     $phred_seq->v_trim_end : $phred_seq->q_trim_end;
       } else {
@@ -238,7 +246,7 @@ foreach my $lane (@lanes) {
          next if ($seq eq $seqRecord->sequence && $insert_pos == $seqRecord->insertion_pos);
          $session->log($Session::Info,"Sequence record has changed and forcing an update.");
          $seqRecord->last_update('today');
-         $action = 'update';
+         $action = 'update' unless $test;
          $s_a->delete('src_seq_id','src_seq_src') if $s_a->db_exists;
       }
 
@@ -247,11 +255,11 @@ foreach my $lane (@lanes) {
       $seqRecord->insertion_pos($insert_pos);
       $seqRecord->strain_name($strain->strain_name);
       $seqRecord->last_update('today');
-      $seqRecord->$action;
+      $seqRecord->$action unless $test;
 
       $s_a->seq_name($seqRecord->seq_name);
       $s_a->assembly_date('today');
-      $s_a->insert;
+      $s_a->insert unless $test;
 
       $session->log($Session::Info,"Sequence record for ".$strain->strain_name." ".$action."'ed.");
 
