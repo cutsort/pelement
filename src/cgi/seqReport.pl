@@ -9,6 +9,7 @@
 use Pelement;
 use Session;
 use Phred_Seq;
+use Seq;
 use Lane;
 use LaneSet;
 use PelementCGI;
@@ -48,7 +49,7 @@ sub selectSeq
                               $cgi->a({-href=>"seqReport.pl?id=".$_->id},$_->id)] } $laneSet->as_list;
 
       if (@tableRows) {
-                          
+
          print $cgi->center($cgi->table({-border=>2,
                                    -width=>"80%",
                                    -bordercolor=>$HTML_TABLE_BORDERCOLOR},
@@ -66,10 +67,10 @@ sub selectSeq
           print $cgi->h3("No lanes were found for strain ".$cgi->param('strain')),"\n";
       }
       $session->exit;
-            
-      
+
+
    } else {
-   
+
       print
         $cgi->center(
           $cgi->h3("Enter the Lane id:"),"\n",
@@ -103,43 +104,54 @@ sub reportSeq
    # the phred seq table?
    my $table = $cgi->param('db') || 'lane';
 
-   if ($cgi->param('id') ) {
-      if ($table eq 'lane') {
-         $lane = new Lane($session,{-id=>$cgi->param('id')});
-         $seq = new Phred_Seq($session,{-lane_id=>$cgi->param('id')});
-      } elsif ($table eq 'phred_seq') {
+   if ($table eq 'lane' || $table eq 'phred_seq' ) {
+      if ($table eq 'phred_seq') {
          $seq = new Phred_Seq($session,{-id=>$cgi->param('id')});
          $seq->select_if_exists;
-         $lane = new Lane($session,{-id=>$seq->lane_id}) if $seq->lane_id;
+         print $cgi->center($cgi->h2("No record for Sequence with Lane id ".
+                          $seq->lane_id.".")),"\n" and return unless $seq->lane_id;
+         $cgi->param('id',$seq->lane_id);
       }
-   }
+      $lane = new Lane($session,{-id=>$cgi->param('id')})->select_if_exists;
+      $seq = new Phred_Seq($session,{-lane_id=>$cgi->param('id')})->select_if_exists unless $seq;
 
-   if ( !$lane->db_exists | !$seq->db_exists ) {
+      if ( !$lane->db_exists || !$seq->db_exists ) {
+         print $cgi->center($cgi->h2("No record for Sequence with Lane id ".
+                                      $seq->lane_id.".")),"\n";
+         return;
+      }
+   } elsif ($table eq 'seq') {
+      # if we're just grabbing a stored sequence record,
+      # we'll create new lane and phred seq object to mimic the raw data
+      my $t_seq = new Seq($session,{-id=>$cgi->param('id')})->select_if_exists;
       print $cgi->center($cgi->h2("No record for Sequence with Lane id ".
-                                   $seq->lane_id.".")),"\n";
-      return;
-   }
+                                      $t_seq->id.".")),"\n" and return unless $t_seq->db_exists;
 
-   $lane->select;
-   $seq->select;
+      my ($strain,$end) = $t_seq->parse;
+      $lane = new Lane($session,{-seq_name=>$strain,-end_sequenced=>$end});
+      my $last = length($t_seq->sequence);
+      $seq = new Phred_Seq($session,{-seq=>$t_seq->sequence,
+                                    -v_trim_start=>0,-q_trim_start=>0,
+                                    -v_trim_end=>$last,-q_trim_end=>$last});
 
-   my $sequence = uc($seq->seq);
-   my $trimmed_sequence;
+    }
+    my $sequence = uc($seq->seq);
+    my $trimmed_sequence;
 
 
-   if($seq->q_trim_start) {
-      $sequence = lc(substr($sequence,0,$seq->q_trim_start)).
+    if($seq->q_trim_start) {
+       $sequence = lc(substr($sequence,0,$seq->q_trim_start)).
                      substr($sequence,$seq->q_trim_start);
-   }
+    }
 
     if($seq->q_trim_end) {
        $sequence = substr($sequence,0,$seq->q_trim_end).
-                   lc(substr($sequence,$seq->q_trim_end));
+                  lc(substr($sequence,$seq->q_trim_end));
     }
 
     print "<tt>";
-    my $seq_title = $lane->seq_name."-".$lane->end_sequenced." untrimmed";
-    my $trimmed_seq_title = $lane->seq_name."-".$lane->end_sequenced." trimmed";
+    my $seq_title = $lane->seq_name."-".$lane->end_sequenced.(($cgi->param('db') eq 'seq')?'':' untrimmed');
+    my $trimmed_seq_title = $lane->seq_name."-".$lane->end_sequenced.(($cgi->param('db') eq 'seq')?'':' trimmed');
     print ">$seq_title\n";
 
     print "<font color='blue'>\n";
@@ -163,7 +175,7 @@ sub reportSeq
       print substr($sequence,$i,1);
       $trimmed_sequence .= substr($sequence,$i,1) if $mode eq 'tt' and substr($sequence,$i,1) =~ /[A-Z]/;
    }
-   print "</font>" if $mode eq 'it';
+   print "</font>";
    print "</tt>\n";
 
 
