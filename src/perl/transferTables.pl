@@ -24,13 +24,15 @@ use Ligation;
 use IPCR;
 use Gel;
 
+use strict;
 
 my $session = new Session();
 
-$nIpcrInsert = 0;
-$nGelInsert = 0;
-$verbose = 1;
-$test = 0;
+my $nIpcrInsert = 0;
+my $nGelInsert = 0;
+my $verbose = 1;
+my $painfullyVerbose = 0;
+my $test = 0;
 
 GetOptions("verbose!" => \$verbose,
            "test!"    => \$test,
@@ -47,15 +49,16 @@ my $st = $epflowDB->prepare(qq(select batch_num,description,user_login,prep_date
 
 $st->execute() or die "Trouble executing SQL.";
 
+my $row;
 while ($row = $st->fetchrow_arrayref) {
    trimWhite($row);
    my ($id,$description,$user,$date) = @$row;
    my $batch = new Batch($session,{-id=>$id});
    if ($batch->db_exists) {
-     $session->log($Session::Info,"Record for ".$batch->id." exists.") if $verbose;
+     $session->log($Session::Info,"Record for ".$batch->id." exists.") if $painfullyVerbose;
      next;
    } else {
-     $session->log($Session::Info,"Creating record for ".$batch->id.".") if $verbose;
+     $session->log($Session::Info,"Creating record for batch ".$batch->id.".") if $verbose;
    }
 
    $batch->id($id);
@@ -76,10 +79,10 @@ while ($row = $st->fetchrow_arrayref) {
    my ($id,$num,$pos,$strain) = @$row;
    my $sample = new Sample($session,{-batch_id=>$num,-well=>$pos});
    if ($sample->db_exists) {
-     $session->log($Session::Info,"Record for ".$sample->batch_id." exists.") if $verbose;
+     $session->log($Session::Info,"Record for ".$sample->batch_id." exists.") if $painfullyVerbose;
      next;
    } else {
-     $session->log($Session::Info,"Creating record for ".$sample->batch_id.".") if $verbose;
+     $session->log($Session::Info,"Creating sample record for batch ".$sample->batch_id.".") if $verbose && $strain;
    }
    # don't try to stick in empty strains.
    next unless $strain;
@@ -107,7 +110,7 @@ while ($row = $st->fetchrow_arrayref) {
    my ($id,$num,$e1,$e2,$date,$user) = @$row;
    my $sample = new Digestion($session,{-name=>$id});
    if ($sample->db_exists) {
-     $session->log($Session::Info,"Record for ".$sample->name." exists.") if $verbose;
+     $session->log($Session::Info,"Record for ".$sample->name." exists.") if $painfullyVerbose;
      next;
    } else {
      $session->log($Session::Info,"Creating record for ".$sample->name.".") if $verbose;
@@ -131,7 +134,7 @@ while ($row = $st->fetchrow_arrayref) {
    my ($id,$dig,$date,$user) = @$row;
    my $sample = new Ligation($session,{-name=>$id});
    if ($sample->db_exists) {
-     $session->log($Session::Info,"Record for ".$sample->name." exists.") if $verbose;
+     $session->log($Session::Info,"Record for ".$sample->name." exists.") if $painfullyVerbose;
      next;
    } else {
      $session->log($Session::Info,"Creating record for ".$sample->name.".") if $verbose;
@@ -159,7 +162,7 @@ while ($row = $st->fetchrow_arrayref) {
    }
    my $ipcr = new IPCR($session,{name=>$ipcr_id});
    if ($ipcr->db_exists) {
-     $session->log($Session::Info,"Record for ".$ipcr->name." exists.") if $verbose;
+     $session->log($Session::Info,"Record for ".$ipcr->name." exists.") if $painfullyVerbose;
      next;
    } else {
      $session->log($Session::Info,"Creating record for ".$ipcr->name.".") if $verbose;
@@ -193,7 +196,7 @@ while ($row = $st->fetchrow_arrayref) {
    }
    my $gel = new Gel($session,{name=>$gel_name});
    if ($gel->db_exists) {
-     $session->log($Session::Info,"Record for ".$gel->name." exists.") if $verbose;
+     $session->log($Session::Info,"Record for ".$gel->name." exists.") if $painfullyVerbose;
      next;
    } else {
      $session->log($Session::Info,"Creating record for ".$gel->name.".") if $verbose;
