@@ -11,10 +11,20 @@
 
 =head1 Options
 
+=item -[no]ifaligned
+
+  Generate a consensus if and only if there is a common insertion point for
+  a sequence alignment of the 3' and 5' flank for at least one pair of
+  alignments. This test is in addition to the consistenct of the overlap
+
 =item  -force
 
-  Force an update even if a prior sequence exists, or force an insert even if
-  there is disagreement in the sequence.
+  Force an update even if a prior sequence exists, or if there is
+  disagreement in the sequence.
+
+  If -force and -ifaligned is specified and there is not a consistent
+  alignment of the flanking sequences, any existing merged sequence is
+  deleted from the db.
 
 =item  -use [3|5]
 
@@ -29,6 +39,8 @@ use Strain;
 use PelementDBI;
 use Seq_Assembly;
 use Seq_AssemblySet;
+use Seq_Alignment;
+use Seq_AlignmentSet;
 use Seq;
 use SeqSet;
 
@@ -41,8 +53,10 @@ my $session = new Session();
 
 my $force = 0;
 my $use = 3;
-GetOptions('use=i'  => \$use,
-           'force!' => \$force,
+my $ifAligned = 1;
+GetOptions('use=i'     => \$use,
+           'force!'    => \$force,
+           'ifaligned' => \$ifAligned,
           );
 
 # processing hierarchy. In case multiple things are specified, we have to
@@ -57,6 +71,8 @@ foreach my $strain (@ARGV) {
    my %ends = ();
    # both insertion positions
    my %pos = ();
+   # and their reference names
+   my %names = ();
 
    $session->log($Session::Info,"Processing strain $strain.");
 
@@ -84,6 +100,7 @@ foreach my $strain (@ARGV) {
          }
          $ends{$end} = $seq->sequence;
          $pos{$end} = $seq->insertion_pos;
+         $names{$end} = $seq->seq_name;
       } else {
          # there is a 'both' end.
          if ($force) {
@@ -102,6 +119,27 @@ foreach my $strain (@ARGV) {
       $session->warn("Both 3' and 5' sequences for $strain not present.");
       next STRAIN;
    }
+
+   # make sure there is a consistent alignment.
+   if ($ifAligned) {
+      my $seqAs5 = new Seq_AlignmentSet($session,{-seq_name=>$names{5}})->select;
+      my $seqAs3 = new Seq_AlignmentSet($session,{-seq_name=>$names{3}})->select;
+      my $foundCommon = 0;
+
+      LOOKFORCOMMON:
+      foreach my $s5 ($seqAs5->as_list) {
+         next if $s5->status eq 'deselected';
+         foreach my $s3 ($seqAs3->as_list) {
+            next if $s3->status eq 'deselected';
+            $foundCommon = 1 and last LOOKFORCOMMON if $s5->s_insert == $s3->s_insert;
+         }
+      }
+      unless ($foundCommon) {
+         $session->info("Cannot find a common insertion location for $strain.");
+         next STRAIN;
+      }
+   }
+
    foreach my $end qw(3 5) {
       unless ( ($pos{$end} > 0)  && ($pos{$end} < length($ends{$end})) ) {
          $session->warn("Insertion for end $end is outside the sequence.");
