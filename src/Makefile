@@ -4,7 +4,8 @@
 
 INSTALLDIR = /data/pelement
 SEDINSTALLDIR = \\/data\\/pelement
-WEBINSTALLDIR = /www/weasel_94/cgi-bin/pelement
+WEBINSTALLDIR = /opt/httpd/cgi-bin/pelement
+SEDWEBINSTALLDIR = \\/opt\\/httpd\\/cgi-bin\\/pelement
 
 check:
 	for I in perl cgi modules ; do (cd $$I; make check ); done
@@ -12,8 +13,11 @@ check:
 all:
 	for I in perl cgi modules ; do (cd $$I; make all ); done
 
-webinstall:
-	for I in cgi modules ; do (cd $$I; INSTALLDIR=$(WEBINSTALLDIR) make install ); done
+webinstall: hostcheck
+	for I in cgi modules ; do (cd $$I; INSTALLDIR=$(WEBINSTALLDIR) SEDINSTALLDIR=$(SEDWEBINSTALLDIR) make install ); done
 	
 install:
 	for I in perl modules ; do (cd $$I; INSTALLDIR=$(INSTALLDIR) SEDINSTALLDIR=$(SEDINSTALLDIR) make install ); done
+
+hostcheck:
+	hostname | grep boss 
