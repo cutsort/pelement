@@ -135,7 +135,7 @@ if ($gel_name || $gel_id) {
    # a temp hash to keep track of the ends
    my %earliest;
    map { $earliest{$_->end_sequenced} = $_ if !exists($earliest{$_->end_sequenced})
-                 || $_->run_date < $earliest{$_->end_sequenced}->run_date } @all_lanes;
+                 || ($_->run_date cmp $earliest{$_->end_sequenced}->run_date) == -1 } @all_lanes;
    @lanes = values %earliest;
 } else {
    $session->die("No options specified for trimming.");
