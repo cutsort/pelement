@@ -145,15 +145,19 @@ sub reportSeqAssemblyAlignment
    $bR->strand(1);
    $bR->subject_begin($exon->{from1});
    $bR->subject_end($exon->{to1});
-   if ($flipped) {
-      $bR->query_begin($exon->{to2});
-      $bR->query_end($exon->{from2});
-   } else {
+   #if ($flipped) {
+   #   $bR->query_begin($exon->{to2});
+   #   $bR->query_end($exon->{from2});
+   #} else {
       $bR->query_begin($exon->{from2});
       $bR->query_end($exon->{to2});
-   }
-   $bR->match($exon->{match});
-   $bR->score(0);
+   #}
+   $bR->percent($exon->{match});
+   $bR->match($exon->{nmatches});
+   $bR->length($exon->{length});
+   # this is the M=+5, N=-4 scoring scheme
+   $bR->score(9*$exon->{nmatches} - 4*$exon->{length});
+   
    $bR->bits(0);
    $bR->query_gaps(0);
    $bR->subject_gaps(0);
@@ -164,7 +168,6 @@ sub reportSeqAssemblyAlignment
    $bR->match_align($aStr[1]);
    $bR->query_align($aStr[2]);
 
-   print $cgi->center($cgi->h2("This is still not quite ready. Back end work is complete. Still need to hook it up.")),"\n";
    $orient = $cgi->param('orient') || 1;
    print $bR->to_html($cgi,$orient);
    $orient = -1*$orient;
@@ -216,7 +219,7 @@ sub reportStrain
                  if ($gelFrom && $gelFrom->id) {
                     $linkText = "Sequence from gel ".$gelFrom->name.":".$laneFrom->well;
                  }
-                 if ($gelFrom && $gelFrom->ipcr_name) {
+                 if ($gelFrom && $gelFrom->ipcr_name && $gelFrom->ipcr_name ne 'untracked' ) {
                     $linkText = "Sequence from batch ".Processing::batch_id($gelFrom->ipcr_name).":".$laneFrom->well;
                  }
               }
