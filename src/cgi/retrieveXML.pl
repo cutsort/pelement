@@ -20,10 +20,11 @@ my $cgi = new PelementCGI;
 # Get the args
 my $name = $cgi->param('name');
 
-print $cgi->header("text/xml");
+$name =~ s/\.xml$//;
+
+print $cgi->header("application/x-apollo");
 
 my $filename = "$PELEMENT_XML/$name.xml";
 
 print `cat $filename` if -e $filename;
-
 
