@@ -45,7 +45,7 @@ sub selectSeq
           $cgi->table( {-bordercolor=>$HTML_TABLE_BORDERCOLOR},
              $cgi->Tr( [
                 $cgi->td({-align=>"right",-align=>"left"},
-                                    ["Lane ID",$cgi->textfield(-name=>"name")]),
+                                    ["Lane ID",$cgi->textfield(-name=>"id")]),
                 $cgi->td({-colspan=>2,-align=>"center"},[$cgi->submit(-name=>"Report")]),
                 $cgi->td({-colspan=>2,-align=>"center"},[$cgi->reset(-name=>"Clear")]) ]
              ),"\n",
@@ -77,6 +77,7 @@ sub reportSeq
    $seq->select;
 
    my $sequence = uc($seq->seq);
+   my $trimmed_sequence;
 
 
    if($seq->q_trim_start) {
@@ -91,6 +92,7 @@ sub reportSeq
 
     print "<tt>";
     my $seq_title = $lane->seq_name."-".$lane->end_sequenced." untrimmed";
+    my $trimmed_seq_title = $lane->seq_name."-".$lane->end_sequenced." trimmed";
     print ">$seq_title\n";
 
     print "<font color='blue'>\n";
@@ -110,6 +112,7 @@ sub reportSeq
          print "</font><font color='blue'>";
       }
       print substr($sequence,$i,1);
+      $trimmed_sequence .= substr($sequence,$i,1) if $mode eq 'tt' and substr($sequence,$i,1) =~ /[A-Z]/;
    }
    print "</font>" if $mode eq 'it';
    print "</tt>\n";
@@ -122,10 +125,11 @@ sub reportSeq
                             "<font color='blue'>Flank</font>",
                             "UPPER CASE: HIGH QUALITY",
                             "lower case: low quality",])),"\n";
+   # we need to unescape the action setting to keep the 'http://'in the URL
    print $cgi->center(
-            $cgi->start_form(-method=>'post',
-                             -action=>'http://www.fruitfly.org/cgi-bin/blast/public_blaster.pl',
-                             -target=>'_flyblast'),"\n",
+            $cgi->unescape($cgi->start_form(-method=>'post',
+                             -action=>"http://www.fruitfly.org/cgi-bin/blast/public_blaster.pl",
+                             -target=>'_flyblast')),"\n",
                $cgi->hidden(-name=>'program',-value=>'blastn'),"\n",
                $cgi->hidden(-name=>'program',-value=>'blastn'),"\n",
                $cgi->hidden(-name=>'database',-value=>'na_all.dros'),"\n",
@@ -144,7 +148,30 @@ sub reportSeq
                $cgi->hidden(-name=>'strand',-value=>'both'),"\n",
                $cgi->hidden(-name=>'dbstrand',-value=>'both'),"\n",
                $cgi->hidden(-name=>'sequence',-value=>$sequence),"\n",
-               $cgi->submit(-name=>'Blast This Sequence'),"\n",
+               $cgi->submit(-name=>'Blast Entire Sequence'),"\n",
+            $cgi->end_form(),
+            $cgi->unescape($cgi->start_form(-method=>'post',
+                             -action=>"http://www.fruitfly.org/cgi-bin/blast/public_blaster.pl",
+                             -target=>'_flyblast')),"\n",
+               $cgi->hidden(-name=>'program',-value=>'blastn'),"\n",
+               $cgi->hidden(-name=>'program',-value=>'blastn'),"\n",
+               $cgi->hidden(-name=>'database',-value=>'na_all.dros'),"\n",
+               $cgi->hidden(-name=>'title',-value=>$trimmed_seq_title),"\n",
+               $cgi->hidden(-name=>'submit',-value=>'doblast'),"\n",
+               $cgi->hidden(-name=>'mail',-value=>'browser'),"\n",
+               $cgi->hidden(-name=>'histogram',-value=>'no'),"\n",
+               $cgi->hidden(-name=>'nscores',-value=>'100'),"\n",
+               $cgi->hidden(-name=>'nalign',-value=>'50'),"\n",
+               $cgi->hidden(-name=>'sort_by',-value=>'pvalue'),"\n",
+               $cgi->hidden(-name=>'matrix',-value=>'IDENTITY'),"\n",
+               $cgi->hidden(-name=>'expthr',-value=>'default'),"\n",
+               $cgi->hidden(-name=>'cutoff',-value=>'default'),"\n",
+               $cgi->hidden(-name=>'stats',-value=>'poisson'),"\n",
+               $cgi->hidden(-name=>'filter',-value=>'All'),"\n",
+               $cgi->hidden(-name=>'strand',-value=>'both'),"\n",
+               $cgi->hidden(-name=>'dbstrand',-value=>'both'),"\n",
+               $cgi->hidden(-name=>'sequence',-value=>$trimmed_sequence),"\n",
+               $cgi->submit(-name=>'Blast Trimmed Sequence'),"\n",
             $cgi->end_form()
           ),"\n";
 
