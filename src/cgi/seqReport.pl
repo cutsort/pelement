@@ -111,8 +111,10 @@ sub reportSeq
                           $seq->lane_id.".")),"\n" and return unless $seq->lane_id;
          $cgi->param('id',$seq->lane_id);
       }
+      # we'll use the $lane->id as an indicator that this sequence is trimmable later
       $lane = new Lane($session,{-id=>$cgi->param('id')})->select_if_exists;
       $seq = new Phred_Seq($session,{-lane_id=>$cgi->param('id')})->select_if_exists unless $seq;
+
 
       if ( !$lane->db_exists || !$seq->db_exists ) {
          print $cgi->center($cgi->h2("No record for Sequence with Lane id ".
@@ -127,6 +129,7 @@ sub reportSeq
                                       $t_seq->id.".")),"\n" and return unless $t_seq->db_exists;
 
       my ($strain,$end) = $t_seq->parse;
+      # we use the fact that there is no $lane->id to prevent people from trimming this later.
       $lane = new Lane($session,{-seq_name=>$strain,-end_sequenced=>$end});
       my $last = length($t_seq->sequence);
       $seq = new Phred_Seq($session,{-seq=>$t_seq->sequence,
@@ -199,7 +202,9 @@ sub reportSeq
          $cgi->ul($cgi->li(["<font color='red'>Vector</font>",
                             "<font color='blue'>Flank</font>",
                             "UPPER CASE: HIGH QUALITY",
-                            "lower case: low quality",])),"\n";
+                            "lower case: low quality",])),$cgi->br,"\n";
+   print $cgi->a({-href=>'seqTrimmer.pl?id='.$lane->id},'Manually Trim Sequence'),$cgi->br,"\n" if $lane && $lane->id;
+
    # we need to unescape the action setting to keep the 'http://'in the URL
    print $cgi->center(
             $cgi->unescape($cgi->start_form(-method=>'post',
