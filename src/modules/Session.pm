@@ -82,7 +82,7 @@ sub new
               "caller"        => $caller,
               "log_level"     => $log_level,
               "log_file"      => *LOG,
-              "interactive"   => (-t STDOUT),
+              "interactive"   => (-t STDIN),
               "id"            => $id,
               "col_hash"      => {},
              };
@@ -126,9 +126,8 @@ sub db_begin
 
   eval { $self->{db}->{dbh}->{AutoCommit} = 0 };
   if ($@) {
-     $self->error("Some trouble attempting to start a transaction:".
+     $self->die("Some trouble attempting to start a transaction:".
                   $self->{db}->errstr);
-     exit(1);
   }
   $self->{db}->do('set constraints all deferred');
   $self->{db_tx} = time;
@@ -144,9 +143,8 @@ sub db_commit
   $self->{db}->commit;
   eval { $self->{db}->{dbh}->{AutoCommit} = 1 };
   if ($@) {
-     $self->error("Some trouble attempting to stop a transaction:".
+     $self->die("Some trouble attempting to stop a transaction:".
                   $self->{db}->errstr);
-     exit(1);
   }
 }
 sub db_rollback
@@ -160,9 +158,8 @@ sub db_rollback
 
   eval { $self->{db}->{dbh}->{AutoCommit} = 1 };
   if ($@) {
-     $self->error("Some trouble attempting to stop a transaction:".
+     $self->die("Some trouble attempting to stop a transaction:".
                   $self->{db}->errstr);
-     exit(1);
   }
 }
 
@@ -213,10 +210,10 @@ sub exit
       # we try this multiple times, but then just say the hell with it
       # if we are waiting too long.
       my $nTries = 0;
-      while( time() - Files::file_timestamp($bigLogFile) < 10  &&
-              $nTries < 20 )   {
+      while( time() - Files::file_timestamp($bigLogFile) < 3  &&
+              $nTries < 10 )   {
          $nTries++;
-         sleep(2);
+         sleep(1);
       }
    } else {
       Files::touch($bigLogFile) or warn "Cannot create log file: $!";
@@ -368,7 +365,7 @@ sub die
 {
   my $self = shift;
   $self->error(@_);
-  &exit(2);
+  &CORE::exit(2);
 }
 
 1;
