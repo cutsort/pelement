@@ -56,7 +56,7 @@ use BioModel::SeqAlignment;
 my $session = new Session();
 
 my $doc_date = localtime(time);
-my $doc_creator = File::Basename::basename($0).'@BDGP';
+my $doc_creator = File::Basename::basename($0).'v$Id$';
 my $sub = new XML::TE_insertion_submission({document_create_date => $doc_date,
                                             document_creator     => $doc_creator});
 
