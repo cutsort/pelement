@@ -36,7 +36,9 @@ use Files;
 use PelementDBI;
 use Phred_Seq;
 use Seq_Assembly;
+use Seq_AssemblySet;
 use Seq;
+use SeqSet;
 
 # George's sim4-er
 use GH::Sim4;
@@ -56,13 +58,19 @@ my $session = new Session();
 #         -gel_id Number    process a gel by internal db number id
 #         -lane Name        process a lane by filename
 #         -lane_id Number   process a lane by internal db number id
-#         -force            replace an existing sequence record.
 # These options are possible only if we're importing sequence from
 # a single lane record
-#         -start            starting coordinate of first imported base (indexed from 1)
+#         -start            starting coordinate of first imported base
+#                           (indexed from 1)
 #         -length           length of the imported
+# 
+# These options specify how to process the lane(s). Default is
+# to import a sequence record for a strain in which there is no
+# previous sequence record and skip it if there is an existing record.
+#         -force            replace an existing sequence record.
+#         -recheck          import a lane as an 'unconfirmed recheck'
 
-my ($gel_name,$gel_id,$lane_name,$lane_id,$force);
+my ($gel_name,$gel_id,$lane_name,$lane_id,$force,$recheck);
 
 my $minSeqSize = 12;
 my $maxSeqSize = 0;
@@ -77,25 +85,31 @@ GetOptions('gel=s'      => \$gel_name,
            'min=i'      => \$minSeqSize,
            'max=i'      => \$maxSeqSize,
            'force!'     => \$force,
+           'recheck!'   => \$recheck,
            'start=i'    => \$start,
            'length=i'   => \$length,
            'test!'      => \$test,
           );
 
+
+# start a transaction. we may have to temporarily violate constraints.
+$session->db_begin();
+
 # processing hierarchy. In case multiple things are specified, we have to
 # decide what to process. (Or flag it as an error? No. Always deliver something)
 # gels by name are first, then by gel_id, then by lane name, then by lane_id.
+
 
 my ($gel,@lanes);
 
 if ($gel_name || $gel_id) {
    unless ($gel_id) {
       $gel = new Gel($session,{-name=>$gel_name})->select_if_exists;
-      $session->error("No Gel","Cannot find gel with name $gel_name.") unless $gel;
+      $session->die("Cannot find gel with name $gel_name.") unless $gel;
       $gel_id = $gel->id;
    }
    my $laneSet = new LaneSet($session,{-gel_id=>$gel_id})->select;
-   $session->error("No Lane","Cannot find lanes with gel id $gel.") unless $laneSet;
+   $session->die("Cannot find lanes with gel id $gel.") unless $laneSet;
    @lanes = $laneSet->as_list;
    if ($start || $length) {
       $session->warn("Ignoring start or length position when importing multiple lanes.");
@@ -107,29 +121,33 @@ if ($gel_name || $gel_id) {
 } elsif ( $lane_id ) {
    @lanes = (new Lane($session,{-id=>$lane_id})->select_if_exists);
 } else {
-   $session->error("No arg","No options specified for trimming.");
-   exit(2);
+   $session->die("No options specified for trimming.");
 }
 
 if (($start && !$length) || (!$start && $length) ) {
-   $session->error("Wrong args","If one of start or length is given, both must be specified.");
-   $session->exit;
-   exit(2);
+   $session->die("If one of start or length is given, both must be specified.");
 }
 
 $session->log($Session::Info,"There are ".scalar(@lanes)." lanes to process");
 
 
+LANE:
 foreach my $lane (@lanes) {
 
    $session->log($Session::Info,"Processing lane ".$lane->seq_name);
+
+   if (is_true($lane->failure)) {
+      $session->info("This lane has been marked as a failure. Skipping.");
+      next LANE;
+   }
+
    # find the associated phred called sequences.
    my $phred_seq = new Phred_Seq($session,
                           {-lane_id=>$lane->id})->select_if_exists;
 
    unless ( $phred_seq->id ) {
       $session->log($Session::Warn,"No sequence for lane ".$lane->id.".");
-      next;
+      next LANE;
    }
 
 
@@ -140,8 +158,7 @@ foreach my $lane (@lanes) {
    # from the trimmed portion
    my $strain = new Strain($session,{-strain_name=>$lane->seq_name})->select;
    unless ($strain && $strain->collection) {
-      $session->error("No collection identifier for ".$lane->seq_name);
-      exit(1);
+      $session->die("No collection identifier for ".$lane->seq_name);
    }
 
    if ($start) {
@@ -151,7 +168,7 @@ foreach my $lane (@lanes) {
       my $found_junction = 1;
       unless ( $phred_seq->v_trim_start ) {
          $session->log($Session::Warn,"Sequence for ".$phred_seq->id.
-                                         " is not vector trimmed at the start.");
+                                    " is not vector trimmed at the start.");
          # if we have not found the vector junction, then start with
          # the quality. We'll check next that this exists.
          $phred_seq->v_trim_start($phred_seq->q_trim_start);
@@ -161,16 +178,17 @@ foreach my $lane (@lanes) {
       unless ( defined($phred_seq->q_trim_start) && $phred_seq->q_trim_end ) {
          $session->log($Session::Warn,"Sequence for ".$phred_seq->id.
                                          " is not quality trimmed.");
-         next;
+         next LANE;
       }
 
       my $extent;
       if ( defined($phred_seq->v_trim_end) ) {
          # these will be ambiguous; the entired seq may be low quality.
-         if (!$found_junction && $phred_seq->v_trim_end < $phred_seq->q_trim_start) {
-            $session->info("Sequence has no vector junction and high quality after ".
-                           "a possible end site. Skipping.");
-            next;
+         if (!$found_junction &&
+               $phred_seq->v_trim_end < $phred_seq->q_trim_start) {
+            $session->info("Sequence has no vector junction and high ".
+                           "quality after a possible end site. Skipping.");
+            next LANE;
          }
          $extent = ($phred_seq->q_trim_end > $phred_seq->v_trim_end)?
                     $phred_seq->v_trim_end : $phred_seq->q_trim_end;
@@ -185,20 +203,18 @@ foreach my $lane (@lanes) {
                            -like=>{end_sequenced=>'%'.$lane->end_sequenced.'%'}}
                                                         )->select;
       unless ($c_p->protocol_id) {
-         $session->error("Cannot determine trimming protocol for ".
-                                                             $strain->collection);
-         exit(1);
+         $session->die("Cannot determine trimming protocol for ".
+                                                    $strain->collection);
       }
 
-      my $t_p = new Trimming_Protocol($session,{-id=>$c_p->protocol_id})->select;
+      my $t_p = new Trimming_Protocol($session,{-id=>$c_p->protocol_id}
+                                                               )->select;
       if ($t_p->id) {
          $session->log($Session::Info,"Using trimming protocol ".
-                                                             $t_p->protocol_name)
-                                                          if $t_p->protocol_name;
+                                 $t_p->protocol_name) if $t_p->protocol_name;
       } else {
-         $session->error("Cannot determine trimming protocol for ".
+         $session->die("Cannot determine trimming protocol for ".
                                                           $strain->collection);
-         exit(1);
       }
 
       # this references the insertion position in an interbase coordinate.
@@ -223,53 +239,146 @@ foreach my $lane (@lanes) {
    # after the insertion. NOT the interbase coordinate!
    $insert_pos++;
 
-   if (length($seq) > $minSeqSize) {
-      $seq = substr($seq,0,$maxSeqSize) 
-                  if ($maxSeqSize && length($seq) > $maxSeqSize);
 
-      my $seqRecord = new Seq($session);
-      $seqRecord->seq_name($lane->seq_name);
-
-      # create a single-phred_seq assembly record
-
-      my $s_a = new Seq_Assembly($session,{ -src_seq_id => $phred_seq->id,
-                                           -src_seq_src => 'phred_seq'});
-   
-      my $action = 'insert';
-      if ($seqRecord->db_exists) {
-         $session->log($Session::Warn,
-                      "Sequence record already exists; will not overwrite.") unless $force;
-         $seqRecord->select;
-
-         next unless $force;
-         # but do not update if there are no changes.
-         next if ($seq eq $seqRecord->sequence && $insert_pos == $seqRecord->insertion_pos);
-         $session->log($Session::Info,"Sequence record has changed and forcing an update.");
-         $seqRecord->last_update('today');
-         $action = 'update' unless $test;
-         $s_a->delete('src_seq_id','src_seq_src') if $s_a->db_exists;
-      }
-
-
-      $seqRecord->sequence($seq);
-      $seqRecord->insertion_pos($insert_pos);
-      $seqRecord->strain_name($strain->strain_name);
-      $seqRecord->last_update('today');
-      $seqRecord->$action unless $test;
-
-      $s_a->seq_name($seqRecord->seq_name);
-      $s_a->assembly_date('today');
-      $s_a->insert unless $test;
-
-      $session->log($Session::Info,"Sequence record for ".$strain->strain_name." ".$action."'ed.");
-
-   } else {
-      $session->log($Session::Info,
-                         "Sequence for ".$strain->strain_name." is below length threshold.");
+   if (length($seq) < $minSeqSize) {
+      $session->log($Session::Info,"Sequence is not long enough to add into the db. Skipping");
+       next LANE;
    }
+
+
+   $seq = substr($seq,0,$maxSeqSize) 
+               if ($maxSeqSize && length($seq) > $maxSeqSize);
+   # we'll dummy up a putative new sequence record to pass to the
+   # inserters. Some of this info may be changed prior to insertion
+   my $seqRecord = new Seq($session,{ -sequence => $seq,
+                                      -seq_name => $lane->seq_name,
+                                      -insertion_pos => $insert_pos,
+                                      -strain_name => $strain->strain_name});
+
+   if ( $recheck ) {
+      insertRecheckRecord($session,$seqRecord,$phred_seq,$force);
+   } else {
+      insertNewRecord($session,$seqRecord,$phred_seq,$force);
+   }
+
      
+}
+
+if ($test) {
+   $session->info("Aborting transaction.");
+   $session->db_rollback;
+} else {
+   $session->db_commit;
 }
 
 $session->exit();
 
 exit(0);
+
+sub insertRecheckRecord
+{
+   # we're going to insert a sequence record marked with the 'recheck'
+   # qualifier; but only if this sequence is not part of some multiple
+   # sequence consensus. 
+   # If this is already a single read sequence, it will also be skipped
+   # unless the force flag has been specified.
+
+   my ($session,$seqRecord,$phred_seq,$force) = @_;
+ 
+   # first, see if this sequence is part of anything.
+   my $s_a = new Seq_Assembly($session,{ -src_seq_id => $phred_seq->id,
+                                        -src_seq_src => 'phred_seq'});
+   if ($s_a->db_exists) {
+      ($session->info("This phred seq was part of an existing sequence assembly. Skipping.")
+                                                     and return) unless $force;
+      $session->info("This phred seq was part of an existing sequence assembly. Overwriting.");
+      # but first, see if it was assembled.
+      my $s_a_S = new Seq_AssemblySet($session,{-seq_name=>$s_a->seq_name});
+
+      # db_exists returns a count of the number of records.
+      if ($s_a_S->db_exists > 1) {
+         $session->info("This phred seq is assembled into a multiple sequence consensus. Skipping.");
+         return;
+      }
+      $s_a_S->select;
+      $session->die("The code for updating recheck seqs is not finished.");
+      foreach my $o ($s_a_S->as_list) {
+         $o->delete('src_seq_id','src_seq_src');
+      }
+   }
+
+   # find out the list of unconfirmed recheck seq's
+   my $sS = new SeqSet($session,{-like=>{seq_name=>$seqRecord->seq_name.'.r%'}})->select;
+   $session->info("This sequence already has ".scalar($sS->as_list)." unconfirmed recheck sequences.");
+   my $newId = 1;
+   map { if ($_->qualifier =~ /r(\d+)/) { $newId = ($newId>$1)?$newId:($1+1) } } $sS->as_list;
+
+   $session->info("Inserting unconfirmed recheck if $newId.");
+   $seqRecord->seq_name($seqRecord->seq_name.".r$newId");
+   $seqRecord->last_update('today');
+   $seqRecord->insert;
+
+   $s_a->seq_name($seqRecord->seq_name);
+   $s_a->assembly_date('today');
+   $s_a->insert;
+
+   # return 'true' if ok. We're not checking this (yet).
+   return 1;
+}
+
+sub insertNewRecord
+{
+   # create a single-phred_seq assembly record
+   my ($session,$seqRecord,$phred_seq,$force) = @_;
+ 
+   my $newRecord = new Seq($session);
+   $newRecord->seq_name($seqRecord->seq_name);
+
+   my $s_a = new Seq_Assembly($session,{ -src_seq_id => $phred_seq->id,
+                                        -src_seq_src => 'phred_seq'});
+   
+   my $action = 'insert';
+   my $noChanges = 0;
+   if ($newRecord->db_exists) {
+      $session->log($Session::Warn,
+                   "Sequence record already exists; will not overwrite.")
+                                                            unless $force;
+      return unless $force;
+      $newRecord->select;
+      # but do not update if there are no changes.
+      $noChanges = 1 if ($seqRecord->sequence eq $newRecord->sequence &&
+                       $seqRecord->insertion_pos == $newRecord->insertion_pos);
+      $session->log($Session::Info,
+                 "Sequence record has changed and forcing an update.")
+                                                        unless $noChanges;
+      $newRecord->last_update('today');
+      $action = 'update';
+      my $old_assem = new Seq_AssemblySet($session,
+                         {-src_seq_src => 'phred_seq',
+                          -seq_name    => $newRecord->seq_name})->select;
+      foreach my $o ($old_assem->as_list) {
+         $o->delete('src_seq_id','src_seq_src');
+      }
+   }
+
+   $newRecord->sequence($seqRecord->sequence);
+   $newRecord->insertion_pos($seqRecord->insertion_pos);
+   $newRecord->strain_name($seqRecord->strain_name);
+   $newRecord->last_update('today');
+   $newRecord->$action unless $noChanges;
+
+   # what we're doing here is updating the sequence assembly
+   # record with the current datestamp even for the cases of
+   # the sequence record does not have an updated datestamped.
+   # This will deal with the problem of migrating the sequence
+   # assembly info into the db over time.
+   $s_a->seq_name($newRecord->seq_name);
+   $s_a->assembly_date('today');
+   $s_a->insert;
+
+   $session->log($Session::Info,"Sequence record for ".$newRecord->seq_name.
+                                 " ".$action."'ed.");
+
+   # return 'true' if ok. We're not checking this (yet).
+   return 1;
+}
