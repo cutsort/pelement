@@ -25,7 +25,7 @@ use Session;
 use Carp;
 
 @ISA = qw(Exporter);
-@EXPORT = qw(new initialize_self select select_if_exists db_exists insert
+@EXPORT = qw(new initialize_self select select_if_exists db_exists insert unique_identifier
              get_next_id set_id update delete resolve_ref session AUTOLOAD DESTROY);
 
 =head1
@@ -190,6 +190,63 @@ sub select
   
 }
 
+=head1
+
+   unique_identifer selects some sort of unique id for the record. This will
+   be DB dependent.
+
+=cut
+
+sub unique_identifier
+{
+   my $self = shift;
+   my $sessionHandle = $self->{_session} || shift ||
+                die "Session handle required db selection";
+
+  # do we ignore warnings?
+  my $ignoreWarnings = shift;
+
+  return unless $self->{_table} && $self->{_cols};
+
+  my $sql;
+  if ($sessionHandle->db->{dbh}->{Driver}->{Name} eq 'Pg') {
+      $sql = "select oid from ".($self->{_table})." where";
+  } else {
+      die "do not know how to deal with this dbi driver.";
+  }
+
+  map { $sql .= " $_=".$sessionHandle->db->quote($self->{$_})." and"
+                      if defined $self->{$_} } @{$self->{_cols}};
+
+   
+  $sql .= $self->{_constraint};
+  # clean up
+  $sql =~ s/ and$//;
+  $sql =~ s/ where$//;
+
+  $sessionHandle->log($Session::Verbose,"SQL: $sql.");
+
+  my $st = $sessionHandle->db->prepare($sql);
+  $st->execute;
+
+  my @oidA = $st->fetchrow_array();
+  ( ($ignoreWarnings || $sessionHandle->log($Session::Warn,
+                                    "SQL $sql returned no object id."))
+                                           and return $self) unless @oidA;
+
+  $self->{oid} = $oidA[0];
+
+  $oidA = $st->fetchrow_array();
+  $sessionHandle->log($Session::Warn,"SQL $sql returned multiple objects.")
+                          if @oidA;
+  $st->finish;
+
+  return $self;
+
+}
+
+
+
 =head1 select_if_exists
 
   A variant which does not kvetch if an object does not exist
@@ -266,6 +323,8 @@ sub update
       $sql =~ s/ and $//;
    } elsif ($self->{id}) {
       $sql .= " where id=".$self->{id};
+   } elsif ($self->{oid}) {
+      $sql .= " where oid=".$self->{oid};
    } else {
       $self->{_session}->warn("Non-effective update on ".$self->{_table});
       return;
