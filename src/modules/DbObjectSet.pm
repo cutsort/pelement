@@ -25,7 +25,7 @@ use Session;
 use Carp;
 
 @ISA = qw(Exporter);
-@EXPORT = qw(new initialize_self select as_list as_list_ref AUTOLOAD DESTROY);
+@EXPORT = qw(new initialize_self select add as_list as_list_ref AUTOLOAD DESTROY);
 
 =head1
 
@@ -174,6 +174,25 @@ sub select
   return $self;
   
 }
+
+=head1 add
+
+  Add an object to the set.
+
+=cut
+sub add
+{
+   my $self = shift;
+   my $new_obj = shift;
+
+   $self->{_session}->die("$new_obj is not a ".$self->{_table}." object.")
+                                     unless ref($new_obj) eq $self->{_table};
+
+   push @{$self->{_objects}}, $new_obj;
+}
+
+
+  
 
 sub as_list
 {
