@@ -56,12 +56,18 @@ my $session = new Session();
 #         -gel_id Number    process a gel by internal db number id
 #         -lane Name        process a lane by filename
 #         -lane_id Number   process a lane by internal db number id
-# -force                   replace an existing sequence record.
+#         -force            replace an existing sequence record.
+# These options are possible only if we're importing sequence from
+# a single lane record
+#         -start            starting coordinate of first imported base (indexed from 1)
+#         -length           length of the imported
 
 my ($gel_name,$gel_id,$lane_name,$lane_id,$force);
 
 my $minSeqSize = 12;
 my $maxSeqSize = 0;
+my $start = 0;
+my $length = 0;
 
 GetOptions('gel=s'      => \$gel_name,
            'gel_id=i'   => \$gel_id,
@@ -70,6 +76,8 @@ GetOptions('gel=s'      => \$gel_name,
            'min=i'      => \$minSeqSize,
            'max=i'      => \$maxSeqSize,
            'force!'     => \$force,
+           'start=i'    => \$start,
+           'length=i'   => \$length,
           );
 
 # processing hierarchy. In case multiple things are specified, we have to
@@ -87,16 +95,28 @@ if ($gel_name || $gel_id) {
    my $laneSet = new LaneSet($session,{-gel_id=>$gel_id})->select;
    $session->error("No Lane","Cannot find lanes with gel id $gel.") unless $laneSet;
    @lanes = $laneSet->as_list;
+   if ($start || $length) {
+      $session->warn("Ignoring start or length position when importing multiple lanes.");
+      $start = 0;
+      $length = 0;
+   }
 } elsif ( $lane_name ) {
    @lanes = (new Lane($session,{-file=>$lane_name})->select_if_exists);
 } elsif ( $lane_id ) {
    @lanes = (new Lane($session,{-id=>$lane_id})->select_if_exists);
 } else {
    $session->error("No arg","No options specified for trimming.");
-   exit(0);
+   exit(2);
+}
+
+if (($start && !$length) || (!$start && $length) ) {
+   $session->error("Wrong args","If one of start or length is given, both must be specified.");
+   $session->exit;
+   exit(2);
 }
 
 $session->log($Session::Info,"There are ".scalar(@lanes)." lanes to process");
+
 
 foreach my $lane (@lanes) {
 
@@ -110,63 +130,71 @@ foreach my $lane (@lanes) {
       next;
    }
 
-  
-   unless ( $phred_seq->v_trim_start ) {
-      $session->log($Session::Warn,"Sequence for ".$phred_seq->id.
-                                      " is not vector trimmed at the start.");
-      next;
-   }
 
-   unless ( defined($phred_seq->q_trim_start) && $phred_seq->q_trim_end ) {
-      $session->log($Session::Warn,"Sequence for ".$phred_seq->id.
-                                      " is not quality trimmed.");
-      next;
-   }
-
-   my $extent;
-   if ( defined($phred_seq->v_trim_end) ) {
-      $extent = ($phred_seq->q_trim_end > $phred_seq->v_trim_end)?
-                 $phred_seq->v_trim_end : $phred_seq->q_trim_end;
-   } else {
-      # we've already checked that there a quality end trim
-      $extent = $phred_seq->q_trim_end;
-   }
+   my $seq;
+   my $insert_pos;
 
    # next we need to determine the protocol for determining the insertion
    # from the trimmed portion
-
    my $strain = new Strain($session,{-strain_name=>$lane->seq_name})->select;
    unless ($strain && $strain->collection) {
       $session->error("No collection identifier for ".$lane->seq_name);
       exit(1);
    }
 
-   my $c_p = new Collection_Protocol($session,
-                       {-collection=>$strain->collection,
-                        -like=>{end_sequenced=>'%'.$lane->end_sequenced.'%'}}
-                                                     )->select;
-   unless ($c_p->protocol_id) {
-      $session->error("Cannot determine trimming protocol for ".
-                                                          $strain->collection);
-      exit(1);
-   }
-
-   my $t_p = new Trimming_Protocol($session,{-id=>$c_p->protocol_id})->select;
-   if ($t_p->id) {
-      $session->log($Session::Info,"Using trimming protocol ".
-                                                          $t_p->protocol_name)
-                                                       if $t_p->protocol_name;
+   if ($start) {
+      $seq = substr($phred_seq->seq,$start-1,$length);
    } else {
-      $session->error("Cannot determine trimming protocol for ".
-                                                       $strain->collection);
-      exit(1);
+  
+      unless ( $phred_seq->v_trim_start ) {
+         $session->log($Session::Warn,"Sequence for ".$phred_seq->id.
+                                         " is not vector trimmed at the start.");
+         next;
+      }
+
+      unless ( defined($phred_seq->q_trim_start) && $phred_seq->q_trim_end ) {
+         $session->log($Session::Warn,"Sequence for ".$phred_seq->id.
+                                         " is not quality trimmed.");
+         next;
+      }
+
+      my $extent;
+      if ( defined($phred_seq->v_trim_end) ) {
+         $extent = ($phred_seq->q_trim_end > $phred_seq->v_trim_end)?
+                    $phred_seq->v_trim_end : $phred_seq->q_trim_end;
+      } else {
+         # we've already checked that there a quality end trim
+         $extent = $phred_seq->q_trim_end;
+      }
+
+
+      my $c_p = new Collection_Protocol($session,
+                          {-collection=>$strain->collection,
+                           -like=>{end_sequenced=>'%'.$lane->end_sequenced.'%'}}
+                                                        )->select;
+      unless ($c_p->protocol_id) {
+         $session->error("Cannot determine trimming protocol for ".
+                                                             $strain->collection);
+         exit(1);
+      }
+
+      my $t_p = new Trimming_Protocol($session,{-id=>$c_p->protocol_id})->select;
+      if ($t_p->id) {
+         $session->log($Session::Info,"Using trimming protocol ".
+                                                             $t_p->protocol_name)
+                                                          if $t_p->protocol_name;
+      } else {
+         $session->error("Cannot determine trimming protocol for ".
+                                                          $strain->collection);
+         exit(1);
+      }
+
+      # this references the insertion position in an interbase coordinate.
+      $insert_pos = $t_p->insertion_offset;
+
+      $seq = substr($phred_seq->seq,$phred_seq->v_trim_start,
+                                     $extent-$phred_seq->v_trim_start);
    }
-
-   # this references the insertion position in an interbase coordinate.
-   my $insert_pos = $t_p->insertion_offset;
-
-   my $seq = substr($phred_seq->seq,$phred_seq->v_trim_start,
-                                  $extent-$phred_seq->v_trim_start);
 
    my $gel = new Gel($session,{-id=>$lane->gel_id})->select;
    if ($lane->end_sequenced =~ /5/ ) {
@@ -202,11 +230,11 @@ foreach my $lane (@lanes) {
 
          next unless $force;
          # but do not update if there are no changes.
-         next unless ($seq ne $seqRecord->sequence || $insert_pos != $seqRecord->insertion_pos);
+         next if ($seq eq $seqRecord->sequence && $insert_pos == $seqRecord->insertion_pos);
          $session->log($Session::Info,"Sequence record has changed and forcing an update.");
          $seqRecord->last_update('today');
          $action = 'update';
-         $s_a->delete if $s_a->db_exists;
+         $s_a->delete('src_seq_id','src_seq_src') if $s_a->db_exists;
       }
 
 
