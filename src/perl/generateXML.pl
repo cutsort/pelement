@@ -173,6 +173,8 @@ while(@insertions) {
    # our database is really a collection identifier
    my $strain = new Strain($session,{-strain_name=>$strain_name})->select();
    my $coll = $strain->collection;
+   # the collection may include a 'subcollection' qualifier. delete it.
+   $coll =~ s/\..*//;
    $strain->collection("Other") unless grep (/^$coll$/,qw(CC EY KV KG PL PB));
    $new_ana->database($strain->collection);
 
