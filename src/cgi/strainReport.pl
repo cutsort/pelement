@@ -335,6 +335,14 @@ sub reportStrain
      # when did we do this?
      my @blast_runs = ();
      my @blast_hits = ();
+
+     # the mini_table is a hash indexed by seq_name with elements references to
+     # a list of blast hit list references
+     my %mini_table;
+
+     # we'll use the absence of a hit to indicated that we need to add a link
+     map {$mini_table{$_} = [] } @seq_names if $db eq 'release3_genomic';
+
      map { push @blast_runs,
             new Blast_RunSet($session,{-seq_name=>$_,-db=>$db})->select->as_list } @seq_names;
      map { push @blast_hits,
@@ -343,7 +351,7 @@ sub reportStrain
      @blast_runs = sort { PCommon::date_cmp($a->date,$b->date) } @blast_runs;
 
      foreach my $b (@blast_runs) {
-        print $cgi->em(($b->program || 'blastn')." run of ".$b->seq_name." to ".$b->db." performed ".$b->date."."),$cgi->br;
+        print $cgi->em(($b->program || 'blastn')." of ".$b->seq_name." to ".$b->db." performed ".$b->date."."),$cgi->br;
      }
 
      #my $sql = qq(select seq_name,query_begin,query_end,name,subject_begin,subject_end,score,match,
@@ -360,9 +368,6 @@ sub reportStrain
                        'Show all blast hits'),$cgi->br,"\n"
                        if $cgi->param('max_hits') =~ /^\d+$/ && scalar(@blast_hits) > $cgi->param('max_hits');
 
-        # the mini_table is a hash indexed by seq_name with elements references to
-        # a list of blast hit list references
-        my %mini_table;
 
         foreach my $bH (@blast_hits) {
 
@@ -372,8 +377,6 @@ sub reportStrain
            if ($insertLookup{$bH->seq_name} && $qs <= $insertLookup{$bH->seq_name} && $insertLookup{$bH->seq_name} <= $qe) {
               $flank_range = "<b>".$flank_range."</b>";
            }
-
-           $mini_table{$bH->seq_name} = [] unless exists($mini_table{$bH->seq_name});
 
            my $b2 = exists($subject_name{$bH->name})?$subject_name{$bH->name}:$bH->name;
            my $detailLink = $cgi->a({-href=>"blastReport.pl?id=".$bH->id,-target=>"_blast"},
@@ -407,6 +410,7 @@ sub reportStrain
                      ;# unless ($cgi->param('max_hits') =~ /^\d+$/ &&
                      #         scalar(@{$mini_table{$bH->seq_name}}) > $cgi->param('max_hits'));
            } else {
+              $mini_table{$bH->seq_name} = [] unless exists($mini_table{$bH->seq_name});
               push @{$mini_table{$bH->seq_name}},
                    [$bH->score,$flank_range,$b2,$bH->subject_begin."-".$bH->subject_end,$detailLink,$alignLink]
                      ;# unless ($cgi->param('max_hits') =~ /^\d+$/ &&
@@ -425,7 +429,7 @@ sub reportStrain
                                                sort { $b cmp $a } keys %mini_table)) ])));
                         
                  sub linkit { my ($db,$seq) = @_;
-                    return $cgi->br.$cgi->a({-href=>"hitMaker.pl?seq=".$seq},'Manual Alignment')
+                    return $cgi->br.$cgi->a({-href=>"hitMaker.pl?seq=".$seq,-target=>'_hit'},'Manual Alignment')
                            if ($db eq 'release3_genomic');
                  }
      } else {
@@ -448,6 +452,9 @@ sub format_minitable
 {
    my ($cgi,$db,$listRef) = @_;
 
+   return 'No hits found' if $db eq 'release4_genomic' && !scalar(@$listRef);
+   return unless scalar @$listRef;
+
    # sort by score. We will not be showing the score in the output, though.
    @$listRef = sort {$b->[0] <=> $a->[0]} @$listRef;
    # and now drop the score.
@@ -462,6 +469,7 @@ sub format_minitable
       @$listRef = splice(@$listRef,0,$cgi->param('max_hits')-1);
    }
  
+   return 
    $cgi->table({-border=>2,-width=>"100%"},$cgi->Tr( [ 
          $cgi->th({-bgcolor=>$HTML_TABLE_HEADER_BGCOLOR2},
                      ["Flank Range","Subject","Range",
