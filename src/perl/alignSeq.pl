@@ -112,9 +112,9 @@ while (@records) {
       }
 
       $sql .= "insert into seq_alignment (seq_name,scaffold,p_start,p_end,s_start,";
-      $sql .= "s_end,s_insert,hsp_id) values (";
+      $sql .= "s_end,s_insert,status,hsp_id) values (";
       foreach my $var ($seq_name,$name,$query_begin,$query_end,$subject_begin,
-                                                         $subject_end,$s_insert,$id) {
+                                                         $subject_end,$s_insert,'multiple',$id) {
          $sql .= $session->db->quote($var).",";
       }
       $sql =~ s/,$/);/;
