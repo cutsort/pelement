@@ -182,8 +182,8 @@ sub reportStrain
          my $seq_a = new Seq_Alignment($session,{-id=>$cgi->param('id')})->select_if_exists;
          # be paranoid. Make sure this id corresponds to this strain
          my $paranoid = 0;
-         map {$paranoid = 1 if $seq_a->seq_name eq $_->seq_name} @{$seqSet->as_list};
-         if (!$seq_a->id || $paranoid) {
+         map {$paranoid = 1 if $seq_a->seq_name eq $_->seq_name} $seqSet->as_list;
+         if (!$seq_a->id || !$paranoid) {
             print $cgi->center($cgi->em("Internal trouble with CGI parameter id.")),"\n";
          } else {
             if ($cgi->param('action') eq 'accept') {
