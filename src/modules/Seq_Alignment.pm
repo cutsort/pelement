@@ -34,13 +34,15 @@ sub from_Blast_Report
    my $self = shift;
    my $bR = shift;
 
-   $self->session->error("Not A Report","$bR is not a Blast_Report object.")
+   # optional: do we extrapolate a hit.
+   my $extrapolate = shift || 0;
+
+   $self->session->error("$bR is not a Blast_Report object.")
                                              unless ref($bR) eq "Blast_Report";
 
    # and what is the sequence object for this query?
    my $seq = new Seq($self->session,{seq_name=>$bR->seq_name})->select_if_exists();
-   $self->session->error("No Sequence object",
-                  "Cannot locate sequence with name ".$bR->seq_name.".") unless $seq;
+   $self->session->error("Cannot locate sequence with name ".$bR->seq_name.".") unless $seq;
    my $s_insert = 0;
    if ( $bR->query_begin == $seq->insertion_pos ) {
       $s_insert = $bR->subject_begin;
@@ -60,18 +62,22 @@ sub from_Blast_Report
       }
    } elsif ( $bR->query_end > $bR->query_begin && $seq->insertion_pos > $bR->query_end) {
       # beyond the + end with a + hit
-      $s_insert = $bR->subject_end + ($seq->insertion_pos - $bR->query_end);
+      $s_insert = $bR->subject_end;
+      $s_insert = $bR->subject_end + ($seq->insertion_pos - $bR->query_end) if ($extrapolate)
    } elsif ( $bR->query_end > $bR->query_begin && $seq->insertion_pos < $bR->query_begin ) {
       # beyond the - end with a + hit
-      $s_insert = $bR->subject_begin - ($bR->query_begin - $seq->insertion_pos);
+      $s_insert = $bR->subject_begin;
+      $s_insert = $bR->subject_begin - ($bR->query_begin - $seq->insertion_pos) if ($extrapolate)
    } elsif ( $bR->query_end < $bR->query_begin && $seq->insertion_pos < $bR->query_end) {
       # beyond the - end with a - hit
-      $s_insert = $bR->subject_end + ($bR->query_end - $seq->insertion_pos);
+      $s_insert = $bR->subject_end;
+      $s_insert = $bR->subject_end + ($bR->query_end - $seq->insertion_pos) if ($extrapolate)
    } elsif ( $bR->query_end < $bR->query_begin && $seq->insertion_pos > $bR->query_begin) {
       # beyond the + end with a - hit
-      $s_insert = $bR->subject_begin - ($seq->insertion_pos - $bR->query_begin);
+      $s_insert = $bR->subject_begin;
+      $s_insert = $bR->subject_begin - ($seq->insertion_pos - $bR->query_begin) if ($extrapolate)
    } else {
-      $self->session->error("Internal","Internal inconsistency with insert position.");
+      $self->session->error("Internal inconsistency with insert position.");
    }
 
    $self->seq_name($seq->seq_name);
@@ -85,13 +91,5 @@ sub from_Blast_Report
 
    return $self;
 }
-
-  
-  
-
-
-   
-
-
 
 1;
