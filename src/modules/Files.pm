@@ -8,6 +8,7 @@ package Files;
 
 use File::Copy;
 use File::Basename;
+use Digest::MD5;
 
 use strict;
 use Pelement;
@@ -129,6 +130,19 @@ sub delete
 sub copy
 {
    return File::Copy::copy(@_);
+}
+
+sub md5sum
+{
+   my $file = shift;
+   return unless -e $file;
+
+   open(FILE,"< $file") or return;
+   binmode(FILE);
+   my $md5 = new Digest::MD5;
+   $md5->addfile(*FILE);
+   close(FILE);
+   return $md5->hexdigest;
 }
 
 1;
