@@ -25,7 +25,7 @@ if ($cgi->param('img')) {
 } else {
 
    print $cgi->header();
-   print $cgi->init_page();
+   print $cgi->init_page({-title=>"Chromat Report"});
    print $cgi->banner();
 
    if ($cgi->param('id')) {

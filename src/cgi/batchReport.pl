@@ -347,7 +347,7 @@ sub reportBatch
             my $s5 = $seqs{5}->[0];
             my $s3 = $seqs{3}->[0];
             if ($s3->scaffold eq $s5->scaffold &&
-                      abs($s3->s_insert - $s5->s_insert) < 10 ) {
+                      abs($s3->s_insert - $s5->s_insert) < 100 ) {
                $align = '1';
             } else {
                $align = 'c';

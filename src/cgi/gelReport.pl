@@ -17,7 +17,7 @@ use PelementDBI;
 $cgi = new PelementCGI;
 
 print $cgi->header();
-print $cgi->init_page();
+print $cgi->init_page({-title=>"Gel Report"});
 print $cgi->banner();
 
 

@@ -18,7 +18,7 @@ my $hsp_id = $cgi->param('id');
 my $orient = $cgi->param('orient') || '1';
 
 print $cgi->header;
-print $cgi->init_page;
+print $cgi->init_page({-title=>"Blast Report"});
 print $cgi->banner;
 
 

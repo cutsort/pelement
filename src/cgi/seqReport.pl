@@ -2,7 +2,7 @@
 
 =head1 NAME
 
-  seqReport.pl Web report of the batch processing information.
+  seqReport.pl Web report of the Sequence information.
 
 =cut
 
@@ -17,7 +17,7 @@ use PelementDBI;
 $cgi = new PelementCGI;
 
 print $cgi->header();
-print $cgi->init_page();
+print $cgi->init_page({-title=>"Sequence Report"});
 print $cgi->banner();
 
 
