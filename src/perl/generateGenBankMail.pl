@@ -53,19 +53,16 @@ GetOptions('out=s'    => \$outFile,
 
 if ($appendFile && -e $appendFile) {
    unless (open(FIL,">> $appendFile") ) {
-      $session->error("File error","Cannot append to file $appendFile: $!");
-      exit(1);
+      $session->die("Cannot append to file $appendFile: $!");
    }
 } elsif ($appendFile) {
    $session->warn("Creating new file $appendFile for appending.");
    unless (open(FIL,"> $appendFile") ) {
-      $session->error("File error","Cannot open file $appendFile for writing: $!");
-      exit(1);
+      $session->die("Cannot open file $appendFile for writing: $!");
    }
 } elsif ($outFile) {
    unless (open(FIL,"> $outFile") ) {
-      $session->error("File error","Cannot open file $outFile for writing: $!");
-      exit(1);
+      $session->die("Cannot open file $outFile for writing: $!");
    }
 } else {
    *FIL = *STDOUT;

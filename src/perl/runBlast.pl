@@ -43,8 +43,7 @@ $session->log($Session::Info,"Minimum blast score is $blast_score.");
 $blastArg->{-options} .= " S=$blast_score" unless $blastArg->{-options} =~ /S\s*=/;
 
 unless ($seq->sequence) {
-   $session->error("No record for sequence $ARGV[0].");
-   exit(2);
+   $session->die("No record for sequence $ARGV[0].");
 }
 
 my $fasta_file = &Files::make_temp("seqXXXXX.fasta");

@@ -62,18 +62,17 @@ foreach my $dir (glob("$PELEMENT_INBOX/*")) {
          unless ( -e $target ) {
             $session->info("Target directory for $gel_from_file does not exist.");
             mkdir($target) or
-                ($session->error("Write error","Cannot create directory $target: $!") and exit(1));
+                $session->die("Cannot create directory $target: $!");
             $iMade{$target} = 1;
          }
          $session->info("Copying $file to $target.");
          Files::copy($file,$target) or
-                ($session->error("Write error","Cannot copy $file to $target: $!") and exit(1));
+                $session->die("Cannot copy $file to $target: $!");
 
          # what is the exact name of the new file?
          my $newFile = (File::Basename::fileparse($target))[1] .'/'. (File::Basename::fileparse($file))[0];
          if (!-e $newFile) {
-            $session->error("File error","Some trouble locating copied file $newFile: $!");
-            exit(1);
+            $session->die("Some trouble locating copied file $newFile: $!");
          } elsif (Files::md5sum($file) ne Files::md5sum($newFile)) {
             $session->warn("MD5 sum of files do not agree. Not deleting.");
             $deleteDir = 0;

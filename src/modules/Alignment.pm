@@ -61,7 +61,7 @@ sub select
   my $self = shift;
   $self = new Alignment(@_) unless ref($self);
 
-  $self->session->error("No DB","No db handle present for reading alignment")
+  $self->session->error("No db handle present for reading alignment")
                                                         unless $self->session->db;
 
   my $sql = $self->select_sql();

@@ -45,7 +45,7 @@ sub write
   my $self = shift;
   $self = new Association(@_) unless ref($self);
 
-  $self->session->error("No DB","No db handle present for reading alignment")
+  $self->session->error("No db handle present for reading alignment")
                                                         unless $self->session->db;
 
   my $sql = qq(insert into p_insertion_to_cg (seq_name,cg_name,dist_to_cg) values ).

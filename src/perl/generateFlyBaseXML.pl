@@ -66,14 +66,12 @@ my $sub = new XML::TE_insertion_submission({document_create_date => $doc_date,
 # the collections of this set.
 my $strain = $ARGV[0];
 unless ($strain) {
-   $session->error("No Arg","Need to specify a strain name for submission.");
-   exit(2);
+   $session->die("Need to specify a strain name for submission.");
 }
 
 my $coll = new Strain($session,{-strain_name=>$strain})->select->collection;
 unless ($coll) {
-   $session->error("No Collection","No collection associated with $strain.");
-   exit(2);
+   $session->die("No collection associated with $strain.");
 }
 
 my $submit_info = new FlyBase_Submission_Info($session,{-collection=>$coll})->select;
@@ -93,9 +91,7 @@ foreach my $strain_name (@ARGV) {
 
    $strain->select;
    if ($coll ne $strain->collection) {
-      $session->error("Multiple Collection",
-                      "Flybase submission is limited to a single collection per file.");
-      exit(2);
+      $session->die("Flybase submission is limited to a single collection per file.");
    }
 
    $session->info("Processing strain $strain_name.");
@@ -122,7 +118,7 @@ foreach my $strain_name (@ARGV) {
       my $qual = Seq::qualifier($align->seq_name);
       # we deduce the strand from p_start and p_end
       my $strand = ($align->p_end > $align->p_start)?1:-1;
-      $end = 'o' if $qual;
+      $end = 'o' if $qual =~ /^\d+$/;
       push @{$align{$end}}, {seq_name => $align->seq_name ,
                              scaffold => $align->scaffold,
                              position => $align->s_insert,
@@ -188,8 +184,7 @@ foreach my $strain_name (@ARGV) {
 
    # enforce requirements that we need a phenotype record.
    unless ($pheno->db_exists && $pheno->is_homozygous_viable && $pheno->is_homozygous_fertile) {
-      $session->error("No pheno","No phenotype/genotype informatio for $strain_name.");
-      exit(2);
+      $session->die("No phenotype/genotype informatio for $strain_name.");
    }
 
    # if there is no derived cytology record, we'll try to infer one if the insertion
@@ -624,7 +619,7 @@ sub getGeneHit
       } elsif ($which eq 'WithinCDS') {
          $geneXML = new XML::WithinCDS($args);
       } else {
-         $session->error('Inconsistent switch',"Cannot determine type of hit.");
+         $session->die("Cannot determine type of hit.");
       }
       my $localGene = new XML::LocalGene({fbgn=>shift @geneFbgnList,
                                      cg_number=>shift @geneNameList

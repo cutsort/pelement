@@ -63,7 +63,7 @@ sub select
   # clear out old alignments in case we've already read them
   $self->{alignments} = [];
 
-  $self->session->error("No DB","No db handle present for reading alignment")
+  $self->session->error("No db handle present for reading alignment")
                                                         unless $self->session->db;
  
   my $sql = $self->select_sql();

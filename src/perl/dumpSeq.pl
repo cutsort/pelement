@@ -32,13 +32,11 @@ my $session = new Session();
 $session->warn("Removing $file.") if (-e $file );
 
 if( -e $file && !unlink ($file)) {
-   $session->error("File Error","Cannot remove $file: $!");
-   exit(1);
+   $session->die("Cannot remove $file: $!");
 }
 
 unless (Files::touch($file)) {
-   $session->error("File Error","Cannot open file $file: $!");
-   exit(1);
+   $session->die("Cannot open file $file: $!");
 }
 
 while (@ARGV) {
