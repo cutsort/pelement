@@ -294,21 +294,39 @@ sub reportBatch
 
          my %seqs = ( '5'=>[], '3'=>[], 'other'=>[] );
 
+         # process every gel
          foreach my $gel (@gelList) {
+            # and look at every lane in that gel
             foreach my $lane (new LaneSet($session,
                        {-gel_id=>$gel->id,-seq_name=>$s})->select->as_list) {
+               # is there a phred'ed sequence"
                my $ph = new Phred_Seq($session,
                        {-lane_id=>$lane->id})->select_if_exists;
                if ($ph->id) {
+                  # if q20 is > 25, we got sequence
                   $endSeq{$lane->end_sequenced} = 1 if $ph->q20 > 25;
+                  # is this used as part of an assembly?
                   my $sa = new Seq_Assembly($session,
                               {-src_seq_id=>$ph->id,
                                -src_seq_src=>'phred_seq'})->select_if_exists;
                   if ($sa->seq_name) {
                      my $saSeq = new Seq($session,
                              {-seq_name=>$sa->seq_name})->select_if_exists;
-                     if ($saSeq->sequence && length($saSeq->sequence) >= 25) {
-                        $builtSeq{$lane->end_sequenced} = ($saSeq->qualifier?$saSeq->qualifier:1);
+                     # have we imported a significant sequence?
+                     if ($saSeq->sequence && (1 || length($saSeq->sequence) >= 25)) {
+                        # we'll make a comma delimited list of the sequence qualifiers.
+                        # "c" is an unqualified (consensus) sequence
+                        if (exists($builtSeq{$lane->end_sequenced}) && $saSeq->qualifier) {
+                           $builtSeq{$lane->end_sequenced} .= ','.$saSeq->qualifier;
+                        } elsif ( $saSeq->qualifier ) {
+                          $builtSeq{$lane->end_sequenced} = $saSeq->qualifier;
+                        } elsif ( !$saSeq->qualifier ) {
+                          $builtSeq{$lane->end_sequenced} = 'c';
+                        } elsif (exists($builtSeq{$lane->end_sequenced})
+                                      && !grep(/c/,$builtSeq{$lane->end_sequenced})
+                                      && !$saSeq->qualifier) {
+                          $builtSeq{$lane->end_sequenced} .= ',c';
+                        }
                         my $al = new Seq_AlignmentSet($session,
                                       {-seq_name=>$sa->seq_name})->select;
                         map
@@ -345,7 +363,8 @@ sub reportBatch
          $conSeqH{$cons}++;
          # qualify this
          foreach my $e qw(5 3) {
-            $cons .= "($e:$builtSeq{$e})" if ($builtSeq{$e} && $builtSeq{$e} ne '1');
+            $builtSeq{$e} = join(',', sort { $a cmp $b} split(/,/,$builtSeq{$e}) );
+            $cons .= "($e:$builtSeq{$e})" if ($builtSeq{$e} && $builtSeq{$e} ne 'c');
          }
 
 
