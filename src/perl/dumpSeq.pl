@@ -16,6 +16,7 @@ use PCommon;
 use Session;
 use SeqSet;
 use Files;
+use Submitted_Seq;
 
 use strict;
 use Getopt::Long;
@@ -51,7 +52,10 @@ while (@ARGV) {
    $session->info("Select ".scalar($seqS->as_list)." sequences.");
 
    # not the most efficient way to do this: each call is a file open and close.
-   map {$_->to_fasta(">$file",{-desc=>"[".$_->insertion_pos."]"}) } $seqS->as_list;
+   map {
+      my $acc = new Submitted_Seq($session,{-seq_name=>$_->seq_name})->select_if_exists;
+      $_->to_fasta(">$file",{-desc=>"[".$_->insertion_pos."]".(($acc && $acc->gb_acc)?" ".$acc->gb_acc:"")})
+       } $seqS->as_list;
    
 }
 
