@@ -38,7 +38,7 @@ sub new
 
   # the default setup
   my $program = $PELEMENT_PHRAPBIN;
-  my $options = ' -retain_duplicates -vector_bound 0 -minscore 10 -minmatch 10 -raw -word_raw ';
+  my $options = ' -retain_duplicates -vector_bound 0 -minscore 8 -minmatch 8 -raw -word_raw ';
   my $file = '';
   my $save = 0;
 
