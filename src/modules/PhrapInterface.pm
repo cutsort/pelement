@@ -38,9 +38,11 @@ sub new
 
   # the default setup
   my $program = $PELEMENT_PHRAPBIN;
-  my $options = ' -retain_duplicates -vector_bound 0 -minscore 8 -minmatch 8 -raw -word_raw ';
+  my $options = '';
   my $file = '';
   my $save = 0;
+  my $match = 8;
+  my $score = 8;
 
   # we'll look for a hash of optional arguments
   my $args = shift;
@@ -49,7 +51,11 @@ sub new
     $options = $args->{-options} if exists($args->{-options});
     $file    = $args->{-file}    if exists($args->{-file});
     $save    = $args->{-save}    if exists($args->{-save});
+    $match   = $args->{-match}   if exists($args->{-match});
+    $score   = $args->{-score}   if exists($args->{-score});
   }
+
+  $options = $options || " -retain_duplicates -vector_bound 0 -minscore $score -minmatch $match -raw -word_raw ";
 
   my $self = {
               "session" => $sessionHandle,
