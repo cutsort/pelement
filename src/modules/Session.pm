@@ -102,6 +102,7 @@ sub new
   if ( $useDb ) {
     $dbh = new PelementDBI($self,"dbi:$PELEMENT_DB_DBI:$PELEMENT_DB_CONNECT");
     $self->{db} = $dbh;
+    $self->{db_tx} = 0;
   }
 
   $self->log($Session::Info,"$caller ".join(" ",@::ARGV)." started.");
@@ -109,6 +110,62 @@ sub new
   return $blessed_self;
            
 }
+
+=head2 db_begin db_commit db_rollback
+
+   Start or stop a db transaction. we're also deferring constraints
+   within the transaction.
+
+=cut
+
+sub db_begin
+{
+  my $self = shift;
+  $self->warn("No db connection") and return unless $self->{db};
+  $self->warn("Already in transaction") and return if $self->{db_tx};
+
+  eval { $self->{db}->{dbh}->{AutoCommit} = 0 };
+  if ($@) {
+     $self->error("Some trouble attempting to start a transaction:".
+                  $self->{db}->errstr);
+     exit(1);
+  }
+  $self->{db}->do('set constraints all deferred');
+  $self->{db_tx} = time;
+
+}
+sub db_commit
+{
+  my $self = shift;
+  $self->warn("No db connection") and return unless $self->{db};
+  $self->warn("Not in a transaction") and return unless $self->{db_tx};
+
+  $self->{db_tx} = 0;
+  $self->{db}->commit;
+  eval { $self->{db}->{dbh}->{AutoCommit} = 1 };
+  if ($@) {
+     $self->error("Some trouble attempting to stop a transaction:".
+                  $self->{db}->errstr);
+     exit(1);
+  }
+}
+sub db_rollback
+{
+  my $self = shift;
+  $self->warn("No db connection") and return unless $self->{db};
+  $self->warn("Not in a transaction") and return unless $self->{db_tx};
+
+  $self->{db_tx} = 0;
+  $self->{db}->rollback;
+
+  eval { $self->{db}->{dbh}->{AutoCommit} = 1 };
+  if ($@) {
+     $self->error("Some trouble attempting to stop a transaction:".
+                  $self->{db}->errstr);
+     exit(1);
+  }
+}
+
 =head2 exit
 
    Close the current session. This does not terminate the script
@@ -126,9 +183,17 @@ sub exit
     &$block;
   }
 
-  # now close the db handle
-  $self->log($Session::Verbose,"Disconnecting from db.") if $self->{db};
-  $self->db()->disconnect() if $self->{db};
+  # check to see if we're in a transaction. Uncommitted changes are
+  # rolled back.
+
+  if ($self->{db}) {
+     if ($self->{db_tx} ) {
+        $self->warn("Rolling back uncommited changes.");
+        $self->db_rollback;
+     }
+     $self->log($Session::Verbose,"Disconnecting from db.");
+     $self->db()->disconnect();
+  }
 
   # and the log file
   $self->log($Session::Info,"Processing ".$self->{caller}." ended.");
@@ -216,6 +281,15 @@ sub log
   return 1;
 }
 
+=head2 warn, info, debug, verbose
+
+  Aliases for log at the right level
+
+=cut
+sub warn { return shift->log($Session::Warn,@_) }
+sub info { return shift->log($Session::Info,@_) }
+sub debug { return shift->log($Session::Verbose,@_) }
+sub verbose { return shift->log($Session::Verbose,@_) }
   
 =head2 get_db
 
