@@ -57,11 +57,16 @@ my $maxSeqSize = 0;
 my $test = 0;      # test mode only. No inserts or updates.
 my $verbose;
 my $canInsert;
-my $score = '';    # min match when running phrap. Should be set separately in
+my $scoreOpt = '';    # min match when running phrap. Should be set separately in
+my $score;            # the value used in a lane.
                    # individual cases only
 my $save;          # save tmp phrap files.
 my $singlets = 0;  # do we call an assembly something built from 1 read
 my $end;
+my $refLane;       # if we can't figure it out, what lane MUST be in the consensus
+my $endSlop = 5;
+my $maxIncrement = 30;  # how much bigger can the consensus sequence be compare
+                        # to the longest base.
 
 GetOptions('gel=s'      => \$gel_name,
            'gel_id=i'   => \$gel_id,
@@ -74,10 +79,13 @@ GetOptions('gel=s'      => \$gel_name,
            'test!'      => \$test,
            'verbose!'   => \$verbose,
            'insert!'    => \$canInsert,
-           'score=i'    => \$score,
+           'score=i'    => \$scoreOpt,
            'save!'      => \$save,
            'singlets!'  => \$singlets,
            'end=i'      => \$end,
+           'ref=i'      => \$refLane,
+           'endslop=i'  => \$endSlop,
+           'maxinc=i'   => \$maxIncrement,
           );
 
 # processing hierarchy. In case multiple things are specified, we have to
@@ -180,7 +188,7 @@ foreach my $lane (@lanes) {
    # keep records of all the phred_seq id's and whether any have been vector trimmed.
    my $foundVec = 0;
    my %pidH = ();
-   my @shortestLength;
+   my @rawLength;
    foreach my $p (@phred_seq)  {
       next unless $p && $p->id;
 
@@ -191,7 +199,7 @@ foreach my $lane (@lanes) {
       next unless $trimSeq;
 
       # keep a record of the shortest (non-zero) length
-      push @shortestLength, length($trimSeq);
+      push @rawLength, length($trimSeq);
 
       my $trimQual = $qual->trimmed_qual($p);
 
@@ -210,12 +218,17 @@ foreach my $lane (@lanes) {
 
    my $insert_pos = $foundVec?$t_p->insertion_offset:-1;
 
-   @shortestLength = sort { $a <=> $b } @shortestLength;
-   my $shortestLength = (scalar(@shortestLength)>1)?$shortestLength[-2]:$shortestLength[0];
+   @rawLength = sort { $a <=> $b } @rawLength;
+   # the length of the word size depends on the second longest
+   # sequence length (or the longest, if there is only 1)
+   my $shortestLength = (scalar(@rawLength)>1)?$rawLength[-2]:$rawLength[0];
+   my $longestLength = $rawLength[-1];
 
    # decide on the score and match parameters. If the seq is very
    # short, be agressive but not overly so;
-   unless ($score) {
+   if ($scoreOpt) {
+      $score = $scoreOpt;
+   } else {
       if ($shortestLength < 14) {
          $score = ($shortestLength>8)?$shortestLength:8;
       } else {
@@ -223,6 +236,9 @@ foreach my $lane (@lanes) {
       }
    }
    my $phrap = new PhrapInterface($session,{-file=>$seqFile,-save=>$save,-score=>$score,-match=>$score});
+
+   $session->verbose("phrap command: ".$phrap->command);
+
    unless ( $phrap->run ) {
       $session->warn("Some trouble running phrap.");
       next LANE;
@@ -277,6 +293,14 @@ foreach my $lane (@lanes) {
       $seq_name = $lane->seq_name.'-3' unless $lane->seq_name =~ /-3$/;
    }
 
+   # guard against total bogus assemblies by making sure the
+   # new consensus is not much bigger than the longest original
+   if (length($seq) > $longestLength + $maxIncrement) {
+      $session->info("New sequence length, ".length($seq).", is suspiciously longer ".
+                     "than the longest original, ".$longestLength.".");
+      next LANE;
+   }
+
    # we are adding 1 to make things label the base
    # after the insertion. NOT the interbase coordinate!
    $insert_pos++;
@@ -297,21 +321,27 @@ foreach my $lane (@lanes) {
 
       # what do we do it there is no record of what made the existing consensus? Go with the oldest
       unless ($s_a->as_list) {
-         $session->warn("No record of what made the consensus. Assuming it is the oldest.");
-
-         # we're assuming lexigraphic ordering is good.
-         my $firstLane = (sort { PCommon::date_cmp($a->run_date,$b->run_date) } $laneSet->as_list)[0];
-      
-         $session->verbose("Oldest lane for this strain is dated ".$firstLane->run_date);
-
+         $session->warn("No record of what made the consensus.");
          my $firstPhred;
-         map { $firstPhred = $_->id if $_->lane_id == $firstLane->id } @phred_seq;
+         if ($refLane) {
+            # was a reference specified on the command line?
+            $session->info("Using the command line specified id for the reference lane.");
+            map { $firstPhred = $_->id if $_->lane_id == $refLane } @phred_seq;
+
+         } else {
+            # as a fallback, use the oldest
+            # we're assuming lexigraphic ordering is good.
+            my $firstLane = (sort { PCommon::date_cmp($a->run_date,$b->run_date) } $laneSet->as_list)[0];
+      
+            $session->verbose("Oldest lane for this strain is dated ".$firstLane->run_date);
+            map { $firstPhred = $_->id if $_->lane_id == $firstLane->id } @phred_seq;
+         }
+          
          ($session->warn("Cannot determine the base phred sequence.") and next LANE) unless $firstPhred;
          $session->verbose("The corresponding phred seq or this strain is ".$firstPhred);
          $s_a->add(new Seq_Assembly($session,{-seq_name => $seq_name,
                                            -src_seq_src => 'phred_seq',
                                             -src_seq_id => $firstPhred}));
-         
       }
 
       foreach my $old_ass ($s_a->as_list) {
