@@ -185,8 +185,15 @@ foreach my $strain_name (@ARGV) {
 
    my $pheno = new Phenotype($session,{-strain_name=>$strain_name})->select_if_exists;
 
+
+   # enforce requirements that we need a phenotype record.
+   unless ($pheno->db_exists && $pheno->is_homozygous_viable && $pheno->is_homozygous_fertile) {
+      $session->error("No pheno","No phenotype/genotype informatio for $strain_name.");
+      exit(2);
+   }
+
    # if there is no derived cytology record, we'll try to infer one if the insertion
-   # appears to be unique
+   # appears to be unique and we'll add that to the phenotype.
    my $cyto;
 
    if ($multiple eq 'N' && $pheno && !$pheno->derived_cytology) {
@@ -263,6 +270,8 @@ foreach my $strain_name (@ARGV) {
       $insert = new XML::Insertion(
                             {transposon_symbol => $submit_info->transposon_symbol });
 
+      # the fallback cytology for the insertion is the annotated cytology;
+      # we may change this later as we extract alignments.
       my $insertData = new XML::InsertionData({is_homozygous_viable=>uc($pheno->is_homozygous_viable),
                                                is_homozygous_fertile=>uc($pheno->is_homozygous_fertile),
                                                associated_aberration=>$pheno->associated_aberration,
@@ -330,7 +339,6 @@ foreach my $strain_name (@ARGV) {
                my $this_arm = $alignHR->{scaffold};
                my $this_pos = $alignHR->{position};
                my $this_strand = $alignHR->{strand};
-               $this_arm =~ s/arm_//;
                next if (($this_arm ne $arm) || ($this_strand != $strand)
                                             || ($pos_range[0] - $this_pos > 500)
                                             || ($this_pos - $pos_range[-1] > 500) );
@@ -357,10 +365,11 @@ foreach my $strain_name (@ARGV) {
             }
          }
 
-         if ( grep(/$arm/,qw(X 2L 2R 3L 3R 4)) ) {
+         (my $chrom = $arm) =~ s/arm_//;
+         if ( grep(/$chrom/,qw(X 2L 2R 3L 3R 4)) ) {
             $insertData->add(new XML::GenomePosition(
                                       { genome_version => 3,
-                                        arm            => $arm,
+                                        arm            => $chrom,
                                         strand         => ($strand>0)?'p':'m',
                                         location       => ($pos_range[0]==$pos_range[1])?
                                                            $pos_range[0]:
@@ -379,15 +388,21 @@ foreach my $strain_name (@ARGV) {
 
          # we'll report genes only if this is a single insertion
          # and there is not conflicting data.
-         my @geneHit = getGeneHit($session,$arm,$strand,@pos_range);
+         my @geneHit = getGeneHit($session,$chrom,$strand,@pos_range);
          map { $insertData->add($_) } @geneHit;
+
+         my $cyto = new Cytology($session,{scaffold=>$arm,
+                                       less_than=>{start=>$pos_range[-1]},
+                           greater_than_or_equal=>{stop=>$pos_range[0]}})->select_if_exists;
+         
+         $insertData->attribute(derived_cytology=>$cyto->band) if $cyto->band;
 
          # now add this insertiondata to the list
          push @insertionData, {xml => $insertData,
-                               arm => $arm,
+                               arm => $chrom,
                             strand => $strand,
                              start => $pos_range[0],
-                               end => $pos_range[-1]}
+                               end => $pos_range[-1]};
 
       }
    }
@@ -407,7 +422,7 @@ foreach my $strain_name (@ARGV) {
                                           cg_number => $annot->{name}});
       $localGene->attribute(fb_transcript_symbol=>$annot->{transcript}) if $annot->{transcript};
 
-      my $rel = ($annot->{strand} eq $insert->{strand})?'p':'m';
+      my $rel = ($annot->{strand} eq $bestInsert->{strand})?'p':'m';
       my $affGene = new XML::AffectedGene({rel_orientation=>$rel,
                                            comment => $annot->{comment}});
       $affGene->add($localGene);
@@ -449,7 +464,6 @@ sub getAlignmentFromSeqName
       my $arm = $alignHR->{scaffold};
       my $pos = $alignHR->{position};
       my $strand = $alignHR->{strand};
-      $arm =~ s/arm_//;
       # the range of the position
       return ($arm,$strand,$pos,$pos);
    }
@@ -468,7 +482,7 @@ sub getAnnotatedHits
    return @geneHits unless $geneSet->as_list;
 
    $ENV{GADB_SUPPRESS_RESIDUES} = 1;
-   my $gadflyDba = GxAdapters::ConnectionManager->get_adapter("gadflyi");
+   my $gadflyDba = GxAdapters::ConnectionManager->get_adapter("gadfly");
 
    foreach my $gene ($geneSet->as_list ) {
       my $g;
@@ -491,13 +505,16 @@ sub getAnnotatedHits
       }
       $session->warn($gene->cg." does not have an accession number") and next unless $fbgn;
 
+      my $defcomment = qq(Curators from the BDGP Gene Disruption Project judge that the expression of this gene is likely to be affected by the transposon insertion, based on the location of the transposon insertion site within or in the proximity of the gene, as annotated in Release 3.1.);
+
       push @geneHits, {name=>$gene->cg,
                        arm=>$g->arm,
                        start=>$g->start,
                        transcript=>$gene->transcript,
                        fbgn => $fbgn,
                        end=>$g->end,
-                       comment=>($gene->comment || 'Manual curation to release 3.1 annotations') };
+                       strand=> $g->strand,
+                       comment=>($gene->comment || $defcomment) };
    }
 
    $gadflyDba->close;
@@ -511,6 +528,7 @@ sub getGeneHit
 
    # where are we hitting?
    my $arm = shift;
+   $arm =~ s/arm_//;
    my $strand = shift;
    my @pos = @_;
 
@@ -531,7 +549,7 @@ sub getGeneHit
 
    if (grep(/$arm$/,qw(2L 2R 3L 3R 4 X)) ) {
       # euchromatic release 3 arm
-      $gadflyDba = GxAdapters::ConnectionManager->get_adapter("gadflyi");
+      $gadflyDba = GxAdapters::ConnectionManager->get_adapter("gadfly");
    } else {
       # unmapped heterchromatic or shotgun arm extension
       $gadflyDba = GxAdapters::ConnectionManager->get_adapter("gadflyi");
@@ -546,8 +564,7 @@ sub getGeneHit
    my $seqs = $gadflyDba->get_AnnotatedSeq(
                 {range=>"$arm:$start..$end",type=>'gene'},['-results']);
    my @annot = $seqs->annotation_list()?@{$seqs->annotation_list}:();
-   $session->log($Session::Info,"Found ".scalar(@annot).
-                                   " genes within $grabSize.");
+   $session->log($Session::Info,"Found ".scalar(@annot)." genes.");
 
    # look at each annotation and decide if we're inside it.
 
