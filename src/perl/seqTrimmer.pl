@@ -47,13 +47,16 @@ my $session = new Session();
 #         -gel_id Number    process a gel by internal db number id
 #         -lane Name        process a lane by filename
 #         -lane_id Number   process a lane by internal db number id
+#         -enzyme Name      specify the restriction enzyme used (mainly for
+#                           offline processing of individual lanes)
 
-my ($gel_name,$gel_id,$lane_name,$lane_id);
+my ($gel_name,$gel_id,$lane_name,$lane_id,$enzyme);
 
 GetOptions('gel=s'      => \$gel_name,
            'gel_id=i'   => \$gel_id,
            'lane=s'     => \$lane_name,
            'lane_id=i'  => \$lane_id,
+           'enzyme=s'   => \$enzyme,
           );
 
 # processing hierarchy. In case multiple things are specified, we have to
@@ -89,26 +92,29 @@ foreach my $lane (@lanes) {
    $session->log($Session::Info,"Processing lane ".$lane->seq_name);
 
    # be certain there is enough info for processing the lane
-   ($session->error("end_sequenced not specified for lane ".$lane->id) and
+   ($session->error("No end","end_sequenced not specified for lane ".$lane->id) and
                                           exit(1)) unless $lane->end_sequenced;
-   ($session->error("seq_name not specified for lane ".$lane->id) and exit(1))
+   ($session->error("No name","seq_name not specified for lane ".$lane->id) and exit(1))
                                                   unless $lane->seq_name;
-   ($session->error("gel_id not specified for lane ".$lane->id) and exit(1))
+   ($session->error("No gel","gel_id not specified for lane ".$lane->id) and exit(1))
                                                   unless $lane->gel_id;
 
 
    $gel = new Gel($session,{-id=>$lane->gel_id})->select
                                              unless $gel && $gel->id;
  
-   # determine the digestion identifer from which this comes.
-   my $digestion = new Digestion($session,
+   unless ($enzyme) {
+      # determine the digestion identifer from which this comes.
+      my $digestion = new Digestion($session,
                     {-name=>&Processing::digestion_id($gel->ipcr_name)}
                                  )->select;
 
-   unless ($digestion && $digestion->enzyme1) {
-      $session->error("Cannot determine digestion enzyme for ".
+      unless ($digestion && $digestion->enzyme1) {
+         $session->error("No enzyme","Cannot determine digestion enzyme for ".
                                                  $lane->seq_name);
-      exit(1);
+         exit(1);
+      }
+      $enzyme = $digestion->enzyme1;
    }
 
    # find the associated phred called sequences.
@@ -126,7 +132,7 @@ foreach my $lane (@lanes) {
       
    my $strain = new Strain($session,{-strain_name=>$lane->seq_name})->select;
    unless ($strain && $strain->collection) {
-      $session->error("No collection identifier for ".$lane->seq_name);
+      $session->error("No collection","No collection identifier for ".$lane->seq_name);
       exit(1);
    }
 
@@ -135,7 +141,7 @@ foreach my $lane (@lanes) {
                         -like=>{end_sequenced=>'%'.$lane->end_sequenced.'%'}}
                                                      )->select;
    unless ($c_p->protocol_id) {
-      $session->error("Cannot determine trimming protocol for ".
+      $session->error("No protocol","Cannot determine trimming protocol for ".
                                                           $strain->collection);
       exit(1);
    }
@@ -146,14 +152,22 @@ foreach my $lane (@lanes) {
                                                           $t_p->protocol_name)
                                                        if $t_p->protocol_name;
    } else {
-      $session->error("Cannot determine trimming protocol for ".
+      $session->error("No protocol","Cannot determine trimming protocol for ".
                                                        $strain->collection);
       exit(1);
    }
    
    my $vector = new Vector($session,{-id=>$t_p->vector_id})->select;
 
-   my $vStart = vectorTrim($phred_seq->seq,$vector->sequence);
+   # if there is a vector limit, use that to constrain the vector junction
+   my $seq_to_trim;
+   if ($t_p->vector_limit) {
+      $seq_to_trim = substr($phred_seq->seq,0,$t_p->vector_limit);
+   } else {
+      $seq_to_trim = $phred_seq->seq;
+   }
+
+   my $vStart = vectorTrim($seq_to_trim,$vector->sequence);
    my $foundVec = 0;
    if ( defined ($vStart) ) {
       $vStart += $t_p->vector_offset;
@@ -163,10 +177,10 @@ foreach my $lane (@lanes) {
       $vStart = 0;
    }
 
-   my $enz = new Enzyme($session,{-enzyme_name=>$digestion->enzyme1})->select;
+   my $enz = new Enzyme($session,{-enzyme_name=>$enzyme})->select;
 
    unless ($enz && $enz->restriction_seq) {
-      $session->error("Cannot determine restriction sequence for ".
+      $session->error("No enzyme","Cannot determine restriction sequence for ".
                                                        $enz->enzyme_name);
       exit(1);
    }
@@ -175,6 +189,8 @@ foreach my $lane (@lanes) {
 
    my $vEnd = siteTrim(substr($phred_seq->seq,$vStart),$cutSeq);
    
+   # look for the restriction site. We will try again later if we do not
+   # have a vector junction but have a high quality region.
    if ($vEnd) {
       $vEnd += $vStart;
       $session->log($Session::Info,
@@ -187,8 +203,8 @@ foreach my $lane (@lanes) {
    # quality trim according to a set of rules determined by a
    # threshold and the number of bp's below the threshold.
    my ($qStart,$qEnd);
-   foreach my $ruleSet ( {-thresh=>20,-num=> 5,-start=>$vStart},
-                         {-thresh=>15,-num=>10,-start=>$vStart} ) {
+   foreach my $ruleSet ( {-thresh=>20,-num=> 5,-start=>$vStart || $t_p->vector_limit},
+                         {-thresh=>15,-num=>10,-start=>$vStart || $t_p->vector_limit} ) {
       qualityTrim($phred_qual->qual,$ruleSet);
       # if we cannot locate the end, none of the quality is high enuf
       if (!exists($ruleSet->{-end}) ) {
@@ -202,8 +218,29 @@ foreach my $lane (@lanes) {
       }
    }
 
+   # a second try at determining restriction site. Look for the restriction
+   # site in the high quality region. This is what will be exported.
+   unless ($vStart) {
+      $vEnd = siteTrim(substr($phred_seq->seq,$qStart),$cutSeq);
+      if ($vEnd) {
+         $vEnd += $qStart;
+         $session->log($Session::Info,
+                    "Modified location of sequence end is at restriction site at $vEnd.");
+      } else {
+         $session->log($Session::Info,"No restriction site found.");
+      }
+   }
+
    $session->log($Session::Info,"Final quality limits are $qStart, $qEnd.");
 
+   $session->info("Changing vector start location")
+            if $vStart && $phred_seq->v_trim_start && $vStart != $phred_seq->v_trim_start;
+   $session->info("Changing vector end location")
+            if $vEnd && $phred_seq->v_trim_end && $vEnd != $phred_seq->v_trim_end;
+   $session->info("Changing quality start location")
+            if $qStart && $phred_seq->q_trim_start && $qStart != $phred_seq->q_trim_start;
+   $session->info("Changing quality end location")
+            if $qEnd && $phred_seq->q_trim_end && $qEnd != $phred_seq->q_trim_end;
    # update
    $phred_seq->v_trim_start($vStart) if $vStart;
    $phred_seq->v_trim_end($vEnd) if $vEnd;
@@ -275,10 +312,10 @@ sub qualityTrim
 sub vectorTrim
 {
    my ($s,$v) = @_;
-   my $r = GH::Sim4::sim4(uc($v),uc($s));
+   my $r = GH::Sim4::sim4(uc($s),uc($v),{W=>8,K=>8});
 
    return unless $r->{exons}[0];
-   return $r->{exons}[0]{to2};
+   return $r->{exons}[0]{to1};
 }
 
 sub siteTrim
