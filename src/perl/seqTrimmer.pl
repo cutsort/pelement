@@ -49,14 +49,17 @@ my $session = new Session();
 #         -lane_id Number   process a lane by internal db number id
 #         -enzyme Name      specify the restriction enzyme used (mainly for
 #                           offline processing of individual lanes)
+#         -test             testmode only; no updates
 
-my ($gel_name,$gel_id,$lane_name,$lane_id,$enzyme);
+my ($gel_name,$gel_id,$lane_name,@lane_id,$enzyme);
+my $test = 0;
 
 GetOptions('gel=s'      => \$gel_name,
            'gel_id=i'   => \$gel_id,
            'lane=s'     => \$lane_name,
-           'lane_id=i'  => \$lane_id,
+           'lane_id=i@' => \@lane_id,
            'enzyme=s'   => \$enzyme,
+           'test!'      => \$test,
           );
 
 # processing hierarchy. In case multiple things are specified, we have to
@@ -68,21 +71,21 @@ my ($gel,@lanes);
 if ($gel_name || $gel_id) {
    unless ($gel_id) {
       $gel = new Gel($session,{-name=>$gel_name})->select_if_exists;
-      $session->error("No Gel","Cannot find gel with name $gel_name.")
+      $session->die("Cannot find gel with name $gel_name.")
                                                        unless $gel->id;
       $gel_id = $gel->id;
    }
    my $laneSet = new LaneSet($session,{-gel_id=>$gel_id})->select;
-   $session->error("No Lane","Cannot find lanes with gel id $gel.")
+   $session->die("Cannot find lanes with gel id $gel.")
                                                        unless $laneSet;
    @lanes = $laneSet->as_list;
 } elsif ( $lane_name ) {
    @lanes = (new Lane($session,{-name=>$lane_name})->select_if_exists);
-} elsif ( $lane_id ) {
-   @lanes = (new Lane($session,{-id=>$lane_id})->select_if_exists);
+} elsif ( @lane_id ) {
+   map { push @lanes, (new Lane($session,{-id=>$_})->select_if_exists) }
+                                                                  @lane_id ;
 } else {
-   $session->error("No arg","No options specified for trimming.");
-   exit(0);
+   $session->die("No options specified for trimming.");
 }
 
 $session->log($Session::Info,"There are ".scalar(@lanes)." lanes to process");
@@ -92,12 +95,12 @@ foreach my $lane (@lanes) {
    $session->log($Session::Info,"Processing lane ".$lane->seq_name);
 
    # be certain there is enough info for processing the lane
-   ($session->error("No end","end_sequenced not specified for lane ".$lane->id) and
-                                          exit(1)) unless $lane->end_sequenced;
-   ($session->error("No name","seq_name not specified for lane ".$lane->id) and exit(1))
-                                                  unless $lane->seq_name;
-   ($session->error("No gel","gel_id not specified for lane ".$lane->id) and exit(1))
-                                                  unless $lane->gel_id;
+   $session->die("End_sequenced not specified for lane ".$lane->id)
+                                           unless $lane->end_sequenced;
+   $session->die("Seq_name not specified for lane ".$lane->id)
+                                           unless $lane->seq_name;
+   $session->die("Gel_id not specified for lane ".$lane->id) 
+                                           unless $lane->gel_id;
 
 
    $gel = new Gel($session,{-id=>$lane->gel_id})->select
@@ -110,9 +113,8 @@ foreach my $lane (@lanes) {
                                  )->select;
 
       unless ($digestion && $digestion->enzyme1) {
-         $session->error("No enzyme","Cannot determine digestion enzyme for ".
+         $session->die("Cannot determine digestion enzyme for ".
                                                  $lane->seq_name);
-         exit(1);
       }
       # here is the rule for determining which enzyme was used:
       #    if only enzyme1 is specified, it's used for both
@@ -123,8 +125,7 @@ foreach my $lane (@lanes) {
          if (Processing::ipcr_id($gel->ipcr_name) =~ /.*(\d+)$/ ) {
             $whichPcr = $1
          } else {
-            $session->error("No ID","Cannot determine IPCR id for $whichPcr");
-            exit(2);
+            $session->die("Cannot determine IPCR id for $whichPcr");
          }
          $enzyme = ($whichPcr%2)?$digestion->enzyme1:$digestion->enzyme2;
       } else {
@@ -137,7 +138,7 @@ foreach my $lane (@lanes) {
    my $phred_seq = new Phred_Seq($session,
                          {-lane_id=>$lane->id})->select_if_exists;
 
-   ($session->log($Session::Warn,"No sequence for lane $lane_id.") and next )
+   ($session->log($Session::Warn,"No sequence for lane $lane->id.") and next )
                                                           unless $phred_seq;
    my $phred_qual = new Phred_Qual($session,
                          {-phred_seq_id=>$phred_seq->id})->select_if_exists;
@@ -148,8 +149,7 @@ foreach my $lane (@lanes) {
       
    my $strain = new Strain($session,{-strain_name=>$lane->seq_name})->select;
    unless ($strain && $strain->collection) {
-      $session->error("No collection","No collection identifier for ".$lane->seq_name);
-      exit(1);
+      $session->die("No collection identifier for ".$lane->seq_name);
    }
 
    my $c_p = new Collection_Protocol($session,
@@ -157,9 +157,8 @@ foreach my $lane (@lanes) {
                         -like=>{end_sequenced=>'%'.$lane->end_sequenced.'%'}}
                                                      )->select;
    unless ($c_p->protocol_id) {
-      $session->error("No protocol","Cannot determine trimming protocol for ".
+      $session->die("Cannot determine trimming protocol for ".
                                                           $strain->collection);
-      exit(1);
    }
 
    my $t_p = new Trimming_Protocol($session,{-id=>$c_p->protocol_id})->select;
@@ -168,9 +167,8 @@ foreach my $lane (@lanes) {
                                                           $t_p->protocol_name)
                                                        if $t_p->protocol_name;
    } else {
-      $session->error("No protocol","Cannot determine trimming protocol for ".
+      $session->die("Cannot determine trimming protocol for ".
                                                        $strain->collection);
-      exit(1);
    }
    
    my $vector = new Vector($session,{-id=>$t_p->vector_id})->select;
@@ -196,9 +194,8 @@ foreach my $lane (@lanes) {
    my $enz = new Enzyme($session,{-enzyme_name=>$enzyme})->select;
 
    unless ($enz && $enz->restriction_seq) {
-      $session->error("No enzyme","Cannot determine restriction sequence for ".
+      $session->die("Cannot determine restriction sequence for ".
                                                        $enz->enzyme_name);
-      exit(1);
    }
 
    (my $cutSeq = uc($enz->restriction_seq)) =~ s/[^ACGT]//g;
@@ -219,8 +216,9 @@ foreach my $lane (@lanes) {
    # quality trim according to a set of rules determined by a
    # threshold and the number of bp's below the threshold.
    my ($qStart,$qEnd);
-   foreach my $ruleSet ( {-thresh=>20,-num=> 5,-start=>$vStart || $t_p->vector_limit,-min=>29},
-                         {-thresh=>15,-num=>10,-start=>$vStart || $t_p->vector_limit,-min=>9} ) {
+   foreach my $ruleSet (
+       {-thresh=>20,-num=> 5,-start=>$vStart || $t_p->vector_limit,-min=>29},
+       {-thresh=>15,-num=>10,-start=>$vStart || $t_p->vector_limit,-min=>9} ) {
       qualityTrim($phred_qual->qual,$ruleSet);
       # if we cannot locate the end, none of the quality is high enuf
       if (!exists($ruleSet->{-end}) ) {
@@ -241,7 +239,7 @@ foreach my $lane (@lanes) {
       if ($vEnd) {
          $vEnd += $qStart;
          $session->log($Session::Info,
-                    "Modified location of sequence end is at restriction site at $vEnd.");
+                "Modified location of seq end is a restriction site at $vEnd.");
       } else {
          $session->log($Session::Info,"No restriction site found.");
       }
@@ -250,19 +248,23 @@ foreach my $lane (@lanes) {
    $session->log($Session::Info,"Final quality limits are $qStart, $qEnd.");
 
    $session->info("Changing vector start location")
-            if $vStart && $phred_seq->v_trim_start && $vStart != $phred_seq->v_trim_start;
+            if $vStart && $phred_seq->v_trim_start &&
+                                     $vStart != $phred_seq->v_trim_start;
    $session->info("Changing vector end location")
-            if $vEnd && $phred_seq->v_trim_end && $vEnd != $phred_seq->v_trim_end;
+            if $vEnd && $phred_seq->v_trim_end &&
+                                     $vEnd != $phred_seq->v_trim_end;
    $session->info("Changing quality start location")
-            if $qStart && $phred_seq->q_trim_start && $qStart != $phred_seq->q_trim_start;
+            if $qStart && $phred_seq->q_trim_start &&
+                                     $qStart != $phred_seq->q_trim_start;
    $session->info("Changing quality end location")
-            if $qEnd && $phred_seq->q_trim_end && $qEnd != $phred_seq->q_trim_end;
+            if $qEnd && $phred_seq->q_trim_end &&
+                                     $qEnd != $phred_seq->q_trim_end;
    # update
    $phred_seq->v_trim_start($vStart) if $vStart;
    $phred_seq->v_trim_end($vEnd) if $vEnd;
    $phred_seq->q_trim_start($qStart) if $qStart;
    $phred_seq->q_trim_end($qEnd) if $qEnd;
-   $phred_seq->update;
+   $phred_seq->update unless $test;
    
 
 }
