@@ -10,6 +10,7 @@ use Pelement;
 use Session;
 use Phred_Seq;
 use Lane;
+use LaneSet;
 use PelementCGI;
 use PelementDBI;
 
@@ -36,22 +37,57 @@ sub selectSeq
 {
 
    my $cgi = shift;
-  
-   print
-     $cgi->center(
-       $cgi->h3("Enter the Lane id:"),"\n",
-       $cgi->br,
-       $cgi->start_form(-method=>"get",-action=>"seqReport.pl"),"\n",
-          $cgi->table( {-bordercolor=>$HTML_TABLE_BORDERCOLOR},
-             $cgi->Tr( [
-                $cgi->td({-align=>"right",-align=>"left"},
-                                    ["Lane ID",$cgi->textfield(-name=>"id")]),
-                $cgi->td({-colspan=>2,-align=>"center"},[$cgi->submit(-name=>"Report")]),
-                $cgi->td({-colspan=>2,-align=>"center"},[$cgi->reset(-name=>"Clear")]) ]
+
+   # if passed a strain identifier, look for the lanes with sequence that match this
+   my @tableRows = ();
+   if ($cgi->param('strain') ) {
+      my $session = new Session({-log_level=>0});
+      my $str = $cgi->param('strain')."%";
+      my $laneSet = new LaneSet($session,{-like=>{'seq_name'=>$str}})->select();
+      map { push @tableRows, [$_->seq_name || 'Unknown' ,$_->end_sequenced || 'Unknown' ,$_->run_date || 'Unknown' ,
+                              $cgi->a({-href=>"seqReport.pl?id=".$_->id},$_->id)] } $laneSet->as_list;
+
+      if (@tableRows) {
+                          
+         print $cgi->center($cgi->table({-border=>2,
+                                   -width=>"80%",
+                                   -bordercolor=>$HTML_TABLE_BORDERCOLOR},
+            $cgi->Tr( [
+               $cgi->th({-bgcolor=>$HTML_TABLE_HEADER_BGCOLOR,-width=>'10%'},
+                      ["Sequence".$cgi->br."Name"]).
+               $cgi->th({-bgcolor=>$HTML_TABLE_HEADER_BGCOLOR,-width=>'5%'},
+                      ["End"]).
+               $cgi->th({-bgcolor=>$HTML_TABLE_HEADER_BGCOLOR,-width=>'15%'},
+                      ["Date","Id"]),
+                      (map { $cgi->td({-align=>"center"}, $_ ) } @tableRows),
+                       ] )
+                     )),"\n";
+      } else {
+          print $cgi->h3("No lanes were found for strain ".$cgi->param('strain')),"\n";
+      }
+      $session->exit;
+            
+      
+   } else {
+   
+      print
+        $cgi->center(
+          $cgi->h3("Enter the Lane id:"),"\n",
+          $cgi->br,
+          $cgi->start_form(-method=>"get",-action=>"seqReport.pl"),"\n",
+             $cgi->table( {-bordercolor=>$HTML_TABLE_BORDERCOLOR},
+                $cgi->Tr( [
+                   $cgi->td({-align=>"right",-align=>"left"},
+                                       ["Lane ID",$cgi->textfield(-name=>"id")]),
+                 $cgi->td({-align=>"right",-align=>"left"},
+                       [$cgi->em('or').' Strain',$cgi->textfield(-name=>"strain")]),
+                   $cgi->td({-colspan=>2,-align=>"center"},[$cgi->submit(-name=>"Report")]),
+                   $cgi->td({-colspan=>2,-align=>"center"},[$cgi->reset(-name=>"Clear")]) ]
+                ),"\n",
              ),"\n",
-          ),"\n",
-       $cgi->end_form(),"\n",
-       ),"\n";
+          $cgi->end_form(),"\n",
+          ),"\n";
+   }
 }
 
 sub reportSeq
@@ -102,12 +138,14 @@ sub reportSeq
        print "<br>\n" unless $i % 50;
        if ($mode eq 'tt' && (
            ($seq->v_trim_start && $i < $seq->v_trim_start ) ||
-           ($seq->v_trim_end   && $i >= $seq->v_trim_end ) ) ) {
+           ($seq->v_trim_end   && $i >= $seq->v_trim_end ) ||
+           ($seq->q_trim_end   && $i >= $seq->q_trim_end ) ) ) {
           $mode = 'it';
           print "</font><font color='red'>";
        } elsif ($mode eq 'it' && (
            ($seq->v_trim_start && $i >= $seq->v_trim_start ) &&
-           ($seq->v_trim_end   && $i < $seq->v_trim_end ) ) ) {
+           (!$seq->v_trim_end  || $i < $seq->v_trim_end )    &&
+           ($seq->q_trim_end   && $i < $seq->q_trim_end ) ) ) {
          $mode = 'tt';
          print "</font><font color='blue'>";
       }
