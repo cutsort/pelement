@@ -328,7 +328,7 @@ sub reportBatch
             foreach my $nS ($seqSet->as_list) {
                next if $foundSeq{$nS->seq_name};
                my $naS = new Seq_AlignmentSet($session,{-seq_name=>$nS->seq_name})->select;
-               map { push @{$seqs{other}},$_ unless $_->status =~ /deselected/} $naS->as_list;
+               map { push @{$seqs{other}},$_ unless $_->status =~ /deselected/ || $_->status =~ /multiple/} $naS->as_list;
             }
          }
 
