@@ -33,7 +33,6 @@ print $cgi->close_page();
 
 exit(0);
 
-
 sub selectSeq
 {
 
@@ -134,46 +133,53 @@ sub reportSeq
                                     -v_trim_start=>0,-q_trim_start=>0,
                                     -v_trim_end=>$last,-q_trim_end=>$last});
 
-    }
-    my $sequence = uc($seq->seq);
-    my $trimmed_sequence;
+   }
+   my $sequence = uc($seq->seq);
+   my $trimmed_sequence;
 
 
-    if($seq->q_trim_start) {
-       $sequence = lc(substr($sequence,0,$seq->q_trim_start)).
-                     substr($sequence,$seq->q_trim_start);
-    }
+   if($seq->q_trim_start) {
+      $sequence = lc(substr($sequence,0,$seq->q_trim_start)).
+                    substr($sequence,$seq->q_trim_start);
+   }
 
-    if($seq->q_trim_end) {
-       $sequence = substr($sequence,0,$seq->q_trim_end).
-                  lc(substr($sequence,$seq->q_trim_end));
-    }
+   if($seq->q_trim_end) {
+      $sequence = substr($sequence,0,$seq->q_trim_end).
+                 lc(substr($sequence,$seq->q_trim_end));
+   }
 
-    print "<tt>";
-    my $seq_title = $lane->seq_name."-".$lane->end_sequenced.(($cgi->param('db') eq 'seq')?'':' untrimmed');
-    my $trimmed_seq_title = $lane->seq_name."-".$lane->end_sequenced.(($cgi->param('db') eq 'seq')?'':' trimmed');
-    print ">$seq_title\n";
+   print "<tt>";
+   my $seq_title = $lane->seq_name."-".$lane->end_sequenced.(($cgi->param('db') eq 'seq')?'':' (untrimmed)');
+   my $trimmed_seq_title = $lane->seq_name."-".$lane->end_sequenced.(($cgi->param('db') eq 'seq')?'':' (trimmed)');
 
-    print "<font color='blue'>\n";
-    my $mode = 'tt';
+   $seq_title = 'PelementDB|'.$seq->id.'|'.$seq_title if $seq->id;
+   $trimmed_seq_title = 'PelementDB|'.$seq->id.'|'.$trimmed_seq_title if $seq->id;
 
-    foreach $i (0..length($sequence)-1) {
-       print "<br>\n" unless $i % 50;
-       if ($mode eq 'tt' && (
-           ($seq->v_trim_start && $i < $seq->v_trim_start ) ||
-           ($seq->v_trim_end   && $i >= $seq->v_trim_end ) ||
-           ($seq->q_trim_end   && $i >= $seq->q_trim_end ) ) ) {
-          $mode = 'it';
-          print "</font><font color='red'>";
-       } elsif ($mode eq 'it' && (
-           ($seq->v_trim_start && $i >= $seq->v_trim_start ) &&
-           (!$seq->v_trim_end  || $i < $seq->v_trim_end )    &&
-           ($seq->q_trim_end   && $i < $seq->q_trim_end ) ) ) {
-         $mode = 'tt';
-         print "</font><font color='blue'>";
+   if ($cgi->param('show') eq 'trim') {
+      print ">$trimmed_seq_title<br>\n";
+   } else {
+      print ">$seq_title<br>\n";
+   }
+
+   print "<font color='red'>\n";
+   my $mode = 'vector';
+
+   my $ctr = 0;
+   foreach $i (0..length($sequence)-1) {
+      print "<br>\n" if $ctr && !($ctr % 50);
+      if ($mode eq 'flank' && new_mode($i,$seq) eq 'vector' ) {
+         $mode = 'vector';
+         print "</font><font color='red'>";
+      } elsif ($mode eq 'vector' && new_mode($i,$seq) eq 'flank') {
+        print "</font><font color='blue'>";
+        $mode = 'flank';
       }
-      print substr($sequence,$i,1);
-      $trimmed_sequence .= substr($sequence,$i,1) if $mode eq 'tt' and substr($sequence,$i,1) =~ /[A-Z]/;
+
+     unless ($mode eq 'vector' && $cgi->param('show') eq 'trim') {
+        print substr($sequence,$i,1);
+        $ctr++;
+     }
+     $trimmed_sequence .= substr($sequence,$i,1) if $mode eq 'flank' and substr($sequence,$i,1) =~ /[A-Z]/;
    }
    print "</font>";
    print "</tt>\n";
@@ -181,6 +187,14 @@ sub reportSeq
 
    print $cgi->br,"\n";
 
+   # print trimming info if this is a phred seq.
+   if ($table eq 'lane' || $table eq 'phred_seq' ) {
+      print $cgi->ul($cgi->li(["Quality trimming start: ".($seq->q_trim_start || 'Not set'),
+                               "Quality trimming end: ".($seq->q_trim_end || 'Not set'),
+                               "Vector trimming start: ".($seq->v_trim_end || 'Not set'),
+                               "Vector trimming end: ".($seq->v_trim_end || 'Not set')])),$cgi->br,"\n"; 
+
+   }
    print $cgi->em('Key:'),"\n",
          $cgi->ul($cgi->li(["<font color='red'>Vector</font>",
                             "<font color='blue'>Flank</font>",
@@ -237,4 +251,31 @@ sub reportSeq
           ),"\n";
 
    $session->exit();
+}
+
+=head1 new_mode
+
+  a convenience routine for deciding if a particular base is in vector or flank
+
+=cut
+
+sub new_mode
+{
+  my ($i,$seq) = @_;
+  # the rules for being in flank:
+  # either we have a vector trimming start point and we're
+  # larger than that, or we don't and we're larger than the
+  # quality trimming point.
+  if ( ( ($seq->v_trim_start && $i >= $seq->v_trim_start ) ||
+         (!$seq->v_trim_start && $seq->q_trim_start && $i >= $seq->q_trim_start )
+        ) &&
+  # AND, if we have an end vector trimming point and we're less than that and
+  # if we have a quality trimming point were less than that.
+        ( (!$seq->v_trim_end  || ($seq->v_trim_end  && $i < $seq->v_trim_end ) )  &&
+          ($seq->q_trim_end  && $i < $seq->q_trim_end )
+                                                         ) ) {
+        return 'flank';
+     } else {
+        return 'vector';
+     }
 }
