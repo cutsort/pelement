@@ -8,6 +8,7 @@ require Exporter;
     $PELEMENT_HOME
     $PELEMENT_BIN
     $PELEMENT_HTML
+    $PELEMENT_WEB_CACHE
     $PELEMENT_XML
     $PELEMENT_PLATFORM_BIN
     $PELEMENT_INBOX
@@ -40,16 +41,17 @@ $PELEMENT_USER = "pelement";
 $PELEMENT_HOME = "/users/pelement/";
 $PELEMENT_BIN = $PELEMENT_HOME . "/bin/";
 $PELEMENT_PLATFORM_BIN = $PELEMENT_BIN . "$^O/";
-$PELEMENT_HTML = "/www/weasel_94/epflow/";
+$PELEMENT_HTML = "/opt/http/cgi-bin/pelement/";
 
 ### directories for cgi scripts
 # this is for the private (test) server
 
 $PELEMENT_TRACE   = $PELEMENT . "trace/";
-$PELEMENT_INBOX   = $PELEMENT . "inbox/";
+$PELEMENT_INBOX   = $PELEMENT_TRACE . "INBOX/";
 $PELEMENT_XML     = $PELEMENT . "xml/";
 $PELEMENT_LOG     = $PELEMENT . "log/";
 $PELEMENT_TMP     = $PELEMENT . "tmp/";
+$PELEMENT_WEB_CACHE = $PELEMENT . "tmp/webcache/";
 $PELEMENT_VECTORS = $PELEMENT . "vectors/";
 
 # e-mail errors to these people
