@@ -27,6 +27,24 @@ use Carp;
 @ISA = qw(Exporter);
 @EXPORT = qw(new initialize_self select as_list as_list_ref AUTOLOAD DESTROY);
 
+=head1
+
+  new  a simple contructor
+
+=cut
+
+sub new
+{
+  my $class = shift;
+  my $session = shift || die "Session argument required.";
+  my $args = shift;
+
+  my $self = initialize_self($class,$session,$args);
+
+  return bless $self,$class;
+
+}
+
 
 =head1
 
@@ -99,6 +117,11 @@ sub initialize_self
      $self->{_constraint} .= " $less_than <= ".
              $sessionHandle->db->quote($le_constraint->{$less_than})." and";
   }
+  my $like_constraint = PCommon::parseArgs($args,'like') || {};
+  foreach my $like (keys %$like_constraint) {
+     $self->{_constraint} .= " $like like ".
+             $sessionHandle->db->quote($like_constraint->{$like})." and";
+  }
   $self->{_constraint} =~ s/ and$//;
 
   $sql->finish();
@@ -142,7 +165,7 @@ sub select
   $st->execute;
   
   while ( my $href = $st->fetchrow_hashref() ) {
-    my $new_self = new $class($sessionHandle);
+    my $new_self = $class->new($sessionHandle);
     map { $new_self->{$_} = $href->{$_} } @{$self->{_cols}};
     push @{$self->{_objects}} ,$new_self;
 
