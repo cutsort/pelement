@@ -18,9 +18,7 @@ package Seq;
 use strict;
 use DbObject;
 
-=head1
-
-  to_fasta(filename,{options})
+=head1 to_fasta(filename,{options})
 
   Write the current sequence to a fasta file. 
   An optional hashref with keys -name and -desc can
@@ -50,6 +48,109 @@ sub to_fasta
   close(FIL);
 
   $self->{fasta} = $filename;
+}
+
+=head1 Parsing routines
+
+  The remainding routines are intended as parsing routines; they do not
+  require db retrieval but are based on parsing the input
+
+=cut
+=head1 parse
+
+  Returns the strain, end, and qualifiers. This is not stored in the db
+  but is deduced from the sequence name
+
+  This can be called on an object or called as a static routine:
+     $seq->parse()
+  or
+     Seq::parse($seq_name)
+
+=cut
+sub parse
+{
+  my $self = shift;
+  return(Seq::strain($self),Seq::end($self),Seq::qualifier($self));
+}
+
+=head1 strain
+
+  Returns the end designator. This is not stored in the db
+  but is deduced from the sequence name
+
+  This can be called on an object or called as a static routine:
+     $seq->strain()
+  or
+     Seq::strain($seq_name)
+
+  return values are '5', '3' or 'b' for a composite
+
+=cut
+
+sub strain
+{
+  my $self = shift;
+  my $name = (ref($self))?$self->seq_name:$self;
+
+  if ( $name =~ /([^-]*)-[35].*/ ) {
+    return $1;
+  } elsif ( $name !~ /-/ ) {
+    return $name;
+  } else {
+    return '';
+  }
+}
+
+=head1 end
+
+  Returns the end designator. This is not stored in the db
+  but is deduced from the sequence name
+
+  This can be called on an object or called as a static routine:
+     $seq->end()
+  or
+     Seq::end($seq_name)
+
+  return values are '5', '3' or 'b' for a composite
+
+=cut
+sub end
+{
+  my $self = shift;
+
+  my $name = (ref($self))?$self->seq_name:$self;
+
+  if ( $name =~ /.*-([35]).*/ ) {
+    return $1;
+  } else {
+    return 'b';
+  }
+}
+
+=head1 qualifier
+
+  Returns the qualifier designator. This is not stored in the db
+  but is deduced from the sequence name
+
+  This can be called on an object or called as a static routine:
+     $seq->qualifier()
+  or
+     Seq::qualifier($seq_name)
+
+  return values are '5', '3' or 'b' for a composite
+
+=cut
+sub qualifier
+{
+  my $self = shift;
+
+  my $name = (ref($self))?$self->seq_name:$self;
+
+  if ( $name =~ /[^-]*-[35](.*)/ ) {
+    return $1;
+  } else {
+    return '';
+  }
 }
 
 1;
