@@ -42,6 +42,60 @@ sub read_file
   return $self->qual($qual);
 }
 
+=head1 trimmed_qual
+
+   Extracts the trimmed piece in the sequence. In a scalar context, this returns
+   the sequence. In a vector context it returns the sequence and 2 labels, each
+   either 'q' or 'v' indicating whether the sequence was quality or vector trimmed.
+
+=cut
+sub trimmed_qual
+{
+   my $self = shift;
+ 
+   my $baseSeq = shift || new Phred_Seq($self->{_session},{-id=>$self->phred_id})->select;
+
+   my $qual;
+   my $start;
+   my $start_flag;
+   my $end_flag;
+   if ( $baseSeq->v_trim_start ) {
+      $start = $baseSeq->v_trim_start;
+      $start_flag = 'v';
+   } elsif ($baseSeq->q_trim_start) {
+      $start = $baseSeq->q_trim_start;
+      $start_flag = 'q';
+   } else {
+      # return nothing for undefined trimming
+      return wantarray?('','',''):'';
+   }
+
+   my $extent;
+   if ( $baseSeq->v_trim_end ) {
+      # these will be ambiguous; the entired seq may be low quality.
+      if ($start_flag eq 'q' && $baseSeq->v_trim_end < $baseSeq->q_trim_start) {
+         return wantarray?('','',''):'';
+      }
+      if ($baseSeq->q_trim_end > $baseSeq->v_trim_end ) {
+         $extent = $baseSeq->v_trim_end;
+         $end_flag = 'v';
+      } else {
+         $extent = $baseSeq->q_trim_end;
+         $end_flag = 'q';
+      }
+   } elsif ($baseSeq->q_trim_end) {
+      $extent = $baseSeq->q_trim_end;
+      $end_flag = 'q';
+   } else {
+      return wantarray?('','',''):'';
+   }
+ 
+   # final consistency check
+   return wantarray?('','',''):'' unless $extent > $start;
+
+   $qual = join(' ',(split(/\s+/,$self->qual))[$start..$extent-1]);
+
+   return wantarray?($qual,$start_flag,$end_flag):$qual;
+}
 
 1;
-
