@@ -15,10 +15,13 @@ use Seq_AlignmentSet;
 use Seq_Alignment;
 use Blast_Report;
 use GenBankScaffold;
+use Submitted_Seq;
 use PelementCGI;
 use PelementDBI;
 
-$cgi = new PelementCGI;
+use strict;
+
+my $cgi = new PelementCGI;
 my $strain = $cgi->param('strain');
 
 print $cgi->header;
@@ -100,26 +103,32 @@ sub reportStrain
   my %insertLookup = ();
 
   foreach my $seq ($seqSet->as_list) {
-     my $a = $seq->seq_name;
-     my $b = $seq->insertion_pos;
-     my $c = $seq->sequence;
+     my $s = $seq->seq_name;
+     my $i = $seq->insertion_pos;
+     my $r = $seq->sequence;
      my $q = $seq->qualifier;
-     if ($q =~ /^\.\d+$/ ) {
+     if ($q =~ /^\d+$/ ) {
         $q = 'Transitory';
+     } elsif ($q =~ /^r\d+$/ ) {
+        $q = 'Unconfirmed Recheck';
      } elsif ($q =~ /^[a-z]+$/ ) {
         $q = 'Curated';
      } else {
         $q = 'Current';
      }
-     $insertLookup{$a} = $b;
-     my $len = length($c);
-     $c =~ s/(.{50})/$1<br>/g;
-     $c = "<tt>".$c."</tt>";
+     $insertLookup{$s} = $i;
+     my $len = length($r);
+     $r =~ s/(.{50})/$1<br>/g;
+     $r = "<tt>".$r."</tt>";
+
+     my $acc = new Submitted_Seq($session,{-seq_name=>$seq->seq_name})->select_if_exists;
+     my $accNo = $acc->gb_acc || $cgi->nbsp;
+     
      push @tableRows, $cgi->td({-align=>'center'},
-                       [$cgi->a({-href=>'assemblyReport.pl?strain='.$a},$a),$len,$b]).
-                      $cgi->td({-align=>'left'},[$c]).
-                      $cgi->td({-align=>'center'},$cgi->a({-href=>'seqStatusReport.pl?seq='.$a},$q));
-     $seq_names .= "'$a',";
+                       [$cgi->a({-href=>'assemblyReport.pl?strain='.$s},$s),$len,$i]).
+                      $cgi->td({-align=>'left'},[$r]).
+                      $cgi->td({-align=>'center'},[$cgi->a({-href=>'seqStatusReport.pl?seq='.$s},$q),$accNo]);
+     $seq_names .= "'$s',";
   }
   $seq_names =~ s/,$/)/;
 
@@ -129,7 +138,7 @@ sub reportStrain
   print $cgi->center($cgi->table({-border=>2,-width=>"80%",-bordercolor=>$HTML_TABLE_BORDERCOLOR},
            $cgi->Tr( [
               $cgi->th({-bgcolor=>$HTML_TABLE_HEADER_BGCOLOR},
-                      ["Sequence<br>Name","Length","Insert<br>Position","Sequence","Status"] ),
+                      ["Sequence<br>Name","Length","Insert<br>Position","Sequence","Status","Accession"] ),
                            @tableRows,
                            #(map { $cgi->td({-align=>"left"}, $_ ) } @tableRows),
                        ] )
@@ -156,13 +165,13 @@ sub reportStrain
          if (!$b->seq_name ) {
             print $cgi->center($cgi->em("Internal trouble with CGI parameter id.")),"\n";
          } else {
-            $a = new Seq_Alignment($session);
-            $a->from_Blast_Report($b);
+            my $sa = new Seq_Alignment($session);
+            $sa->from_Blast_Report($b);
 
             # do nothing if this is already there (may have been a reload)
-            unless ($a->db_exists) {
-               $a->status('curated');
-               $a->insert;
+            unless ($sa->db_exists) {
+               $sa->status('curated');
+               $sa->insert;
             }
          }
       }
@@ -213,11 +222,11 @@ sub reportStrain
 
         my $link;
         if ($seq_a->status eq "unique" || $seq_a->status eq "curated") {
-           $link = "<a href=\"strainReport.pl?id=".$seq_a->id.
-                            "&action=ignore&strain=$strain\">Disregard</a>";
+           $link = $cgi->a({-href=>"strainReport.pl?id=".$seq_a->id.
+                            "&action=ignore&strain=$strain"},"Disregard");
         } elsif ($seq_a->status eq "multiple" || $seq_a->status eq "deselected") {
-           $link = "<a href=\"strainReport.pl?id=".$seq_a->id.
-                            "&action=accept&strain=$strain\">Accept</a>";
+           $link = $cgi->a({-href=>"strainReport.pl?id=".$seq_a->id.
+                            "&action=accept&strain=$strain"},"Accept");
         } else {
            $link = "non-standard";
         }
@@ -239,7 +248,7 @@ sub reportStrain
 
   print $cgi->center($cgi->br,$cgi->h3("Blast Hits for Flanking Sequences")),"\n";
 
-  foreach $db (sort keys %db_name) {
+  foreach my $db (sort keys %db_name) {
 
      # when did we do this?
      my $sql = qq(select seq_name,date from blast_run where 
@@ -284,13 +293,14 @@ sub reportStrain
            $mini_table{$sn} = [] unless exists($mini_table{$sn});
 
            my $b2 = exists($subject_name{$n})?$subject_name{$n}:$n;
-           $detailLink = "<a href=\"blastReport.pl?id=" . $i . "\" target=\"_blast\">" .
-                          $f . "/" . $g. " (" . $h . "%)</a>";
+           my $detailLink = $cgi->a({-href=>"blastReport.pl?id=$i",-target=>"_blast"},
+                                              $f."/".$g."(".$h."%)");
+           my $alignLink;
            if ($alignedHSP{$i}) {
               $alignLink = "Alignment #$alignedHSP{$i}";
            } else {
-              $alignLink = "<a href=\"strainReport.pl?id=".$i.
-                                           "&action=align&strain=$strain\">Align</a>";
+              $alignLink = $cgi->a({-href=>"strainReport.pl?id=".$i.
+                                    "&action=align&strain=$strain"},"Align");
            }
            if ($db eq "release3_genomic") {
               my $gb = new GenBankScaffold($session)->mapped_from_arm($n,$c);
