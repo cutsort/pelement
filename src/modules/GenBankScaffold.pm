@@ -41,8 +41,14 @@ sub mapped_from_arm
         $self->session->db->select_value("select get_scaffold(".
                                      $self->session->db->quote($arm).
                                          ",$coordinate)"));
-   $self->select;
+   if ($self->accession) {
+      $self->select;
+   } else {
+      $self->arm($arm);
+      $self->start('?');
+      $self->stop('?');
+      $self->cytology('?');
+   }
    return $self;
 }
 1;
-
