@@ -30,6 +30,7 @@ use Gene_Association;
 use Stock_Record;
 use Stock_RecordSet;
 use Phenotype;
+use GenBankScaffold;
 use FlyBase_Submission_Info;
 use Submitted_Seq;
 use Blast_ReportSet;
@@ -197,6 +198,12 @@ foreach my $strain_name (@ARGV) {
 
    my $pheno = new Phenotype($session,{-strain_name=>$strain_name})->select_if_exists;
 
+   # see if there is a prepared value for is_multiple
+   if ($pheno->is_multiple_insertion && $pheno->is_multiple_insertion ne $multiple) {
+      $session->info("Using stored value of multiple insertion (".
+                     $pheno->is_multiple_insertion.") to override computed ($multiple).");
+      $multiple = $pheno->is_multiple_insertion;
+   }
 
    # enforce requirements that we need a phenotype record.
    unless ($pheno->db_exists && $pheno->is_homozygous_viable && $pheno->is_homozygous_fertile) {
@@ -395,7 +402,17 @@ foreach my $strain_name (@ARGV) {
                              comment => 'Unmapped heterochromatic scaffold' });
             $sp->add(new XML::GBAccno({accession_version => $gs->accession}));
             $insertData->add($sp);
+         } elsif ( $arm =~ /(.*)\.wgs3.*extension/ ) {
+            my $gs = new GenBankScaffold($session,{-arm=>$arm})->select;
+            my $sp = new XML::ScaffoldPosition( 
+                           { #location => ($pos_range[0]==$pos_range[1])?
+                             #             $pos_range[0]:
+                             #             $pos_range[0]."..".$pos_range[1],
+                             comment => 'Unfinished centromere extension of '.$1 });
+            #$sp->add(new XML::GBAccno({accession_version => $gs->accession}));
+            $insertData->add($sp);
          }
+
 
          # we'll report genes only if this is a single insertion
          # and there is not conflicting data.
@@ -427,6 +444,12 @@ foreach my $strain_name (@ARGV) {
                                    abs($insert->{start}-$annot->{start}) <
                                          abs($bestInsert->{start}-$annot->{start}));
       }
+      if (!$bestInsert && scalar(@insertionData)==1) {
+         $session->warn("Cannot determine insertion for curated gene ".$annot->{name}.
+                        ", using only possible candidate.");
+         $bestInsert = $insertionData[0];
+      }
+    
       $session->warn("Cannot determine insertion for curated gene ".$annot->{name}.".") and
                   next unless $bestInsert;
       my $localGene = new XML::LocalGene({fbgn=>$annot->{fbgn},
@@ -577,9 +600,10 @@ sub getGeneHit
    $start = ($start<0)?0:$start;
    my $end =  $pos[-1] + $grabSize;
 
-   my $seqs = $gadflyDba->get_AnnotatedSeq(
+   my @annot;
+   eval {my $seqs = $gadflyDba->get_AnnotatedSeq(
                 {range=>"$arm:$start..$end",type=>'gene'},['-results']);
-   my @annot = $seqs->annotation_list()?@{$seqs->annotation_list}:();
+   @annot = $seqs->annotation_list()?@{$seqs->annotation_list}:(); };
    $session->log($Session::Info,"Found ".scalar(@annot)." genes.");
 
    # look at each annotation and decide if we're inside it.
@@ -601,7 +625,7 @@ sub getGeneHit
        if ( $pos[0] >= $start+$gStart && $pos[1] <= $start+$gEnd ) {
           # if this isn't a real gene, we gotta skip it
           next unless $gene->flybase_accession_no;
-          next unless $gene->name =~ /^CG\d+$/;
+          next unless $gene->name =~ /^C[RG]\d+$/;
           push @geneNameList, $gene->name;
           push @geneHitList, 'WithinGene';
           push @geneFbgnList, $gene->flybase_accession_no->acc_no;
