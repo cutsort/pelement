@@ -18,6 +18,7 @@ use LigationSet;
 use SampleSet;
 use Sample;
 use Seq;
+use SeqSet;
 use Seq_Assembly;
 use Seq_AlignmentSet;
 use GenBankScaffold;
@@ -150,6 +151,9 @@ sub reportBatch
    my ($cgi,$batch) = @_;
 
    my $session = new Session({-log_level=>0});
+
+   # are we going to show ALL alignments for these strains?
+   my $allAlign = ($cgi->param('align') eq 'all')?1:0;
 
    # try to make sense of the strain name. It may have an end identifier.
    my $bObj = new Batch($session,{-id=>$batch})->select;
@@ -288,7 +292,7 @@ sub reportBatch
          my %endSeq = ();
          my %builtSeq = ();
 
-         my %seqs = ( '5'=>[], '3'=>[] );
+         my %seqs = ( '5'=>[], '3'=>[], 'other'=>[] );
 
          foreach my $gel (@gelList) {
             foreach my $lane (new LaneSet($session,
@@ -315,7 +319,19 @@ sub reportBatch
                }
             }
          }
-        
+         if ($allAlign) {
+            # make a hash of the seqs we know about
+            my %foundSeq = ();
+            map { $foundSeq{$_->seq_name} = 1 } @{$seqs{5}};
+            map { $foundSeq{$_->seq_name} = 1 } @{$seqs{3}};
+            my $seqSet = new SeqSet($session,{-strain_name=>$s})->select;
+            foreach my $nS ($seqSet->as_list) {
+               next if $foundSeq{$nS->seq_name};
+               my $naS = new Seq_AlignmentSet($session,{-seq_name=>$nS->seq_name})->select;
+               map { push @{$seqs{other}},$_ unless $_->status =~ /deselected/} $naS->as_list;
+            }
+         }
+
          # do we have phred seq for one or more ends?
          my $seqs = (($endSeq{5} && $endSeq{3})?'b':
                     ($endSeq{5}?'5':
@@ -378,8 +394,12 @@ sub reportBatch
             my $mean = int(($seqs{5}->[0]->s_insert+$seqs{3}->[0]->s_insert)/2);
             my $scaff = new GenBankScaffold($session)->mapped_from_arm(
                                                $seqs{5}->[0]->scaffold,$mean);
-            $place = $cgi->a({-href=>"retrieveXML.pl?name=".$scaff->accession},
+            if ($scaff && $scaff->accession) {
+               $place = $cgi->a({-href=>"retrieveXML.pl?name=".$scaff->accession},
                                            $scaff->accession);
+            } else {
+               $place = $cgi->em('No Acc');
+            }
             $cyto = $scaff->cytology;
             $arm = $scaff->arm;
             # see if we can be more specific about the cytology
@@ -394,8 +414,12 @@ sub reportBatch
             my $scaff = new GenBankScaffold($session)->mapped_from_arm(
                                               $seqs{$align}->[0]->scaffold,
                                               $seqs{$align}->[0]->s_insert);
-            $place = $cgi->a({-href=>"retrieveXML.pl?name=".$scaff->accession},
+            if ($scaff && $scaff->accession) {
+               $place = $cgi->a({-href=>"retrieveXML.pl?name=".$scaff->accession},
                                            $scaff->accession);
+            } else {
+               $place = $cgi->em('No Acc');
+            }
             $cyto = $scaff->cytology;
             $arm = $scaff->arm;
             my $cyt = new Cytology($session,{-scaffold=>$seqs{$align}->[0]->scaffold,
@@ -415,24 +439,67 @@ sub reportBatch
 
                map { $_ .= $cgi->br if $e eq '5' } ($place,$coord,$cyto,$arm,$strand);
 
-               $place .= $cgi->a({-href=>"retrieveXML.pl?name=".$scaff->accession},
-                                           $scaff->accession);
+               if ($scaff && $scaff->accession) {
+                  $place .= $cgi->a({-href=>"retrieveXML.pl?name=".$scaff->accession},
+                                              $scaff->accession);
+               } else {
+                  $place .= $cgi->em('No Acc');
+               }
                $arm .= $scaff->arm;
                my $cyt = new Cytology($session,{-scaffold=>$seqs{$e}->[0]->scaffold,
                                                -less_than=>{start=>$seqs{$e}->[0]->s_insert},
                                    -greater_than_or_equal=>{stop=>$seqs{$e}->[0]->s_insert}})->select_if_exists;
-               $cyto .= $cyt->band if $cyt->band;
+               $cyto .= $cyt->band?$cyt->band:($scaff->cytology?$scaff->cytology:'?');
                $coord .= $seqs{$e}->[0]->s_insert;
                $strand .= ($seqs{$e}->[0]->p_end > $seqs{$e}->[0]->p_start)?'+':'-';
             }
             # this should not be needed, but put spaces back in
             map { $_ = $cgi->nbsp unless $_ } ($place,$coord,$cyto,$arm,$strand);
          }
-         
-            
+
          $arm =~ s/arm_//g;
-         push @tableRows,
+
+         my ($otherPlace,$otherArm,$otherCoord,$otherCyto,$otherStrand);
+         if ($allAlign) {
+            foreach my $osA (@{$seqs{other}}) {
+               map { $_ .= $cgi->br if $_} ($otherPlace,$otherArm,$otherCoord,$otherCyto,$otherStrand);
+ 
+               my $scaff = new GenBankScaffold($session)->mapped_from_arm(
+                                                 $osA->scaffold,
+                                                 $osA->s_insert);
+               if ($scaff && $scaff->accession) {
+                  $otherPlace .= $cgi->a({-href=>"retrieveXML.pl?name=".$scaff->accession},
+                                              $scaff->accession);
+               } else {
+                  $otherPlace .= $cgi->em('No Acc');
+               }
+               my $a = $scaff->arm;
+               $a =~ s/arm_//;
+               $otherArm .= $a;
+               my $cyt = new Cytology($session,{-scaffold=>$osA->scaffold,
+                                               -less_than=>{start=>$osA->s_insert},
+                                   -greater_than_or_equal=>{stop=>$osA->s_insert}})->select_if_exists;
+               if ($cyt->band) {
+                  $otherCyto .= $cyt->band;
+               } else {
+                  $otherCyto .= $scaff->cytology;
+               }
+               $otherCoord .= $osA->s_insert;
+               $otherStrand .= ($osA->p_end > $osA->p_start)?'+':'-';
+            }
+            map { $_ = $cgi->nbsp unless $_ }  ($otherPlace,$otherArm,$otherCoord,$otherCyto,$otherStrand);
+         }
+            
+        
+         if ($allAlign) {
+            push @tableRows,
+              [$batch,$sampleLinks{$r.':'.$c},$r.$c,$seqs,$cons,$align,$place,$arm,$coord,$cyto,$strand,
+                                                   $otherPlace,$otherArm,$otherCoord,$otherCyto,$otherStrand,
+                                                   $statusLinks{$r.':'.$c}];
+         } else {
+            push @tableRows,
               [$batch,$sampleLinks{$r.':'.$c},$r.$c,$seqs,$cons,$align,$place,$arm,$coord,$cyto,$strand,$statusLinks{$r.':'.$c}];
+         }
       }
    }
    print $cgi->center($cgi->h3("Sequence status for strains in batch $batch"),
@@ -450,10 +517,18 @@ sub reportBatch
                       ["Well"]).
                $cgi->th({-bgcolor=>$HTML_TABLE_HEADER_BGCOLOR,-width=>'12%'},
                       ["Phred".$cgi->br."Seq",
-                       "Consensus".$cgi->br."Seq",
-                       "Alignment","Scaffold","Arm","Location","Cytology"]).
+                       "Consensus".$cgi->br."Seq","Alignment",
+                      "Scaffold","Arm","Location","Cytology"]).
                $cgi->th({-bgcolor=>$HTML_TABLE_HEADER_BGCOLOR,-width=>'5%'},
-                      ["Strand","Status"]),
+                      ["Strand"]).
+               ($allAlign?
+                      ($cgi->th({-bgcolor=>$HTML_TABLE_HEADER_BGCOLOR,-width=>'12%'},
+                      ["Other".$cgi->br."Scaffolds","Other".$cgi->br."Arms",
+                       "Other".$cgi->br."Locations","Other".$cgi->br."Cytologys"]).
+               $cgi->th({-bgcolor=>$HTML_TABLE_HEADER_BGCOLOR,-width=>'5%'},
+                      ["Other".$cgi->br."Strands"])):'').
+               $cgi->th({-bgcolor=>$HTML_TABLE_HEADER_BGCOLOR,-width=>'5%'},
+                      ["Status"]),
 ## contents
                         (map { $cgi->td({-align=>"center"}, $_ ) } @tableRows),
 ## totals
@@ -479,17 +554,25 @@ sub reportBatch
                $cgi->th($cgi->nbsp).
                $cgi->th($cgi->nbsp).
                $cgi->th($cgi->nbsp).
+               ($allAlign?($cgi->th($cgi->nbsp).$cgi->th($cgi->nbsp).$cgi->th($cgi->nbsp).$cgi->th($cgi->nbsp).$cgi->th($cgi->nbsp).$cgi->th($cgi->nbsp)):'').
                $cgi->th($cgi->nbsp),
                        ] ))),"\n",
          $cgi->br,
+         $cgi->html_only($cgi->a({-href=>"batchReport.pl?batch=$batch&table=align&align=all"},
+                  "View Alignments of these strains from all batches"),$cgi->br,"\n"),
          $cgi->html_only($cgi->a({-href=>"batchReport.pl?batch=$batch&table=align&format=text"},
-                  "View as Tab delimited list"),$cgi->br,"\n"),
+                  "View Alignments from this batch as Tab delimited list"),$cgi->br,"\n"),
+         $cgi->html_only($cgi->a({-href=>"batchReport.pl?batch=$batch&table=align&align=all&format=text"},
+                  "View Alignments of these strains from all batches as Tab delimited list"),$cgi->br,"\n"),
           $cgi->br,"\n"
                         if (!$cgi->param('table') ||
                              $cgi->param('table') eq 'align');
 
    print $cgi->em('Sequence Key:',
-         $cgi->ul($cgi->li([qq(b -> sequence for both ends),
+         $cgi->ul($cgi->li([qq(b -> sequence for both ends,).
+                            $cgi->br.
+                            qq(more that 25 bp q20 or better for phred,
+                               or more than 25 bp of consensus),
                             qq(5 -> sequence for 5' end only),
                             qq(3 -> sequence for 3' end only),
                             qq(n -> sequence for neither end),
