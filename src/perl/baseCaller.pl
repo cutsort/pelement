@@ -98,10 +98,9 @@ $gel = new Gel($session,{-name=>$gel_name})->select_if_exists if $gel_name;
 $gel = new Gel($session,{-id=>$gel_id})->select_if_exists if (!$gel || !$gel->id) && $gel_id;
 
 unless ($gel && $gel->id) {
-   $session->error("No Gel","No gel in the db named $gel_name.") if $gel_name;
-   $session->error("No Gel","No gel in the db with id $gel_id.") if $gel_id;
-   $session->error("No Gel","No gel specified.") if (!$gel_name && !$gel_id);
-   exit(1);
+   $session->die("No gel in the db named $gel_name.") if $gel_name;
+   $session->die("No gel in the db with id $gel_id.") if $gel_id;
+   $session->die("No gel specified.") if (!$gel_name && !$gel_id);
 }
 
 # first, look for a directory with the gel name
@@ -124,15 +123,13 @@ unless ($dir) {
 }
  
 unless ($dir) {
-   $session->error("No Dir","Cannot locate directory for ".$gel->name.".");
-   exit(1);
+   $session->die("Cannot locate directory for ".$gel->name.".");
 }
  
 $session->log($Session::Info,"Using directory $dir.");
  
 unless ( -e $dir && -d $dir ) {
-   $session->error("No Dir","Cannot find or open directory $dir for ".$gel->name.".");
-   exit(1);
+   $session->die("Cannot find or open directory $dir for ".$gel->name.".");
 }
  
 my @files = (glob("$dir/*.ab1"),glob("$dir/*.scf"),glob("$dir/*.SCF"));
@@ -142,7 +139,7 @@ foreach my $file (@files) {
    my $lane = new Lane($session,{-gel_id=>$gel->id});
    
    my $chromat_type = EditTrace::TraceData::chromat_type($file);
-   $session->error("File Error","Cannot determine class of chromat.") unless $chromat_type;
+   $session->die("Cannot determine class of chromat.") unless $chromat_type;
    $session->log($Session::Info,"Chromat ".(fileparse($file))[0]." has a class $chromat_type.");
  
    my $chromat = new $chromat_type;
