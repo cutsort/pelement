@@ -13,34 +13,68 @@
 use Pelement;
 use Session;
 use BlastInterface;
+use Blast_OptionSet;
 use Seq;
 use Files;
 use PelementDBI;
 use Getopt::Long;
 use strict;
 
-my $session = new Session({-log_level=>$Session::Verbose});
+my $session = new Session();
 
 my $db = "";
 my $parser = "";
 my $blastOptions = "";
+my $protocol = '';
+my $verbose;
 GetOptions( "db=s"       => \$db,
             "parser=s"   => \$parser,
             "blastopt=s" => \$blastOptions,
+            "protocol=s" => \$protocol,
+            "verbose!"   => \$verbose,
            );
 
+$session->log_level($Session::Verbose) if $verbose;
+
+# see if there is a predefined set of option for a blast protocol
+
 my $blastArg = {};
+
+# first, load default blast options
+my $b_Os = new Blast_OptionSet($session,{-protocol=>'default'})->select;
+# protect against typos by insisting that it be a known protocol.
+$session->die("Cannot load default parameters.") unless $b_Os->as_list;
+foreach my $param ($b_Os->as_list) {
+  $blastArg->{'-'.$param->key} = $param->value;
+}
+
+# now load any specified protocol
+if( $protocol ) {
+  my $b_Os = new Blast_OptionSet($session,{-protocol=>$protocol})->select;
+  # protect against typos by insisting that it be a known protocol.
+  $session->die("$protocol is not a known protocol.") unless $b_Os->as_list;
+  foreach my $param ($b_Os->as_list) {
+     $blastArg->{'-'.$param->key} = $param->value;
+  }
+}
+
+# and finally any command line specific.
 $blastArg->{-db} = $db if $db;
 $blastArg->{-parser} = $parser if $parser;
 $blastArg->{-options} = $blastOptions if $blastOptions;
 
 my $seq = new Seq($session,{-seq_name=>$ARGV[0]})->select;
 
-my $blast_score = length($seq->sequence);
+my $blast_score;
 
-$session->log($Session::Info,"Minimum blast score is $blast_score.");
+# if not specified, give score cutoff for both hit and hsp
+$blast_score = length($seq->sequence)>500?500:length($seq->sequence);
+$session->verbose("Minimum blast score S is $blast_score.");
+$blastArg->{-options} = "S=$blast_score ".$blastArg->{-options} unless $blastArg->{-options} =~ /S\s*=/;
 
-$blastArg->{-options} .= " S=$blast_score" unless $blastArg->{-options} =~ /S\s*=/;
+$blast_score = length($seq->sequence)>250?125:int(length($seq->sequence)/2+.51);
+$session->verbose("Minimum blast score S is $blast_score.");
+$blastArg->{-options} = "S2=$blast_score ".$blastArg->{-options} unless $blastArg->{-options} =~ /S2\s*=/;
 
 unless ($seq->sequence) {
    $session->die("No record for sequence $ARGV[0].");
@@ -54,15 +88,15 @@ $session->at_exit(sub{unlink $fasta_file});
 
 my $blastRun = new BlastInterface($session,$blastArg);
 
-$session->log($Session::Info,"About to run blast program on $fasta_file.");
+$session->info("About to run blast program on $fasta_file.");
 
 $blastRun->run($seq);
 
-$session->log($Session::Info,"Blast completed.");
+$session->info("Blast completed.");
 
 my $sql = $blastRun->parse_sql();
 
-$session->log($Session::Verbose,"SQL: $sql.");
+$session->verbose("SQL: $sql.");
 
 $session->get_db->do($sql) if ($sql);
 
