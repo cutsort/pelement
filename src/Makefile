@@ -3,9 +3,7 @@
 # and installing scripts and modules
 
 INSTALLDIR = /data/pelement
-SEDINSTALLDIR = \\/data\\/pelement
 WEBINSTALLDIR = /opt/httpd/cgi-bin/pelement
-SEDWEBINSTALLDIR = \\/opt\\/httpd\\/cgi-bin\\/pelement
 
 check:
 	for I in perl cgi modules ; do (cd $$I; make check ); done
@@ -14,10 +12,10 @@ all:
 	for I in perl cgi modules ; do (cd $$I; make all ); done
 
 webinstall: hostcheck
-	for I in cgi modules ; do (cd $$I; INSTALLDIR=$(WEBINSTALLDIR) SEDINSTALLDIR=$(SEDWEBINSTALLDIR) make install ); done
+	for I in cgi modules ; do (cd $$I; INSTALLDIR=$(WEBINSTALLDIR) make install ); done
 	
 install:
-	for I in perl modules ; do (cd $$I; INSTALLDIR=$(INSTALLDIR) SEDINSTALLDIR=$(SEDINSTALLDIR) make install ); done
+	for I in perl modules ; do (cd $$I; INSTALLDIR=$(INSTALLDIR) make install ); done
 
 hostcheck:
 	hostname | grep boss 
