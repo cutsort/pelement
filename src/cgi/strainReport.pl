@@ -162,7 +162,7 @@ sub reportStrain
 
    my %insertLookup = ();
 
-   foreach my $seq ($seqSet->as_list) {
+   foreach my $seq (sort { $a->seq_name cmp $b->seq_name } $seqSet->as_list) {
      my $s = $seq->seq_name;
      my $i = $seq->insertion_pos;
      my $r = $seq->sequence;
@@ -243,7 +243,7 @@ sub reportStrain
             }
          }
       }
-   } elsif ($cgi->param('action') eq 'ignore' || $cgi->param('action') eq 'accept') {
+   } elsif ($cgi->param('Curate') eq 'Curate') {
       if (!$cgi->param('id') ) {
          print $cgi->center($cgi->em("Internal trouble with CGI parameter id.")),"\n";
       } else {
@@ -254,11 +254,14 @@ sub reportStrain
          if (!$seq_a->id || !$paranoid) {
             print $cgi->center($cgi->em("Internal trouble with CGI parameter id.")),"\n";
          } else {
-            if ($cgi->param('action') eq 'accept') {
+            if ($cgi->param('status') eq 'curated') {
                $seq_a->status('curated');
                $seq_a->update;
-            } elsif ( $cgi->param('action') eq 'ignore') {
+            } elsif ( $cgi->param('status') eq 'deselected') {
                $seq_a->status('deselected');
+               $seq_a->update;
+            } elsif ( $cgi->param('status') eq 'unwanted') {
+               $seq_a->status('unwanted');
                $seq_a->update;
             }
          }
@@ -287,16 +290,18 @@ sub reportStrain
                                    $subject_name{$seq_a->scaffold}:
                                    $seq_a->scaffold;
 
-        my $link;
-        if ($seq_a->status eq "unique" || $seq_a->status eq "curated") {
-           $link = $cgi->a({-href=>"strainReport.pl?id=".$seq_a->id.
-                            "&action=ignore&strain=$strain"},"Disregard");
-        } elsif ($seq_a->status eq "multiple" || $seq_a->status eq "deselected") {
-           $link = $cgi->a({-href=>"strainReport.pl?id=".$seq_a->id.
-                            "&action=accept&strain=$strain"},"Accept");
-        } else {
-           $link = "non-standard";
-        }
+        # we need to delete the id parameter to get the hidden id to work.
+        $cgi->delete('id');
+        $cgi->delete('status');
+        my $link = $cgi->start_form( -method => 'get',
+                                     -action => 'strainReport.pl').
+                      $cgi->hidden(-name=>'strain',-value=>$strain).
+                      $cgi->hidden(-name=>'id',-value=>$seq_a->id).
+                      $cgi->popup_menu(-name => 'status',
+                                    -default => $seq_a->status eq 'multiple'?'curated':$seq_a->status,
+                                     -values => ['curated','deselected','unwanted']).
+                      $cgi->submit(-name => 'Curate').
+                   $cgi->end_form;
 
         push @tableRows, [$seq_a->seq_name,$p_range,$scaffold_name,$strand,
                           $seq_a->s_start."-".$seq_a->s_end,$seq_a->s_insert,
@@ -338,7 +343,7 @@ sub reportStrain
      @blast_runs = sort { PCommon::date_cmp($a->date,$b->date) } @blast_runs;
 
      foreach my $b (@blast_runs) {
-        print $cgi->em("Blast run of ".$b->seq_name." to ".$b->db." performed ".$b->date."."),$cgi->br;
+        print $cgi->em(($b->program || 'blastn')." run of ".$b->seq_name." to ".$b->db." performed ".$b->date."."),$cgi->br;
      }
 
      #my $sql = qq(select seq_name,query_begin,query_end,name,subject_begin,subject_end,score,match,
@@ -416,9 +421,13 @@ sub reportStrain
                     $cgi->th({-bgcolor=>$HTML_TABLE_HEADER_BGCOLOR},
                              ["Sequence<br>Name","Blast Hits"] ),
                               (map { $cgi->td({-align=>"center"}, $_ ) }
-                                  (map { [$_,format_minitable($cgi,$db,$mini_table{$_})] }
+                                  (map { [$_.linkit($db,$_),format_minitable($cgi,$db,$mini_table{$_})] }
                                                sort { $b cmp $a } keys %mini_table)) ])));
                         
+                 sub linkit { my ($db,$seq) = @_;
+                    return $cgi->br.$cgi->a({-href=>"hitMaker.pl?seq=".$seq},'Manual Alignment')
+                           if ($db eq 'release3_genomic');
+                 }
      } else {
         print $cgi->center($cgi->em("No recorded blast hits to $db_name{$db}.")),$cgi->br,"\n";
      }
