@@ -18,6 +18,7 @@ use Getopt::Long;
 use Session;
 use Batch;
 use Sample;
+use Strain;
 use Digestion;
 use Ligation;
 use IPCR;
@@ -82,6 +83,14 @@ while ($row = $st->fetchrow_arrayref) {
    }
    # don't try to stick in empty strains.
    next unless $strain;
+   # make sure we have this strain already
+   my $str = new Strain($session,{-strain_name=>$strain});
+   unless ($str->db_exists) {
+      $str->status('new');
+      $str->collection(substr($strain,0,2));
+      $str->registry_date('today');
+      $str->insert;
+   }
    $sample->strain_name($strain);
    $sample->insert;
 }
