@@ -54,19 +54,26 @@ my %def_comment_db = (
          machine  => ['source','machine_name'],
               );
 
+# more option processing. 
+# we specify what we are processing by the switch of either
+#         -gel Name         process a gel by name
+#         -gel_id Number    process a gel by internal db number id
+#         -lane Name        process a lane by filename
+#         -lane_id Number   process a lane by internal db number id
+
 # the name of a directory to look. names not prefaced by a / are
 # relative to $PELEMENT_TRACE; otherwise they are absolute. *'s
 # indicate that they name will be glob'ed
-
-# the name of a directory is the gel name with an optional .number
+# normally the name of a directory is the gel name with an optional .number
 # to indicate a sequencing attempt.
-
 # the default path is one level below $PELEMENT_TRACE
 my $path = '*';
 
-
 # do we force a reload if this has been processed before?
 my $force = 0;
+
+# variables associated with the gel/lane to process
+my ($gel_name,$gel_id);
 
 GetOptions('lane=s@'     => $comment_db{lane},
            'well=s@'     => $comment_db{well},
@@ -75,13 +82,20 @@ GetOptions('lane=s@'     => $comment_db{lane},
            'machine=s@'  => $comment_db{machine},
            'path=s'      => \$path,
            'force!'      => \$force,
+           'gel=s'       => \$gel_name,
+           'gel_id=i'    => \$gel_id,
           );
 map { $comment_db{$_} = $def_comment_db{$_} unless scalar(@{$comment_db{$_}}) } keys %def_comment_db;
 
-my $gel = new Gel($session,{-name=>$ARGV[0]})->select();
+# try to select by name, then by id.
+my $gel;
+$gel = new Gel($session,{-name=>$gel_name})->select_if_exists if $gel_name;
+$gel = new Gel($session,{-id=>$gel_id})->select_if_exists if (!$gel || !$gel->id) && $gel_id;
 
-unless ($gel->id) {
-   $session->error("No Gel","No gel in the db named $ARGV[0].");
+unless ($gel && $gel->id) {
+   $session->error("No Gel","No gel in the db named $gel_name.") if $gel_name;
+   $session->error("No Gel","No gel in the db with id $gel_id.") if $gel_id;
+   $session->error("No Gel","No gel specified.") if (!$gel_name && !$gel_id);
    exit(1);
 }
 
@@ -143,6 +157,12 @@ foreach my $file (@files) {
    # and the seq_name comes from the sample name
    my $seq_name = (split(/_/,$comments{sample_name}))[1];
    $lane->seq_name($seq_name);
+  
+   # we will not process empties.
+   if ($seq_name =~ /EMPTY/i) {
+      $session->log($Session::Info,"This file appears to be empty. Skipping.");
+      next;
+   }
  
    my $laneDir = (fileparse($file))[1];
    $laneDir =~ s/^$PELEMENT_TRACE\/*//;
