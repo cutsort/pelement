@@ -71,18 +71,16 @@ sub reportStrain
   my $session = new Session({-log_level=>0});
 
   # try to make sense of the strain name. It may have an end identifier.
-  my $s = new Strain($session,{-strain_name=>$strain});
-
-  if (!$s->db_exists  && $strain =~ /-[35]$/ ) {
-     $strain =~ s/-[35]//;
-     $s->strain_name($strain);
-  }
+  $strain =~ s/\s+//g;
+  # an get rid of strange periods from cutting-n-pasting
+  $strain =~ s/\.//g;
+  my $s = new Strain($session,{-strain_name=>Seq::strain($strain)});
 
   if ( !$s->db_exists ) {
-     print $cgi->center($cgi->h2("No flanking sequence for strain $strain.")),"\n";
+     print $cgi->center($cgi->h2("No record of strain $strain.")),"\n";
      return;
   }
-
+  
   my $seqSet = new SeqSet($session,{-strain_name=>$s->strain_name})->select;
 
   my %db_name = ( "release3_genomic" => "Release 3 Genomic",
@@ -104,11 +102,22 @@ sub reportStrain
      my $a = $seq->seq_name;
      my $b = $seq->insertion_pos;
      my $c = $seq->sequence;
+     my $q = $seq->qualifier;
+     if ($q =~ /^\.\d+$/ ) {
+        $q = 'Transitory';
+     } elsif ($q =~ /^[a-z]+$/ ) {
+        $q = 'Curated';
+     } else {
+        $q = 'Current';
+     }
      $insertLookup{$a} = $b;
      my $len = length($c);
      $c =~ s/(.{50})/$1<br>/g;
      $c = "<tt>".$c."</tt>";
-     push @tableRows, $cgi->td({-align=>'center'},[$a,$len,$b]).$cgi->td({-align=>'left'},[$c]);
+     push @tableRows, $cgi->td({-align=>'center'},
+                       [$cgi->a({-href=>'assemblyReport.pl?strain='.$a},$a),$len,$b]).
+                      $cgi->td({-align=>'left'},[$c]).
+                      $cgi->td({-align=>'center'},$cgi->a({-href=>'seqStatusReport.pl?seq='.$a},$q));
      $seq_names .= "'$a',";
   }
   $seq_names =~ s/,$/)/;
@@ -119,7 +128,7 @@ sub reportStrain
   print $cgi->center($cgi->table({-border=>2,-width=>"80%",-bordercolor=>$HTML_TABLE_BORDERCOLOR},
            $cgi->Tr( [
               $cgi->th({-bgcolor=>$HTML_TABLE_HEADER_BGCOLOR},
-                      ["Sequence<br>Name","Length","Insert<br>Position","Sequence"] ),
+                      ["Sequence<br>Name","Length","Insert<br>Position","Sequence","Status"] ),
                            @tableRows,
                            #(map { $cgi->td({-align=>"left"}, $_ ) } @tableRows),
                        ] )
@@ -127,6 +136,8 @@ sub reportStrain
 
   print $cgi->br,"\n";
 
+  print $cgi->center($cgi->a({-href=>"phenoReport.pl?strain=".$s->strain_name},
+                             "Edit Genotype/Phenotype information on ".$s->strain_name)),$cgi->br,"\n";
 
   # before generating a report, we need to see if there is a requested action
   # possibilities are
@@ -228,7 +239,20 @@ sub reportStrain
   print $cgi->center($cgi->br,$cgi->h3("Blast Hits for Flanking Sequences")),"\n";
 
   foreach $db (sort keys %db_name) {
+
+
+     # when did we do this?
+     my $sql = qq(select seq_name,date from blast_run where 
+                 seq_name in ).$seq_names.qq(and db=').$db.
+                 qq('order by seq_name desc,date desc);
      my @values = ();
+     $session->db->select($sql,\@values);
+
+     while (@values) {
+        my @v = splice(@values,0,2);
+        print $cgi->em("Blast run of $v[0] to $db_name{$db} performed $v[1]."),$cgi->br;
+     }
+
      my $sql = qq(select seq_name,query_begin,query_end,name,subject_begin,subject_end,score,match,
                   length,percent,id from blast_report where
                   seq_name in ).$seq_names.qq(and db=').$db.
