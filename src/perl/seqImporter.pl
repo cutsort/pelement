@@ -221,6 +221,12 @@ foreach my $lane (@lanes) {
       # if we have not found the junction, then this is -1. (before the seq)
       $insert_pos = $found_junction?$t_p->insertion_offset:-1;
 
+      if ($extent <= $phred_seq->v_trim_start) {
+         $session->warn("No sequence after trimming.");
+         next LANE 
+      }
+
+
       $seq = substr($phred_seq->seq,$phred_seq->v_trim_start,
                                      $extent-$phred_seq->v_trim_start);
    }
@@ -295,12 +301,12 @@ sub insertRecheckRecord
       # but first, see if it was assembled.
       my $s_a_S = new Seq_AssemblySet($session,{-seq_name=>$s_a->seq_name});
 
-      # db_exists returns a count of the number of records.
-      if ($s_a_S->db_exists > 1) {
+      # see hommany returns records.
+      $s_a_S->select;
+      if (scalar($s_a_S->as_list) > 1) {
          $session->info("This phred seq is assembled into a multiple sequence consensus. Skipping.");
          return;
       }
-      $s_a_S->select;
       $session->die("The code for updating recheck seqs is not finished.");
       foreach my $o ($s_a_S->as_list) {
          $o->delete('src_seq_id','src_seq_src');
