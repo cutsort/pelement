@@ -39,7 +39,6 @@ use Gadfly_Syn;
 
 use File::Basename;
 
-
 # gadfly modules
 use lib $ENV{FLYBASE_MODULE_PATH};
 use GeneralUtils::XML::Generator;
@@ -54,6 +53,20 @@ use BioModel::Gene;
 use BioModel::SeqAlignment;
 
 my $session = new Session();
+
+# command line options
+my $ifAligned = 1;        # only submit info on the "desired" aligned flanks
+my $outFile;
+GetOptions('ifaligned!' => \$ifAligned,
+           'out=s'      => \$outFile);
+
+#if ($outFile) {
+#  unless (open(FIL,"> $outFile") ) {
+#     $session->die("Cannot open file $outFile for writing: $!");
+#  }
+#} else {
+#   *FIL = *STDOUT;
+#}
 
 my $doc_date = localtime(time);
 my $doc_creator = File::Basename::basename($0).':$Revision$';
@@ -112,7 +125,7 @@ foreach my $strain_name (@ARGV) {
    # and may have been deleted.
    my %align = (3 => [], 5 => [], b => [], o => []);
    foreach my $align (@seq_alignments) {
-      next if $align->status eq 'multiple';
+      next unless $align->status eq 'multiple';
       next if $align->status eq 'deselected';
       my $end = Seq::end($align->seq_name);
       my $qual = Seq::qualifier($align->seq_name);
@@ -122,7 +135,8 @@ foreach my $strain_name (@ARGV) {
       push @{$align{$end}}, {seq_name => $align->seq_name ,
                              scaffold => $align->scaffold,
                              position => $align->s_insert,
-                             strand   => $strand       };
+                             strand   => $strand,
+                             status   => $align->status   };
    }
    my $multiple = 'N';
    # check out the alignments. This is a multiple if either (1) any one
@@ -184,7 +198,7 @@ foreach my $strain_name (@ARGV) {
 
    # enforce requirements that we need a phenotype record.
    unless ($pheno->db_exists && $pheno->is_homozygous_viable && $pheno->is_homozygous_fertile) {
-      $session->die("No phenotype/genotype informatio for $strain_name.");
+      $session->die("No phenotype/genotype information for $strain_name.");
    }
 
    # if there is no derived cytology record, we'll try to infer one if the insertion
@@ -435,9 +449,8 @@ foreach my $strain_name (@ARGV) {
 
 $sub->validate;
 
-my $fn = 'fly1.xml';
 
-my $xml_generator = GeneralUtils::XML::Generator->new(-file=>$fn);
+my $xml_generator = GeneralUtils::XML::Generator->new($outFile?(-file=>$outFile):());
 $xml_generator->header;
 $sub->to_xml($xml_generator);
 
@@ -456,6 +469,7 @@ sub getAlignmentFromSeqName
    foreach my $alignHR (@{$aRef->{$end}}) {
       # loop over all the alignments and see if the submitted seq is aligned
       next unless $seq_name eq $alignHR->{seq_name};
+      next if $alignHR->{status} eq 'unwanted';
       my $arm = $alignHR->{scaffold};
       my $pos = $alignHR->{position};
       my $strand = $alignHR->{strand};
@@ -500,7 +514,12 @@ sub getAnnotatedHits
       }
       $session->warn($gene->cg." does not have an accession number") and next unless $fbgn;
 
-      my $defcomment = qq(Curators from the BDGP Gene Disruption Project judge that the expression of this gene is likely to be affected by the transposon insertion, based on the location of the transposon insertion site within or in the proximity of the gene, as annotated in Release 3.1.);
+      my $defcomment = qq(Curators from the BDGP Gene Disruption Project ).
+                       qq(judge that the expression of this gene is likely ).
+                       qq(to be affected by the transposon insertion, ).
+                       qq(based on the location of the transposon ).
+                       qq(insertion site within or in the proximity of ).
+                       qq(the gene, as annotated in Release 3.1.);
 
       push @geneHits, {name=>$gene->cg,
                        arm=>$g->arm,
@@ -547,7 +566,7 @@ sub getGeneHit
       $gadflyDba = GxAdapters::ConnectionManager->get_adapter("gadfly");
    } else {
       # unmapped heterchromatic or shotgun arm extension
-      $gadflyDba = GxAdapters::ConnectionManager->get_adapter("gadflyi");
+      $gadflyDba = GxAdapters::ConnectionManager->get_adapter("gadfly");
       $arm = 'X.wgs3_centromere_extensionB'
                               if $arm eq 'X.wgs3_centromere_extension';
    }
