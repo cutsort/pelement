@@ -54,15 +54,21 @@ my $session = new Session();
 my $force = 0;
 my $use = 3;
 my $ifAligned = 1;
+my $test = 0;
+my $verbose = 0;
 GetOptions('use=i'     => \$use,
            'force!'    => \$force,
            'ifaligned' => \$ifAligned,
+           'test!'     => \$test,
+           'verbose!'  => \$verbose,
           );
 
 # processing hierarchy. In case multiple things are specified, we have to
 # decide what to process. (Or flag it as an error? No. Always deliver something)
 # gels by name are first, then by gel_id, then by lane name, then by lane_id.
 
+$session->log_level($Session::Debug) if $verbose;
+$session->db_begin;
 
 STRAIN:
 foreach my $strain (@ARGV) {
@@ -74,13 +80,13 @@ foreach my $strain (@ARGV) {
    # and their reference names
    my %names = ();
 
-   $session->log($Session::Info,"Processing strain $strain.");
+   $session->info("Processing strain $strain.");
 
    # find the associated sequences
    my $seqSet = new SeqSet($session,{-strain_name=>$strain})->select;
 
    unless ($seqSet->as_list) {
-      $session->log($Session::Warn,"No sequence for strain $strain.");
+      $session->warn("No sequence for strain $strain.");
       next STRAIN;
    }
 
@@ -88,9 +94,11 @@ foreach my $strain (@ARGV) {
    # if we're forcing an update.
 
    foreach my $seq ($seqSet->as_list) {
-      if ($seq->seq_name =~ /-([35])/ ) {
-         my $end = $1;
-         if ($ends{$end}) {
+      my ($seqS,$seqE,$seqQ) = $seq->parse;
+      ($session->verbose("Skipping qualified end sequence.",$seq->seq_name) and next) if $seqQ; 
+      if ($seqE eq '3' || $seqE eq '5') {
+         # an unqualified sequence with an end
+         if ($ends{$seqE}) {
             $session->warn("This cannot deal with multiple insertions yet. Skipping.");
             next STRAIN;
          }
@@ -98,13 +106,13 @@ foreach my $strain (@ARGV) {
             $session->warn("Sequence record for ".$seq->seq_name." is missing information. Skipping.");
             next STRAIN;
          }
-         $ends{$end} = $seq->sequence;
-         $pos{$end} = $seq->insertion_pos;
-         $names{$end} = $seq->seq_name;
+         $ends{$seqE} = $seq->sequence;
+         $pos{$seqE} = $seq->insertion_pos;
+         $names{$seqE} = $seq->seq_name;
       } else {
          # there is a 'both' end.
          if ($force) {
-            $session->log($Session::Info,"Deleting both-end sequence for $strain.");
+            $session->info("Deleting both-end sequence for $strain.");
             my $seqAssSet = new Seq_AssemblySet($session,{-seq_name=>$seq->seq_name})->select;
             map { $_->delete } $seqAssSet->as_list;
             $seq->delete;
@@ -151,7 +159,6 @@ foreach my $strain (@ARGV) {
    # build the both-end by taking the 5' sequence first
    my $bothSeq = $ends{5};
 
-   $session->log_level($Session::Debug);
    # and look at the overlap
    my $ctr = 0;
    foreach my $olap (0..(length($ends{3})-1)) {
@@ -159,7 +166,7 @@ foreach my $strain (@ARGV) {
       my $base5 = substr($ends{5},$olap+$pos{5}-$pos{3},1);
       # hop out as soon as we get to the end.
       ($bothSeq .= substr($ends{3},$olap) and last) unless $base5;
-      $session->log($Session::Debug,"Comparing bases $base3 and $base5 at positions $olap and ".
+      $session->verbose("Comparing bases $base3 and $base5 at positions $olap and ".
                                     ($olap+$pos{5}-$pos{3}));
       ($session->warn("Sequences do not agree at overlap. Skipping.") and next STRAIN )
                                     unless $base3 eq $base5;
@@ -168,8 +175,8 @@ foreach my $strain (@ARGV) {
    }
    $session->log_level($Session::Info);
 
-   $session->log($Session::Info,"Built both-end sequence for $strain. Successful match on $ctr bases.");
-   $session->log($Session::Debug,"$strain both-end sequence is $bothSeq.");
+   $session->info("Built both-end sequence for $strain. Successful match on $ctr bases.");
+   $session->verbose("$strain both-end sequence is $bothSeq.");
 
    # we already checked and know there is not a seq record for this name.
    my $seqRecord = new Seq($session,{-seq_name      =>$strain,
@@ -186,8 +193,14 @@ foreach my $strain (@ARGV) {
                                             });
    map { $s_a->src_seq_id($_->id); $s_a->insert } $seqSet->as_list;
 
-   $session->log($Session::Info,"Sequence record for $strain inserted.");
+   $session->info("Sequence record for $strain inserted.");
 
+}
+
+if ($test) {
+   $session->db_rollback;
+} else {
+   $session->db_commit;
 }
 
 $session->exit();
