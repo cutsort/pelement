@@ -106,6 +106,8 @@ unless ($gel && $gel->id) {
 # first, look for a directory with the gel name
 # next, a directory with a number attached
 $version = ".".$version if $version;
+# special case: version=0 means no version identifier.
+$version = '' unless $version;
 
 my $dir;
 my @dirs;
@@ -159,7 +161,13 @@ foreach my $file (@files) {
    $comments{lane} =~ s/\/\d+//;
  
    # and the seq_name comes from the sample name
-   my $seq_name = (split(/_/,$comments{sample_name}))[1];
+   # (after the first _ if it's there)
+   my $seq_name;
+   if ($comments{sample_name} =~ /_/) {
+     $seq_name = (split(/_/,$comments{sample_name}))[1];
+   } else {
+     $seq_name = $comments{sample_name};
+   }
    $lane->seq_name($seq_name);
   
    # we will not process empties.
