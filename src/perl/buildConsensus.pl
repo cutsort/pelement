@@ -180,7 +180,7 @@ foreach my $lane (@lanes) {
    # keep records of all the phred_seq id's and whether any have been vector trimmed.
    my $foundVec = 0;
    my %pidH = ();
-   my $shortestLength;
+   my @shortestLength;
    foreach my $p (@phred_seq)  {
       next unless $p && $p->id;
 
@@ -191,7 +191,7 @@ foreach my $lane (@lanes) {
       next unless $trimSeq;
 
       # keep a record of the shortest (non-zero) length
-      $shortestLength = length($trimSeq) if !$shortestLength || length($trimSeq) < $shortestLength;
+      push @shortestLength, length($trimSeq);
 
       my $trimQual = $qual->trimmed_qual($p);
 
@@ -210,6 +210,8 @@ foreach my $lane (@lanes) {
 
    my $insert_pos = $foundVec?$t_p->insertion_offset:-1;
 
+   @shortestLength = sort { $a <=> $b } @shortestLength;
+   my $shortestLength = (scalar(@shortestLength)>1)?$shortestLength[-2]:$shortestLength[0];
 
    # decide on the score and match parameters. If the seq is very
    # short, be agressive but not overly so;
