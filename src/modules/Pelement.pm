@@ -61,7 +61,7 @@ $PELEMENT_NOTIFY = "joe\@fruitfly.org";
 # db server
 $PELEMENT_DB_DBI     = "Pg";
 # whatever it takes to connect.
-$PELEMENT_DB_CONNECT = "dbname=pelement;host=sin";
+$PELEMENT_DB_CONNECT = "dbname=pelement;host=sin.lbl.gov";
 
 # other executable directories
 $GENOMIC_BIN = "/usr/local/bdgp/bin/";
@@ -73,11 +73,6 @@ $PELEMENT_PHREDBIN = "/usr/local/bdgp/bin/phred";
 $PELEMENT_PHRAPBIN = "/usr/local/bdgp/bin/phrap";
 $PELEMENT_CROSS_MATCHBIN = "/usr/local/bdgp/bin/cross_match";
 $ENV{PHRED_PARAMETER_FILE} = "/usr/local/bdgp/etc/phredpar.dat";
-
-# include paths for java
-$ENV{PATH} = "$ENV{PATH}:/tools/sequence/bin/:/tools/java/jdk1.1.5/bin/";
-$ENV{CLASSPATH} = "/usr/java1.1/lib/classes.zip/:$PELEMENT_USER/classes/:$PELEMENT_USER/lib/ngsdk.jar";
-$PELEMENT_JAVABIN = "/bin/java";
 
 # include paths for blast tools
 $BLAST_PATH = "/usr/local/bdgp/wublast/";
