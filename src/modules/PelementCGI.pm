@@ -47,6 +47,7 @@ sub new
 
   # keep track of what we're printing out.
   $self->{format} = $self->param('format') || 'html';
+  $self->{filename} = $self->param('filename') || 'Pelement';
 
   return $self;
 
@@ -64,28 +65,66 @@ sub format
    return $self->{format};
 }
 
+sub html_only
+{
+   my $self = shift;
+   return @_ if $self->format eq 'html';
+   return;
+}
+
+=head1 save_as
+
+   sets the content-disposition to get the save as: dialog box
+   to (maybe) have the right value. No checking of legal filenames
+   is (or can be) done.
+
+   The 'extension' is set to the format of the page. (except for text
+   becoming '.txt')
+
+=cut
+sub save_as
+{
+   my $self = shift;
+   $self->{filename} = shift if @_;
+   return $self->{filename};
+}
+
+=head1 header
+
+  an overridden header method in case we need to write text.
+
+=cut
+sub header
+{
+  my $self = shift;
+  return $self->SUPER::header(-type=>'text/plain',@_) if $self->format eq 'text';
+  return $self->SUPER::header(@_);
+}
+
 sub init_page
 {
   my $self = shift;
-  return $self->start_html({-bgcolor=>$HTML_BODY_BGCOLOR}) if $self->format eq 'html';
-  return $self->start_html({-bgcolor=>$HTML_BODY_BGCOLOR})."<pre>\n";
-  
+
+  my $argRef = shift || {};
+  $argRef->{-bgcolor} = $HTML_BODY_BGCOLOR;
+  return $self->start_html($argRef) if $self->format eq 'html';
  
 }
 
 sub close_page
 {
    my $self = shift;
-   return $self->end_html if $self->format eq 'html';
-   return "</pre>".$self->end_html;
+   return $self->end_html."\n" if $self->format eq 'html';
+   #return "</pre>".$self->end_html;
 
 }
 
 sub banner
 {
   my $self = shift;
-  return $self->center($self->h3('BDGP Pelement Insertion Data Tracking DB')).
-            "\n".$self->hr."\n";
+  return $self->center($self->h3('BDGP Pelement Insertion Data Tracking DB')),
+                       $self->p({-align=>'right'},localtime(time).""),"\n",
+                       $self->hr."\n";
 
 }
 
@@ -100,9 +139,9 @@ sub footer
   my $table;
   $table = $self->table($self->Tr([$self->td($formattedLinks)]))."\n" if @$formattedLinks;
 
-  return $self->hr."\n".
+  return $self->html_only($self->hr."\n".
          $self->center($self->h3('BDGP Pelement Insertion Data Tracking DB'),
-                       $self->br,"\n",$table);
+                       $self->br,"\n",$table));
 }
 
 
@@ -239,25 +278,29 @@ sub hr
 sub center {
    my $self = shift;
    return $self->SUPER::center(@_) if $self->format eq 'html';
-   return @_;
+   shift if ref($_[0]) eq 'HASH';
+   return join('',@_);
 }
 
 sub h1 {
    my $self = shift;
    return $self->SUPER::h1(@_) if $self->format eq 'html';
-   return @_;
+   shift if ref($_[0]) eq 'HASH';
+   return join('',@_);
 }
 
 sub h2 {
    my $self = shift;
    return $self->SUPER::h2(@_) if $self->format eq 'html';
-   return @_;
+   shift if ref($_[0]) eq 'HASH';
+   return join('',@_);
 }
 
 sub h3 {
    my $self = shift;
    return $self->SUPER::h3(@_) if $self->format eq 'html';
-   return @_;
+   shift if ref($_[0]) eq 'HASH';
+   return join('',@_);
 }
 
 sub br {
@@ -269,7 +312,8 @@ sub br {
 sub p {
    my $self = shift;
    return $self->SUPER::p(@_) if $self->format eq 'html';
-   return @_,"\n";
+   shift if ref($_[0]) eq 'HASH';
+   return "\n".join('',@_)."\n";
 }
 
 1;
