@@ -319,7 +319,7 @@ sub insertRecheckRecord
    my $newId = 1;
    map { if ($_->qualifier =~ /r(\d+)/) { $newId = ($newId>$1)?$newId:($1+1) } } $sS->as_list;
 
-   $session->info("Inserting unconfirmed recheck if $newId.");
+   $session->info("Inserting unconfirmed recheck as r$newId.");
    $seqRecord->seq_name($seqRecord->seq_name.".r$newId");
    $seqRecord->last_update('today');
    $seqRecord->insert;
