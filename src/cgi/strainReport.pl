@@ -146,6 +146,7 @@ sub reportStrain
    my $seqSet = new SeqSet($session,{-strain_name=>$s->strain_name})->select;
 
    my %db_name = ( "release3_genomic" => "Release 3 Genomic",
+                  "vector"           => "Vector Contaminates",
                   "na_te.dros"       => "Transposable Elements",
                 );
    my %subject_name = ( arm_2L => "2L",
