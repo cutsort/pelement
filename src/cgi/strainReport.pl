@@ -2,7 +2,7 @@
 
 =head1 NAME
 
-  strainReport.pl Web report of the strain information.
+   strainReport.pl Web report of the strain information.
 
 =cut
 
@@ -11,9 +11,15 @@ use Session;
 use Strain;
 use Seq;
 use SeqSet;
+use SampleSet;
+use Strain_Alias;
+use Batch;
 use Seq_AlignmentSet;
 use Seq_Alignment;
 use Blast_Report;
+use Blast_ReportSet;
+use Blast_Run;
+use Blast_RunSet;
 use GenBankScaffold;
 use Submitted_Seq;
 use PelementCGI;
@@ -49,10 +55,9 @@ exit(0);
 sub selectStrain
 {
 
-  my $cgi = shift;
+   my $cgi = shift;
   
-  print
-    $cgi->center(
+   print $cgi->center(
        $cgi->h3("Enter the Strain Name:"),"\n",
        $cgi->br,
        $cgi->start_form(-method=>"get",-action=>"strainReport.pl"),"\n",
@@ -70,39 +75,94 @@ sub selectStrain
 
 sub reportStrain
 {
-  my ($cgi,$strain) = @_;
+   my ($cgi,$strain) = @_;
 
-  my $session = new Session({-log_level=>0});
+   my $session = new Session({-log_level=>0});
 
-  # try to make sense of the strain name. It may have an end identifier.
-  $strain =~ s/\s+//g;
-  # an get rid of strange periods from cutting-n-pasting
-  $strain =~ s/\.//g;
-  my $s = new Strain($session,{-strain_name=>Seq::strain($strain)});
+   # try to make sense of the strain name. It may have an end identifier.
+   $strain =~ s/\s+//g;
+   # and get rid of strange periods from cutting-n-pasting
+   $strain =~ s/\.//g;
+   my $s = new Strain($session,{-strain_name=>Seq::strain($strain)});
 
-  if ( !$s->db_exists ) {
-     print $cgi->center($cgi->h2("No record of strain $strain.")),"\n";
-     return;
-  }
+   if ( !$s->db_exists ) {
+      # if this doesn't exists, check to see if it is an alias
+      my $al = new Strain_Alias($session,{-alias=>Seq::strain($strain)})->select_if_exists;
+      if ($al && $al->strain_name ) {
+         $s = new Strain($session,{-strain_name=>$al->strain_name});
+         print $cgi->center($cgi->em(Seq::strain($strain)." is an alias for ".$s->strain_name.".")); 	
+         $cgi->param('strain',$al->strain_name);
+         if (!$s->db_exists ) {
+            print $cgi->center($cgi->h2("No record of strain ".Seq::strain($strain).".")),"\n";
+            return;
+         }
+      } else {
+         print $cgi->center($cgi->h2("No record of strain ".Seq::strain($strain)." or aliases.")),"\n";
+      }
+   }
+
+   # what batch was this strain in?
+   my $sampleSet = new SampleSet($session,{-strain_name=>$cgi->param('strain')})->select();
+
+   my @tableRows = ();
+   foreach my $s ($sampleSet->as_list) {
+
+      my $ba = new Batch($session,{-id=>$s->batch_id});
+      next unless $ba->db_exists;
+      $ba->select;
+      push @tableRows, [
+                $s->strain_name,uc($s->well),
+                $cgi->a({-href=>"batchReport.pl?batch=".$ba->id},"Batch ".$ba->id),
+                $ba->batch_date || $cgi->nbsp ];
+   }
+
+   # sort by date, then batch id, then well
+   @tableRows = sort { PCommon::date_cmp($a->[3],$b->[3]) ||
+                       $a->[2] cmp $b->[2] ||
+                       $a->[1] cmp $b->[1] } @tableRows;
+
+   if (@tableRows) {
+
+      print $cgi->center($cgi->h3("Production Records"),$cgi->br),"\n",
+            $cgi->center($cgi->table({-border=>2,
+                                -width=>"80%",
+                                -bordercolor=>$HTML_TABLE_BORDERCOLOR},
+         $cgi->Tr( [
+            $cgi->th({-bgcolor=>$HTML_TABLE_HEADER_BGCOLOR,-width=>'10%'},
+                   ["Strain".$cgi->br."Name"]).
+            $cgi->th({-bgcolor=>$HTML_TABLE_HEADER_BGCOLOR,-width=>'5%'},
+                   ["Well"]).
+            $cgi->th({-bgcolor=>$HTML_TABLE_HEADER_BGCOLOR,-width=>'15%'},
+                   ["Batch","Date"]),
+                   (map { $cgi->td({-align=>"center"}, $_ ) } @tableRows),
+                    ] )
+                  )),"\n",$cgi->br,$cgi->hr({width=>'70%'}),"\n";
+
+   } else {
+       # do we need to print this?
+       #print $cgi->h3("No batches were found for ".$cgi->param('strain')),"\n";
+   }
   
-  my $seqSet = new SeqSet($session,{-strain_name=>$s->strain_name})->select;
+   my $seqSet = new SeqSet($session,{-strain_name=>$s->strain_name})->select;
 
-  my %db_name = ( "release3_genomic" => "Release 3 Genomic",
+   my %db_name = ( "release3_genomic" => "Release 3 Genomic",
                   "na_te.dros"       => "Transposable Elements",
                 );
-  my %subject_name = ( arm_2L => "2L",
+   my %subject_name = ( arm_2L => "2L",
                        arm_2R => "2R",
                        arm_3L => "3L",
                        arm_3R => "3R",
                        arm_X  => "X",
                        arm_4  => "4");
 
-  my $seq_names = '(';
-  my @tableRows = ();
+   my @tableRows = ();
 
-  my %insertLookup = ();
+   # all of the seq names associated with this strain
+   my @seq_names = ();
 
-  foreach my $seq ($seqSet->as_list) {
+   my %insertLookup = ();
+
+   foreach my $seq ($seqSet->as_list) {
      my $s = $seq->seq_name;
      my $i = $seq->insertion_pos;
      my $r = $seq->sequence;
@@ -128,33 +188,41 @@ sub reportStrain
                        [$cgi->a({-href=>'assemblyReport.pl?strain='.$s},$s),$len,$i]).
                       $cgi->td({-align=>'left'},[$r]).
                       $cgi->td({-align=>'center'},[$cgi->a({-href=>'seqStatusReport.pl?seq='.$s},$q),$accNo]);
-     $seq_names .= "'$s',";
-  }
-  $seq_names =~ s/,$/)/;
+     push @seq_names, $seq->seq_name;
+   }
 
 
-  print $cgi->center($cgi->h3("Flanking sequence for strain $strain"),$cgi->br),"\n";
+   if (@tableRows) {
+      print $cgi->center($cgi->h3("Flanking Sequencs"),$cgi->br),"\n";
 
-  print $cgi->center($cgi->table({-border=>2,-width=>"80%",-bordercolor=>$HTML_TABLE_BORDERCOLOR},
-           $cgi->Tr( [
-              $cgi->th({-bgcolor=>$HTML_TABLE_HEADER_BGCOLOR},
-                      ["Sequence<br>Name","Length","Insert<br>Position","Sequence","Status","Accession"] ),
-                           @tableRows,
-                           #(map { $cgi->td({-align=>"left"}, $_ ) } @tableRows),
-                       ] )
-                     )),"\n";
+      print $cgi->center($cgi->table({-border=>2,-width=>"80%",-bordercolor=>$HTML_TABLE_BORDERCOLOR},
+              $cgi->Tr( [
+                 $cgi->th({-bgcolor=>$HTML_TABLE_HEADER_BGCOLOR},
+                         ["Sequence<br>Name","Length","Insert<br>Position","Sequence","Status","Accession"] ),
+                              @tableRows,
+                          ] )
+                        )),"\n";
 
-  print $cgi->br,"\n";
+      print $cgi->br,"\n";
+   } else {
+      # no flanking sequence (yet), but we won't return until after we put up
+      # the edit genotype/phenotype link
+      print $cgi->center($cgi->h3("No flanking sequence in the database for $strain"),$cgi->br),"\n";
+   }
 
-  print $cgi->center($cgi->a({-href=>"phenoReport.pl?strain=".$s->strain_name},
-                             "Edit Genotype/Phenotype information on ".$s->strain_name)),$cgi->br,"\n";
 
-  # before generating a report, we need to see if there is a requested action
-  # possibilities are
-  #       (1) align: generate an alignment based on a HSP. This requires a hsp_id parameter
-  #       (2) ignore: toss an automatic (or manual) alignment onto the 'do not use' list
-  #       (3) accept: promote one of the multiple alignments into the 'curated' category.
-  #           the last two require an alignment id parameter.
+   print $cgi->center($cgi->a({-href=>"phenoReport.pl?strain=".$s->strain_name},
+                             "Edit Genotype/Phenotype information on ".$s->strain_name)),
+                      $cgi->br,$cgi->hr({width=>'70%'}),"\n";
+
+   return unless @tableRows;
+
+   # before generating a report, we need to see if there is a requested action
+   # possibilities are
+   #       (1) align: generate an alignment based on a HSP. This requires a hsp_id parameter
+   #       (2) ignore: toss an automatic (or manual) alignment onto the 'do not use' list
+   #       (3) accept: promote one of the multiple alignments into the 'curated' category.
+   #           the last two require an alignment id parameter.
 
    if ($cgi->param('action') eq 'align') {
       if (!$cgi->param('id')  || $cgi->param('id') !~ /^\d+$/ ) {
@@ -196,14 +264,13 @@ sub reportStrain
          }
       }
    }
-  print $cgi->center($cgi->h3("Sequence alignments"),$cgi->br),"\n";
 
-  # I gotta get these table joins to work.
-  my @tableRows = ();
-  my %alignedHSP = ();
-  my $ctr = 1;
+   # I gotta get these table joins to work.
+   my @tableRows = ();
+   my %alignedHSP = ();
+   my $ctr = 1;
 
-  foreach my $seq ($seqSet->as_list) {
+   foreach my $seq ($seqSet->as_list) {
      my $seqAlignmentSet = new Seq_AlignmentSet($session,{-seq_name=>$seq->seq_name})->select;
      foreach my $seq_a ($seqAlignmentSet->as_list ) {
 
@@ -235,92 +302,110 @@ sub reportStrain
                           $seq_a->s_start."-".$seq_a->s_end,$seq_a->s_insert,
                           $seq_a->status,$link];
      }
-  }
-  print $cgi->center($cgi->table({-border=>2,-width=>"80%",-bordercolor=>$HTML_TABLE_BORDERCOLOR},
-           $cgi->Tr( [
-              $cgi->th({-bgcolor=>$HTML_TABLE_HEADER_BGCOLOR},
-                      ["Sequence<br>Name","Flanking<br>Range","Subject","Strand",
-                           "Subject<br>Range","Insertion<br>Position","Status",
-                           "Alignment<br>Curation"] ),
-                           (map { $cgi->td({-align=>"center"}, $_ ) } @tableRows),
-                       ] )
-                     )),"\n";
+   }
+   if (@tableRows) {
+      @tableRows = sort { $a->[2] cmp $b->[2] ||
+                          $a->[5] <=> $b->[5] ||
+                          $a->[0] cmp $b->[0] } @tableRows;
 
-  print $cgi->center($cgi->br,$cgi->h3("Blast Hits for Flanking Sequences")),"\n";
+      print $cgi->center($cgi->h3("Sequence Alignments"),$cgi->br),"\n",
+            $cgi->center($cgi->table({-border=>2,-width=>"80%",-bordercolor=>$HTML_TABLE_BORDERCOLOR},
+              $cgi->Tr( [
+                 $cgi->th({-bgcolor=>$HTML_TABLE_HEADER_BGCOLOR},
+                         ["Sequence<br>Name","Flanking<br>Range","Subject","Strand",
+                              "Subject<br>Range","Insertion<br>Position","Status",
+                              "Alignment<br>Curation"] ),
+                              (map { $cgi->td({-align=>"center"}, $_ ) } @tableRows),
+                          ] )
+                        )),$cgi->br,$cgi->hr({-width=>'70%'}),"\n";
+   } else {
+      print $cgi->center($cgi->h3("No Sequence Alignments"),$cgi->br),$cgi->hr({-width=>'70%'}),"\n",
+   }
 
-  foreach my $db (sort keys %db_name) {
+
+   print $cgi->center($cgi->br,$cgi->h3("Blast Hits")),"\n";
+
+   foreach my $db (sort keys %db_name) {
 
      # when did we do this?
-     my $sql = qq(select seq_name,date from blast_run where 
-                 seq_name in ).$seq_names.qq(and db=').$db.
-                 qq('order by seq_name desc,date desc);
-     my @values = ();
-     $session->db->select($sql,\@values);
+     my @blast_runs = ();
+     my @blast_hits = ();
+     map { push @blast_runs,
+            new Blast_RunSet($session,{-seq_name=>$_,-db=>$db})->select->as_list } @seq_names;
+     map { push @blast_hits,
+            new Blast_ReportSet($session,{-seq_name=>$_,-db=>$db})->select->as_list } @seq_names;
 
-     while (@values) {
-        my @v = splice(@values,0,2);
-        print $cgi->em("Blast run of $v[0] to $db_name{$db} performed $v[1]."),$cgi->br;
+     @blast_runs = sort { PCommon::date_cmp($a->date,$b->date) } @blast_runs;
+
+     foreach my $b (@blast_runs) {
+        print $cgi->em("Blast run of ".$b->seq_name." to ".$b->db." performed ".$b->date."."),$cgi->br;
      }
 
-     my $sql = qq(select seq_name,query_begin,query_end,name,subject_begin,subject_end,score,match,
-                  length,percent,id from blast_report where
-                  seq_name in ).$seq_names.qq(and db=').$db.
-                  qq(' order by seq_name desc,score desc);
+     #my $sql = qq(select seq_name,query_begin,query_end,name,subject_begin,subject_end,score,match,
+     #             length,percent,id from blast_report where
+     #             seq_name in ).$seq_names.qq(and db=').$db.
+     #             qq(' order by seq_name desc,score desc);
 
-     $session->db->select($sql,\@values);
      my @tableRows = ();
 
-     if (@values) {
+     if (@blast_hits) {
 
         print $cgi->h3("Hits to $db_name{$db}"),
               $cgi->a({-href=>"strainReport.pl?strain=$strain&max_hits=all"},
-                       'Show all blast hits'),$cgi->br,"\n";
+                       'Show all blast hits'),$cgi->br,"\n"
+                       if $cgi->param('max_hits') =~ /^\d+$/ && scalar(@blast_hits) > $cgi->param('max_hits');
 
         # the mini_table is a hash indexed by seq_name with elements references to
         # a list of blast hit list references
         my %mini_table;
 
-        while (@values) {
-           my ($sn,$qs,$qe,$n,$c,$d,$e,$f,$g,$h,$i) = splice(@values,0,11);
+        foreach my $bH (@blast_hits) {
 
            # let's see if the flank hit includes the insertion
-           ($qs,$qe) = sort { $a <=> $b } ($qs,$qe);
+           my ($qs,$qe) = sort { $a <=> $b } ($bH->query_begin,$bH->query_end);
            my $flank_range = $qs."-".$qe;
-           if ($insertLookup{$sn} && $qs <= $insertLookup{$sn} && $insertLookup{$sn} <= $qe) {
+           if ($insertLookup{$bH->seq_name} && $qs <= $insertLookup{$bH->seq_name} && $insertLookup{$bH->seq_name} <= $qe) {
               $flank_range = "<b>".$flank_range."</b>";
            }
 
-           $mini_table{$sn} = [] unless exists($mini_table{$sn});
+           $mini_table{$bH->seq_name} = [] unless exists($mini_table{$bH->seq_name});
 
-           my $b2 = exists($subject_name{$n})?$subject_name{$n}:$n;
-           my $detailLink = $cgi->a({-href=>"blastReport.pl?id=$i",-target=>"_blast"},
-                                              $f."/".$g."(".$h."%)");
+           my $b2 = exists($subject_name{$bH->name})?$subject_name{$bH->name}:$bH->name;
+           my $detailLink = $cgi->a({-href=>"blastReport.pl?id=".$bH->id,-target=>"_blast"},
+                                              $bH->match."/".$bH->length."(".$bH->percent."%)");
            my $alignLink;
-           if ($alignedHSP{$i}) {
-              $alignLink = "Alignment #$alignedHSP{$i}";
+           if ($alignedHSP{$bH->id}) {
+              $alignLink = "Alignment #$alignedHSP{$bH->id}";
+              # <hack>
+              # we really want the blast hits that are used in alignments to show up near the
+              # top of the blast report. These will be sorted by score, so what we're gonna
+              # do is elevate the score for those hits that are used in alignments.
+              $bH->score($bH->score() + 50000);
+              # </hack>
            } else {
-              $alignLink = $cgi->a({-href=>"strainReport.pl?id=".$i.
+              $alignLink = $cgi->a({-href=>"strainReport.pl?id=".$bH->id.
                                     "&action=align&strain=$strain"},"Align");
            }
+
            if ($db eq "release3_genomic") {
-              my $gb = new GenBankScaffold($session)->mapped_from_arm($n,$c);
+              my $gb = new GenBankScaffold($session)->mapped_from_arm($bH->name,$bH->subject_begin);
               my $gb_info;
               if ($gb && $gb->accession) {
-                 my $gb_start = $c - $gb->start + 1;
-                 my $gb_stop = $d - $gb->start + 1;
+                 my $gb_start = $bH->subject_begin - $gb->start + 1;
+                 my $gb_stop = $bH->subject_end - $gb->start + 1;
                  $gb_info = $gb->accession.' '.$gb_start.'-'.$gb_stop;
               } else {
                  $gb_info = '&nbsp';
               }
-              push @{$mini_table{$sn}},
-                   [$flank_range,$b2,$c."-".$d,$gb_info,$detailLink,$alignLink]
-                      unless ($cgi->param('max_hits') =~ /^\d+$/ &&
-                              scalar(@{$mini_table{$sn}}) > $cgi->param('max_hits'));
+              push @{$mini_table{$bH->seq_name}},
+                   [$bH->score,$flank_range,$b2,$bH->subject_begin."-".$bH->subject_end,$gb_info,$detailLink,$alignLink]
+                     ;# unless ($cgi->param('max_hits') =~ /^\d+$/ &&
+                     #         scalar(@{$mini_table{$bH->seq_name}}) > $cgi->param('max_hits'));
            } else {
-              push @{$mini_table{$sn}},
-                   [$flank_range,$b2,$c."-".$d,$detailLink,$alignLink]
-                      unless ($cgi->param('max_hits') =~ /^\d+$/ &&
-                              scalar(@{$mini_table{$sn}}) > $cgi->param('max_hits'));
+              push @{$mini_table{$bH->seq_name}},
+                   [$bH->score,$flank_range,$b2,$bH->subject_begin."-".$bH->subject_end,$detailLink,$alignLink]
+                     ;# unless ($cgi->param('max_hits') =~ /^\d+$/ &&
+                     #         scalar(@{$mini_table{$bH->seq_name}}) > $cgi->param('max_hits'));
            }
         }
 
@@ -338,21 +423,35 @@ sub reportStrain
         print $cgi->center($cgi->em("No recorded blast hits to $db_name{$db}.")),$cgi->br,"\n";
      }
      print $cgi->br,"\n";
-  }
+   }
 
-  $session->exit;
+   $session->exit;
 }
 
 =head1 format_minitable
 
-  A convenience routine to formatting the embedded blast hit table. Useful only
-  to make the nested table print slightly less unreadable.
+   A convenience routine to formatting the embedded blast hit table. Useful only
+   to make the nested table print slightly less unreadable.
 
 =cut
 
 sub format_minitable
 {
    my ($cgi,$db,$listRef) = @_;
+
+   # sort by score. We will not be showing the score in the output, though.
+   @$listRef = sort {$b->[0] <=> $a->[0]} @$listRef;
+   # and now drop the score.
+   map { shift @$_ } @$listRef;
+
+   if ($cgi->param('start_hit') =~ /^\d+$/ && $cgi->param('start_hit') > 0 ) {
+      # undocumented parameter
+      @$listRef = splice(@$listRef,$cgi->param('start_hit')-1);
+   }
+   if ($cgi->param('max_hits') =~ /^\d+$/ && $cgi->param('max_hits') > 0 ) {
+      # undocumented parameter
+      @$listRef = splice(@$listRef,0,$cgi->param('max_hits')-1);
+   }
  
    $cgi->table({-border=>2,-width=>"100%"},$cgi->Tr( [ 
          $cgi->th({-bgcolor=>$HTML_TABLE_HEADER_BGCOLOR2},
