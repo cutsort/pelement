@@ -1,18 +1,17 @@
-SRC =	Alignment.pm Lane.pm AlignmentSet.pm LaneSet.pm Association.pm \
-	Ligation.pm Batch.pm LigationSet.pm BlastInterface.pm PCommon.pm \
-	Blast_HSP.pm Blast_RunSet.pm Pelement.pm Blast_Hit.pm PelementCGI.pm \
-	Blast_Report.pm \
-	PelementDBI.pm Blast_ReportSet.pm PhredInterface.pm Blast_Run.pm \
-	Phred_Qual.pm DbObject.pm Phred_Seq.pm DbObjectSet.pm Sample.pm \
-	SampleSet.pm\
-	Digestion.pm Seq.pm DigestionSet.pm SeqSet.pm Files.pm \
-	Seq_Alignment.pm \
-	Gadfly_Syn.pm Seq_AlignmentSet.pm Gel.pm Sequence.pm GelSet.pm \
-	Session.pm \
-	GenBankScaffold.pm Strain.pm IPCR.pm WebSession.pm IPCRSet.pm \
-	Seq_Assembly.pm \
-	Seq_AssemblySet.pm WebCache.pm Cytology.pm Phenotype.pm XML/Base.pm
-
+SRC =	Alignment.pm AlignmentSet.pm Association.pm Batch.pm BlastInterface.pm \
+	Blast_HSP.pm Blast_Hit.pm Blast_Report.pm Blast_ReportSet.pm \
+	Blast_Run.pm Blast_RunSet.pm Collection_Protocol.pm Cytology.pm \
+	DbObject.pm DbObjectSet.pm Digestion.pm DigestionSet.pm Enzyme.pm \
+	Files.pm FlyBase_Submission_Info.pm Gadfly_Syn.pm Gel.pm GelSet.pm \
+	GenBankScaffold.pm GenBank_Submission_Info.pm Gene_Association.pm \
+	Gene_AssociationSet.pm IPCR.pm IPCRSet.pm Lane.pm LaneSet.pm \
+	Ligation.pm LigationSet.pm PCommon.pm Pelement.pm PelementCGI.pm \
+	PelementDBI.pm Phenotype.pm PhrapInterface.pm PhredInterface.pm \
+	Phred_Qual.pm Phred_Seq.pm Primer.pm Processing.pm Sample.pm \
+	SampleSet.pm Seq.pm SeqSet.pm Seq_Alignment.pm Seq_AlignmentSet.pm \
+	Seq_Assembly.pm Seq_AssemblySet.pm Sequence.pm Session.pm Stock_Record.pm \
+	Stock_RecordSet.pm Strain.pm Submitted_Seq.pm Trimming_Protocol.pm \
+	Vector.pm WebCache.pm WebSession.pm
 
 install: check
 	for I in $(SRC); do ( cp $$I $(INSTALLDIR)/modules ); done
