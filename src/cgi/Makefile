@@ -1,6 +1,6 @@
 SRC = login.pl retrieveXML.pl strainReport.pl blastReport.pl \
       batchReport.pl gelReport.pl seqReport.pl retrieveXML.pl \
-      chromatReport.pl statusReport.pl assemblyReport.pl phenoReport.pl \
+      chromatReport.pl strainStatusReport.pl assemblyReport.pl phenoReport.pl \
       seqStatusReport.pl
 
 install: check
