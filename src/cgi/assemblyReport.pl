@@ -90,7 +90,7 @@ sub reportStrain
      
      foreach my $sA ($sAS->as_list) {
         if ($sA->src_seq_src eq 'phred_seq') {
-           $info .= $cgi->a({-href=>'seqReport.pl?id='.$sA->src_seq_id,
+           $info .= $cgi->a({-href=>'seqReport.pl?db=phred_seq&id='.$sA->src_seq_id,
                            -target=>'_seq'},"Phred Sequence ".$sA->src_seq_id).' assembled '.$sA->assembly_date.$cgi->br;
 
         } elsif ($sA->src_seq_src eq 'seq') {
