@@ -368,7 +368,7 @@ sub die
 {
   my $self = shift;
   $self->error(@_);
-  &CORE::exit(2);
+  &exit(2);
 }
 
 1;
