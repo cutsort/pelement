@@ -162,9 +162,8 @@ foreach my $lane (@lanes) {
       exit(1);
    }
 
-   # we are adding 1 to make things label the base after the insertion.
-   # NOT interbase coordinates.
-   my $insert_pos = $t_p->insertion_offset + 1;
+   # this references the insertion position in an interbase coordinate.
+   my $insert_pos = $t_p->insertion_offset;
 
    my $seq = substr($phred_seq->seq,$phred_seq->v_trim_start,
                                   $extent-$phred_seq->v_trim_start);
@@ -178,6 +177,10 @@ foreach my $lane (@lanes) {
    } else {
       $lane->seq_name($lane->seq_name.'-3') unless $lane->seq_name =~ /-3$/;
    }
+
+   # we are adding 1 to make things label the base
+   # after the insertion. NOT the interbase coordinate!
+   $insert_pos++;
 
    if (length($seq) > $minSeqSize) {
       $seq = substr($seq,0,$maxSeqSize) 
