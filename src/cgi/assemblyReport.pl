@@ -20,7 +20,7 @@ $cgi = new PelementCGI;
 my $strain = $cgi->param('strain');
 
 print $cgi->header;
-print $cgi->init_page;
+print $cgi->init_page({-title=>"$strain Assembly Report"});
 print $cgi->banner;
 
 
