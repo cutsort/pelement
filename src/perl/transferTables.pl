@@ -16,6 +16,10 @@
 
 use Getopt::Long;
 use Session;
+use Batch;
+use Sample;
+use Digestion;
+use Ligation;
 use IPCR;
 use Gel;
 
@@ -36,7 +40,100 @@ my $epflowDB = DBI->connect("dbi:Informix:epflow") or
 
 $session->log($Session::Info,"Test mode: no undating done.") if $test;
 
-my $st = $epflowDB->prepare(qq(select ipcr_id,ligation_id,primer1,
+$session->log($Session::Info,"Retrieving batch_register table.");
+my $st = $epflowDB->prepare(qq(select batch_num,description,user_login,prep_date
+                               from batch_register order by batch_num));
+
+$st->execute() or die "Trouble executing SQL.";
+
+while ($row = $st->fetchrow_arrayref) {
+   trimWhite($row);
+   my ($id,$description,$user,$date) = @$row;
+   my $batch = new Batch($session,{-id=>$id});
+   if ($batch->db_exists) {
+     $session->log($Session::Info,"Record for ".$batch->id." exists.") if $verbose;
+     next;
+   } else {
+     $session->log($Session::Info,"Creating record for ".$batch->id.".") if $verbose;
+   }
+
+   $batch->id($id);
+   $batch->description($description) if $description;
+   $batch->user_login($user);
+   $batch->batch_date($date);
+   $batch->insert;
+}
+
+$session->log($Session::Info,"Retrieving sample table.");
+$st = $epflowDB->prepare(qq(select batch_id,batch_num,batch_pos,strain_name
+                               from batch order by batch_id));
+
+$st->execute() or die "Trouble executing SQL.";
+
+while ($row = $st->fetchrow_arrayref) {
+   trimWhite($row);
+   my ($id,$num,$pos,$strain) = @$row;
+   my $sample = new Sample($session,{-batch_id=>$num,-well=>$pos});
+   if ($sample->db_exists) {
+     $session->log($Session::Info,"Record for ".$sample->batch_id." exists.") if $verbose;
+     next;
+   } else {
+     $session->log($Session::Info,"Creating record for ".$sample->batch_id.".") if $verbose;
+   }
+   # don't try to stick in empty strains.
+   next unless $strain;
+   $sample->strain_name($strain);
+   $sample->insert;
+}
+
+$session->log($Session::Info,"Retrieving digestion table.");
+$st = $epflowDB->prepare(qq(select digestion_id,batch_num,enzyme,enzyme2,
+                            digestion_date,user_login
+                            from digestions order by batch_num));
+
+$st->execute() or die "Trouble executing SQL.";
+
+while ($row = $st->fetchrow_arrayref) {
+   trimWhite($row);
+   my ($id,$num,$e1,$e2,$date,$user) = @$row;
+   my $sample = new Digestion($session,{-name=>$id});
+   if ($sample->db_exists) {
+     $session->log($Session::Info,"Record for ".$sample->name." exists.") if $verbose;
+     next;
+   } else {
+     $session->log($Session::Info,"Creating record for ".$sample->name.".") if $verbose;
+   }
+   $sample->batch_id($num);
+   $sample->enzyme1($e1);
+   $sample->enzyme2($e2) if $e2;
+   $sample->user_login($user);
+   $sample->digestion_date($date);
+   $sample->insert;
+}
+
+$session->log($Session::Info,"Retrieving ligation table.");
+$st = $epflowDB->prepare(qq(select ligation_id,digestion_id,ligation_date,user_login
+                               from ligations order by ligation_id));
+
+$st->execute() or die "Trouble executing SQL.";
+
+while ($row = $st->fetchrow_arrayref) {
+   trimWhite($row);
+   my ($id,$dig,$date,$user) = @$row;
+   my $sample = new Ligation($session,{-name=>$id});
+   if ($sample->db_exists) {
+     $session->log($Session::Info,"Record for ".$sample->name." exists.") if $verbose;
+     next;
+   } else {
+     $session->log($Session::Info,"Creating record for ".$sample->name.".") if $verbose;
+   }
+   $sample->digestion_name($dig);
+   $sample->user_login($user);
+   $sample->insert;
+}
+
+$session->log($Session::Info,"Retrieving ipcr table.");
+$st = $epflowDB->prepare(qq(select ipcr_id,ligation_id,primer1,
                               primer2,end_type,pcr_date,user_login
                               from ipcr)) or
          die "Trouble talking to informix.";
@@ -44,25 +141,26 @@ my $st = $epflowDB->prepare(qq(select ipcr_id,ligation_id,primer1,
 $st->execute() or die "Trouble executing SQL.";
 
 while ($row = $st->fetchrow_arrayref) {
+   trimWhite($row);
    my ($ipcr_id,$ligation_id,$primer1,$primer2,$end_type,$pcr_date,$user_login) = @$row;
    foreach my $var ($ipcr_id,$ligation_id,$primer1,$primer2,$end_type,$pcr_date,$user_login) {
       next unless defined $var;
       $var =~ s/^\s*(\S*)/$1/;
       $var =~ s/(\S*)\s*$/$1/;
    }
-   my $ipcr = new IPCR($session,{ipcr_id=>$ipcr_id});
+   my $ipcr = new IPCR($session,{name=>$ipcr_id});
    if ($ipcr->db_exists) {
-     $session->log($Session::Info,"Record for ".$ipcr->ipcr_id." exists.") if $verbose;
+     $session->log($Session::Info,"Record for ".$ipcr->name." exists.") if $verbose;
      next;
    } else {
-     $session->log($Session::Info,"Creating record for ".$ipcr->ipcr_id." exists.") if $verbose;
+     $session->log($Session::Info,"Creating record for ".$ipcr->name.".") if $verbose;
    }
-   $ipcr->ipcr_id($ipcr_id);
-   $ipcr->ligation_id($ligation_id);
+   $ipcr->name($ipcr_id);
+   $ipcr->ligation_name($ligation_id);
    $ipcr->primer1($primer1);
    $ipcr->primer2($primer2);
    $ipcr->end_type($end_type);
-   $ipcr->pcr_date($pcr_date);
+   $ipcr->ipcr_date($pcr_date);
    $ipcr->user_login($user_login);
    $ipcr->insert unless $test;
    $nIpcrInsert++;
@@ -77,6 +175,7 @@ $st = $epflowDB->prepare(qq(select gel_id,gel_name,ipcr_id,
 $st->execute() or die "Trouble executing SQL.";
 
 while ($row = $st->fetchrow_arrayref) {
+   trimWhite($row);
    my ($gel_id,$gel_name,$ipcr_id,$part_num,$gel_date,$user_login,$seq_primer) = @$row;
    foreach my $var ($gel_id,$gel_name,$ipcr_id,$part_num,$gel_date,$user_login,$seq_primer) {
       next unless defined $var;
@@ -88,17 +187,16 @@ while ($row = $st->fetchrow_arrayref) {
      $session->log($Session::Info,"Record for ".$gel->name." exists.") if $verbose;
      next;
    } else {
-     $session->log($Session::Info,"Creating record for ".$gel->name." exists.") if $verbose;
+     $session->log($Session::Info,"Creating record for ".$gel->name.".") if $verbose;
    }
    $gel->name($gel_name);
-   $gel->ipcr_id($ipcr_id);
+   $gel->ipcr_name($ipcr_id);
    $gel->gel_date($gel_date);
    $gel->user_login($user_login);
    $gel->seq_primer($seq_primer);
    $gel->insert unless $test;
    $nGelInsert++;
 }
-
 
 $epflowDB->disconnect();
 
@@ -107,3 +205,4 @@ $session->log($Session::Info,"Updated $nIpcrInsert ipcr records and $nGelInsert 
 $session->exit;
 exit;
 
+sub trimWhite { my $arg = shift; return unless @$arg; map { !$_ || s/\s+$// } @$arg }
