@@ -233,8 +233,13 @@ sub db_exists
 
 =head1 update
 
-   update the current row with the revised info. The id designator
-   must exists and be unique. Any other referential fields are frozen
+   update the current row with the revised info. 
+   If an id designator exists, it must be unique.
+   In that case it will be used to key the update.
+   Otherwise, optional arguments are specified to key the
+   update.
+
+   Any other referential fields are frozen
 
 =cut
 sub update
@@ -252,9 +257,22 @@ sub update
       $sql .= "$col=".$self->{_session}->db->quote($self->{$col}).", ";
    }
    $sql =~ s/, $//;
-   $sql .= " where id=".$self->{id};
+   if (@_) {
+      $sql .= " where ";
+      while(@_) {
+         my $arg = shift;
+         $sql .= "$arg=".$self->{_session}->db->quote($self->{$arg})." and ";
+      }
+      $sql =~ s/ and $//;
+   } elsif ($self->{id}) {
+      $sql .= " where id=".$self->{id};
+   } else {
+      $self->{_session}->warn("Non-effective update on ".$self->{_table});
+      return;
+   }
+ 
    $self->{_session}->log($Session::Verbose,"Updating info for ".$self->{_table}.
-                          " id=".$self->{id});
+           ($self->{id}?" id=".$self->{id}:" and specified keys."));
    $self->{_session}->db->do($sql);
 }
 
@@ -267,16 +285,34 @@ sub update
 sub delete
 {
   my $self = shift;
-  my  $sessionHandle = $self->{_session} || shift ||
+  my $sessionHandle = $self->{_session} || shift ||
                 die "Session handle required for db deletion";
   return unless $self->{_table} && $self->{_cols};
 
-  $sessionHandle->session->log($Session::Warn,"Cannot delete from ".$self->{_table}.
-                            " without specifying an id.") and return unless $self->id;
+  my $sql = "delete from ".$self->{_table};
 
-  my $sql = "delete from ".$self->{_table}." where id= ".$self->id;
+  # see if we have a set of keys to trigger the delete
+  if (@_) {
+      $sql .= " where ";
+      while(@_) {
+         my $arg = shift;
+         $sql .= "$arg=".$sessionHandle->db->quote($self->{$arg})." and ";
+      }
+      $sql =~ s/ and $//;
+   } elsif ($self->{id}) {
+      $sql .= " where id=".$self->{id};
+   } else {
+      $sessionHandle->warn("Cannot delete from ".$self->{_table}.
+                            " without specifying a key.");
+      return;
+   }
+	
 
-  $sessionHandle->log($Session::Verbose,"Deleting id=".$self->id." from ".$self->{_table}.".");
+  if (exists($self->{id})) {
+     $sessionHandle->log($Session::Verbose,"Deleting id=".$self->id." from ".$self->{_table}.".");
+  } else {
+     $sessionHandle->log($Session::Verbose,"Deleting from ".$self->{_table}.".");
+  }
   $sessionHandle->db->do($sql);
 
 }
