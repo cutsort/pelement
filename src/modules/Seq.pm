@@ -50,6 +50,27 @@ sub to_fasta
   $self->{fasta} = $filename;
 }
 
+=head1 rev_comp
+
+  Callable as an object method or as a static
+
+=cut
+sub rev_comp
+{
+  my $self = shift;
+  my $seq = (ref($self))?$self->sequence:$self;
+
+  $seq = join('',reverse(split(//,$seq)));
+  $seq =~ tr/ACGTacgt/TGCAtgca/;
+
+  if ( ref($self) ) {
+    $self->sequence($seq);
+    return $self;
+  } else {
+    return $seq;
+  }
+}
+
 =head1 Parsing routines
 
   The remainding routines are intended as parsing routines; they do not
@@ -137,7 +158,8 @@ sub end
   or
      Seq::qualifier($seq_name)
 
-  return values are '5', '3' or 'b' for a composite
+  return values are nothing, a number for obsoleted seqs, or a letter
+  code for unconfirmed recheck and the like.
 
 =cut
 sub qualifier
@@ -146,7 +168,7 @@ sub qualifier
 
   my $name = (ref($self))?$self->seq_name:$self;
 
-  if ( $name =~ /[^-]*-[35](.*)/ ) {
+  if ( $name =~ /[^-]*-[35]\.?(.*)/ ) {
     return $1;
   } else {
     return '';
