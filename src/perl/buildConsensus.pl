@@ -47,12 +47,16 @@ my $session = new Session();
 #         -end [35]         restrict to one end only
 #         -force            replace an existing sequence record.
 #         -test             do not update db records.
+#         -verbose          yakkiness
+#         -insert           can we insert a new seq? normally we only update
 
 my ($gel_name,$gel_id,$lane_name,$lane_id,$process_seq,$force);
 
 my $minSeqSize = 12;
 my $maxSeqSize = 0;
-my $test = 1;      # test mode only. No inserts or updates.
+my $test = 0;      # test mode only. No inserts or updates.
+my $verbose;
+my $canInsert;
 my $score = '';    # min match when running phrap. Should be set separately in
                    # individual cases only
 my $save;          # save tmp phrap files.
@@ -68,6 +72,8 @@ GetOptions('gel=s'      => \$gel_name,
            'max=i'      => \$maxSeqSize,
            'force!'     => \$force,
            'test!'      => \$test,
+           'verbose!'   => \$verbose,
+           'insert!'    => \$canInsert,
            'score=i'    => \$score,
            'save!'      => \$save,
            'singlets!'  => \$singlets,
@@ -77,6 +83,9 @@ GetOptions('gel=s'      => \$gel_name,
 # processing hierarchy. In case multiple things are specified, we have to
 # decide what to process. (Or flag it as an error? No. Always deliver something)
 # gels by name are first, then by gel_id, then by lane name, then by lane_id.
+
+
+$session->log_level($Session::Verbose) if $verbose;
 
 my ($gel,@lanes);
 
@@ -283,6 +292,26 @@ foreach my $lane (@lanes) {
 
       my $s_a = new Seq_AssemblySet($session,{-seq_name => $seq_name,
                                            -src_seq_src => 'phred_seq'})->select;
+
+      # what do we do it there is no record of what made the existing consensus? Go with the oldest
+      unless ($s_a->as_list) {
+         $session->warn("No record of what made the consensus. Assuming it is the oldest.");
+
+         # we're assuming lexigraphic ordering is good.
+         my $firstLane = (sort { PCommon::date_cmp($a->run_date,$b->run_date) } $laneSet->as_list)[0];
+      
+         $session->verbose("Oldest lane for this strain is dated ".$firstLane->run_date);
+
+         my $firstPhred;
+         map { $firstPhred = $_->id if $_->lane_id == $firstLane->id } @phred_seq;
+         ($session->warn("Cannot determine the base phred sequence.") and next LANE) unless $firstPhred;
+         $session->verbose("The corresponding phred seq or this strain is ".$firstPhred);
+         $s_a->add(new Seq_Assembly($session,{-seq_name => $seq_name,
+                                           -src_seq_src => 'phred_seq',
+                                            -src_seq_id => $firstPhred}));
+         
+      }
+
       foreach my $old_ass ($s_a->as_list) {
          $session->info("Old assembly had data from ".$old_ass->src_seq_id);
          if ( !exists($pidH{$old_ass->src_seq_id}) ) {
@@ -317,6 +346,11 @@ foreach my $lane (@lanes) {
             $seqRecord->last_update('today');
             $action = 'update';
          }
+      }
+
+      if ( $action eq 'insert' && !$canInsert) {
+         $session->warn("This is a new sequence record. Rerun with -insert to save it.");
+         next LANE;
       }
       $seqRecord->sequence($seq);
       $seqRecord->insertion_pos($insert_pos);
