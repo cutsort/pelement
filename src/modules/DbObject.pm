@@ -500,7 +500,7 @@ sub resolve_ref
    my  %beenThereDoneThat = ();
    while ( ref($thingy) eq "SCALAR" ) {
       $self->{_session}->log($Session::Verbose,"Resolving scalar referance.");
-      $self->{_session}->error("Circular Reference","Scalar reference loop.")
+      $self->{_session}->error("Scalar reference loop.")
                    if ( $beenThereDoneThat{$thingy});
       $beenThereDoneThat{$thingy} = 1;
       $thingy = ${$thingy};
@@ -516,7 +516,7 @@ sub AUTOLOAD
 
   $name =~ s/.*://;
   if (! exists( $self->{$name} ) ) {
-     $self->{_session}->error("No method","$name is not a method for ".ref($self).".");
+     $self->{_session}->error("$name is not a method for ".ref($self).".");
   }
   $self->{$name} = shift @_ if ( @_ );
   return $self->{$name};

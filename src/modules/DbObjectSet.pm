@@ -201,7 +201,7 @@ sub AUTOLOAD
 
   $name =~ s/.*://;
   if (! exists( $self->{$name} ) ) {
-     $self->{_session}->error("No method","$name is not a method for ".ref($self).".");
+     $self->{_session}->error("$name is not a method for ".ref($self).".");
   }
   $self->{$name} = shift @_ if ( @_ );
   return $self->{$name};
