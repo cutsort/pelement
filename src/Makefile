@@ -19,3 +19,6 @@ install:
 
 hostcheck:
 	hostname | grep boss 
+
+dist:
+	tar czvf pelement_src.tgz `cvsFileList.pl`
