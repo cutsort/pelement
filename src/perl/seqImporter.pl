@@ -191,7 +191,8 @@ foreach my $lane (@lanes) {
 
       # create a single-phred_seq assembly record
 
-      my $s_a = new Seq_Assembly($session,{phred_seq_id=>$phred_seq->id});
+      my $s_a = new Seq_Assembly($session,{ -src_seq_id => $phred_seq->id,
+                                           -src_seq_src => 'phred_seq'});
    
       my $action = 'insert';
       if ($seqRecord->db_exists) {
@@ -200,6 +201,7 @@ foreach my $lane (@lanes) {
          $seqRecord->select;
 
          next unless $force;
+         # but do not update if there are no changes.
          next unless ($seq ne $seqRecord->sequence || $insert_pos != $seqRecord->insertion_pos);
          $session->log($Session::Info,"Sequence record has changed and forcing an update.");
          $seqRecord->last_update('today');
