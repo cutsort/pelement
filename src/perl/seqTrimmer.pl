@@ -114,8 +114,24 @@ foreach my $lane (@lanes) {
                                                  $lane->seq_name);
          exit(1);
       }
-      $enzyme = $digestion->enzyme1;
+      # here is the rule for determining which enzyme was used:
+      #    if only enzyme1 is specified, it's used for both
+      #    if both enzyme1 and enzyme2 are given, then 1 for P1, P3, P5,...
+      #          and enzyme2 for P2, P4, P6,...
+      if ($digestion->enzyme2) {
+         my $whichPcr;
+         if (Processing::ipcr_id($gel->ipcr_name) =~ /.*(\d+)$/ ) {
+            $whichPcr = $1
+         } else {
+            $session->error("No ID","Cannot determine IPCR id for $whichPcr");
+            exit(2);
+         }
+         $enzyme = ($whichPcr%2)?$digestion->enzyme1:$digestion->enzyme2;
+      } else {
+         $enzyme = $digestion->enzyme1;
+      }
    }
+   $session->info("Looking for restriction site of $enzyme.");
 
    # find the associated phred called sequences.
    my $phred_seq = new Phred_Seq($session,
@@ -203,8 +219,8 @@ foreach my $lane (@lanes) {
    # quality trim according to a set of rules determined by a
    # threshold and the number of bp's below the threshold.
    my ($qStart,$qEnd);
-   foreach my $ruleSet ( {-thresh=>20,-num=> 5,-start=>$vStart || $t_p->vector_limit},
-                         {-thresh=>15,-num=>10,-start=>$vStart || $t_p->vector_limit} ) {
+   foreach my $ruleSet ( {-thresh=>20,-num=> 5,-start=>$vStart || $t_p->vector_limit,-min=>29},
+                         {-thresh=>15,-num=>10,-start=>$vStart || $t_p->vector_limit,-min=>9} ) {
       qualityTrim($phred_qual->qual,$ruleSet);
       # if we cannot locate the end, none of the quality is high enuf
       if (!exists($ruleSet->{-end}) ) {
@@ -266,17 +282,20 @@ sub qualityTrim
    my @q = split(/\s+/,$qual);
 
    my $loCtr = 0;
+   my $baseCtr = 0;
  
    # start from the bottom and work up to get
    # quality cutoff
    $rule->{-start} = 0 unless exists $rule->{-start};
+   $rule->{-min} = 0 unless exists $rule->{-min};
 
    foreach my $i ($rule->{-start}..$#q) {
       if ( $q[$i] < $rule->{-thresh} ) { 
-         $loCtr++;
+         $loCtr++ if $baseCtr > $rule->{-min};
       } else {
          $loCtr = 0;
       }
+      $baseCtr++;
 
       # $i-$loCtr is the index to the last
       # quality score above the threshold
@@ -287,10 +306,9 @@ sub qualityTrim
       # threshold, but the first base after we look is below threshold
       $rule->{-end} = $i - $loCtr + 1
                     unless ($i-$loCtr     < $rule->{-start}-1 ||
-                            $i-$loCtr     < 0                 ||
-                            $q[$i-$loCtr] < $rule->{-thresh});
+                            $i-$loCtr     < 0                 );
 
-      last if $loCtr > $rule->{-num};
+      last if ($loCtr > $rule->{-num}) && ($baseCtr > $rule->{-min});
    }
 
    return unless exists $rule->{-end};
