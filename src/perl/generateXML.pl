@@ -234,7 +234,7 @@ while(@insertions) {
    $v_annseq->add_analysis($new_ana);
 
    # now we add keepers to yet another tier
-   if ($status eq 'permanent') {
+   if ($status =~ /perm/i) {
       my $new_new_ana = $new_ana->duplicate();
       $new_new_ana->program("PelementPipeline");
       $new_new_ana->database("Permanent Collection");
