@@ -28,7 +28,7 @@ sub read_file
 
   return unless ($file && -e $file);
   open(SEQ,$file) or return;
-  
+
   my $seq;
   while (<SEQ>) {
     next if /^>/;
@@ -42,6 +42,54 @@ sub read_file
   return $self->seq($seq);
 }
 
+=head1 trimmed_seq
+
+   Extracts the trimmed piece in the sequence. In a scalar context, this returns
+   the sequence. In a vector context it returns the sequence and 2 labels, each
+   either 'q' or 'v' indicating whether the sequence was quality or vector trimmed.
+
+=cut
+sub trimmed_seq
+{
+   my $self = shift;
+   my $seq;
+   my $start;
+   my $start_flag;
+   my $end_flag;
+   if ( $self->v_trim_start ) {
+      $start = $self->v_trim_start;
+      $start_flag = 'v';
+   } elsif ($self->q_trim_start) {
+      $start = $self->q_trim_start;
+      $start_flag = 'q';
+   } else {
+      # return nothing for undefined trimming
+      return wantarray?('','',''):'';
+   }
+
+   my $extent;
+   if ( $self->v_trim_end ) {
+      # these will be ambiguous; the entired seq may be low quality.
+      if ($start_flag eq 'q' && $self->v_trim_end < $self->q_trim_start) {
+         return wantarray?('','',''):'';
+      }
+      if ($self->q_trim_end > $self->v_trim_end ) {
+         $extent = $self->v_trim_end;
+         $end_flag = 'v';
+      } else {
+         $extent = $self->q_trim_end;
+         $end_flag = 'q';
+      }
+   } elsif ($self->q_trim_end) {
+      $extent = $self->q_trim_end;
+      $end_flag = 'q';
+   } else {
+      return wantarray?('','',''):'';
+   }
+   return wantarray?('','',''):'' if $extent <= $start;
+   $seq = substr($self->seq,$start,$extent-$start);
+
+   return wantarray?($seq,$start_flag,$end_flag):$seq;
+}
 
 1;
-
