@@ -125,10 +125,12 @@ foreach my $strain_name (@ARGV) {
    # and may have been deleted.
    my %align = (3 => [], 5 => [], b => [], o => []);
    foreach my $align (@seq_alignments) {
-      next unless $align->status eq 'multiple';
+      next if $align->status eq 'multiple';
       next if $align->status eq 'deselected';
       my $end = Seq::end($align->seq_name);
       my $qual = Seq::qualifier($align->seq_name);
+      # do not look at unconfirmed recheck seq.
+      next if $qual =~ /^r/;
       # we deduce the strand from p_start and p_end
       my $strand = ($align->p_end > $align->p_start)?1:-1;
       $end = 'o' if $qual =~ /^\d+$/;
