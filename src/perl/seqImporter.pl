@@ -35,6 +35,7 @@ use Collection_Protocol;
 use Files;
 use PelementDBI;
 use Phred_Seq;
+use Seq_Assembly;
 use Seq;
 
 # George's sim4-er
@@ -131,7 +132,6 @@ foreach my $lane (@lanes) {
       $extent = $phred_seq->q_trim_end;
    }
 
-
    # next we need to determine the protocol for determining the insertion
    # from the trimmed portion
 
@@ -186,6 +186,10 @@ foreach my $lane (@lanes) {
       my $seqRecord = new Seq($session);
       $seqRecord->seq_name($lane->seq_name);
 
+      # create a single-phred_seq assembly record
+
+      my $s_a = new Seq_Assembly($session,{phred_seq_id=>$phred_seq->id});
+   
       my $action = 'insert';
       if ($seqRecord->db_exists) {
          $session->log($Session::Warn,
@@ -197,13 +201,20 @@ foreach my $lane (@lanes) {
          $session->log($Session::Info,"Sequence record has changed and forcing an update.");
          $seqRecord->last_update('today');
          $action = 'update';
+         $s_a->delete if $s_a->db_exists;
       }
+
 
       $seqRecord->sequence($seq);
       $seqRecord->insertion_pos($insert_pos);
       $seqRecord->strain_name($strain->strain_name);
       $seqRecord->last_update('today');
       $seqRecord->$action;
+
+      $s_a->seq_name($seqRecord->seq_name);
+      $s_a->assembly_date('today');
+      $s_a->insert;
+
       $session->log($Session::Info,"Sequence record for ".$strain->strain_name." ".$action."'ed.");
 
    } else {
