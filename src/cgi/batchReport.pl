@@ -58,7 +58,7 @@ if ($batch) {
                    {link=>"batchReport.pl",name=>"Batch Report"},
                    {link=>"strainReport.pl",name=>"Strain Report"},
                    {link=>"gelReport.pl",name=>"Gel Report"},
-                   {link=>"statusReport.pl",name=>"Status Report"},
+                   {link=>"strainStatusReport.pl",name=>"Strain Status Report"},
                    {link=>"batchReport.pl?batch=$prev_batch",name=>"Previous Batch"},
                    {link=>"batchReport.pl?batch=$next_batch",name=>"Next Batch"}
                     ]);
@@ -67,7 +67,7 @@ if ($batch) {
                    {link=>"batchReport.pl",name=>"Batch Report"},
                    {link=>"strainReport.pl",name=>"Strain Report"},
                    {link=>"gelReport.pl",name=>"Gel Report"},
-                   {link=>"statusReport.pl",name=>"Status Report"},
+                   {link=>"strainStatusReport.pl",name=>"Strain Status Report"},
                     ]);
 }
 print $cgi->close_page();
@@ -174,7 +174,7 @@ sub reportBatch
       $samples{$r.":".$c} = $s->strain_name;
       $sampleLinks{$r.":".$c} = $cgi->a({-href=>"strainReport.pl?strain=".$s->strain_name},$s->strain_name);
       my $status = new Strain($session,{-strain_name=>$s->strain_name})->select->status;
-      $statusLinks{$r.":".$c} = $cgi->a({-href=>"statusReport.pl?strain=".$s->strain_name},$status);
+      $statusLinks{$r.":".$c} = $cgi->a({-href=>"strainStatusReport.pl?strain=".$s->strain_name},$status);
    }
    @rows = sort { $a cmp $b } @rows;
    @cols = sort { $a <=> $b } @cols;
