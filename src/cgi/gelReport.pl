@@ -89,6 +89,7 @@ sub reportGel
       my $p = new Phred_Seq($session,{-lane_id=>$s->id})->select_if_exists;
       push @tableRows, [$s->seq_name || 'Unknown',
                         $s->well || $cgi->nbsp,
+                        $s->run_date || 'Unknown',
                         $s->id?$cgi->a({-href=>"seqReport.pl?id=".$s->id,-target=>"_seq"},
                                        length($p->seq)):$cgi->nbsp,
                         $s->id?$cgi->a({-href=>"chromatReport.pl?id=".$s->id,-target=>"_chromat"},
@@ -103,15 +104,15 @@ sub reportGel
 
    @tableRows = sort { my ($ar,$ac) = ($a->[1]=~/(.)(\d+)/);
                        my ($br,$bc) = ($b->[1]=~/(.)(\d+)/);
-                       (uc($ar) cmp uc($br)) || ($ac <=> $bc) } @tableRows;
+                       (uc($ar) cmp uc($br)) || ($ac <=> $bc) || $a->[2] cmp $b->[2] } @tableRows;
 
-   print $cgi->center($cgi->h3("Lanes in Gel ".$gel->name),$cgi->br),"\n",
+   print $cgi->center($cgi->h3("Lanes For Gel ".$gel->name),$cgi->br),"\n",
          $cgi->center($cgi->table({-border=>2,
                                     -width=>"80%",
                               -bordercolor=>$HTML_TABLE_BORDERCOLOR},
             $cgi->Tr( [
                $cgi->th({-bgcolor=>$HTML_TABLE_HEADER_BGCOLOR},
-                      ["Strain","Well","Phred".$cgi->br."Sequence".$cgi->br."Length",
+                      ["Strain","Well","Run Date","Phred".$cgi->br."Sequence".$cgi->br."Length",
                        "q30/q20",
                        "Quality".$cgi->br."Start",
                        "Flanking".$cgi->br."Seq".$cgi->br."Start",
