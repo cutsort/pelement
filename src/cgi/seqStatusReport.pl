@@ -26,6 +26,8 @@ print $cgi->banner();
 if ($cgi->param('seq')) {
    if ($cgi->param('action')) {
       performAction($cgi);
+      print $cgi->center($cgi->a({-href=>'strainReport.pl?strain='.
+                         $cgi->param('seq')},'Return to Strain Report'));
    } else {
       reportSeq($cgi);
    }
@@ -84,7 +86,8 @@ sub performAction
    $seq->select;
 
    if (lc($cgi->param('action')) eq 'delete') {
-      $session->log_level($Session::Verbose);
+
+      # this must be in a transaction 
       $session->db_begin;
 
       # to delete all records of a sequence, we need to delete it from
@@ -100,11 +103,14 @@ sub performAction
                          scalar($sAlS->as_list)," seq alignments."),"\n";
     
       
-      print $cgi->center('Here we would delete this sequence, but these changes are not presently committed.');
-      $session->db_rollback;
+      map { $_->delete } $sAlS->as_list;
+      map { $_->delete } $bRS->as_list;
+      map { $_->delete } $sAsS->as_list;
+      $seq->delete;
+
+      $session->db_commit;
       return;
    } elsif (lc($cgi->param('action')) eq 'current') {
-      print $cgi->center('here we remove the qualifier.');
 
       # make sure there is not now a current sequence.
       my $currentSeqName = $seq->strain .'-'. $seq->end;
@@ -121,7 +127,8 @@ sub performAction
 
       # update all of these records to the new seq name
       foreach my $r ($bRS->as_list, $sAsS->as_list, $sAlS->as_list) {
-         $r->seq_name($r->seq_name.'.'.$newNumber);
+         $r->unique_identifier;
+         $r->seq_name($currentSeqName);
          $r->update;
       }
 
@@ -133,7 +140,7 @@ sub performAction
       $cgi->param('seq',$seq->seq_name);
 
    } elsif (lc($cgi->param('action')) eq 'curated') {
-      print $cgi->center('here we would rename it to a .letter');
+      print $cgi->center('here we would rename it to a .letter. This is currently not functional.');
    } elsif (lc($cgi->param('action')) eq 'transitory') {
 
       # find the highest numbered seq_name
@@ -152,6 +159,7 @@ sub performAction
 
       # update all of these records to the new seq name
       foreach my $r ($bRS->as_list, $sAsS->as_list, $sAlS->as_list) {
+         $r->unique_identifier;
          $r->seq_name($r->seq_name.'.'.$newNumber);
          $r->update;
       }
