@@ -98,9 +98,20 @@ sub reportSeq
 
    my $seq;
    my $lane;
+
+   # from which table is this id referring to? the lane table or
+   # the phred seq table?
+   my $table = $cgi->param('db') || 'lane';
+
    if ($cgi->param('id') ) {
-      $lane = new Lane($session,{-id=>$cgi->param('id')});
-      $seq = new Phred_Seq($session,{-lane_id=>$cgi->param('id')});
+      if ($table eq 'lane') {
+         $lane = new Lane($session,{-id=>$cgi->param('id')});
+         $seq = new Phred_Seq($session,{-lane_id=>$cgi->param('id')});
+      } elsif ($table eq 'phred_seq') {
+         $seq = new Phred_Seq($session,{-id=>$cgi->param('id')});
+         $seq->select_if_exists;
+         $lane = new Lane($session,{-id=>$seq->lane_id}) if $seq->lane_id;
+      }
    }
 
    if ( !$lane->db_exists | !$seq->db_exists ) {
