@@ -45,7 +45,6 @@ use Processing;
 
 
 use File::Basename;
-use Getopt::Long;
 
 
 # gadfly modules
@@ -68,19 +67,15 @@ my $all = 0;
 my @batch = ();
 my %strainH;
 my @ignore = ();
+my $out = '';
 
 GetOptions("recheck!" => \$recheck,
            "all!"     => \$all,
            "batch=s@" => \@batch,
            "skip=s@"  => \@ignore,
+           "out=s"    => \$out,
            );
 
-
-$session->die("-recheck and -all cannot both be specified.") if $recheck && $all;
-
-my $doc_date = localtime(time);
-my $doc_creator = File::Basename::basename($0).':$Revision$';
-$doc_creator =~ s/[ \$]//g;
 
 # we pass either a option specified -batch or a list of strains.
 # we may also have a list of excluded strains with a -skip <strain>
@@ -101,6 +96,15 @@ foreach my $skip (@ignore) {
 
 $session->info("There are ".scalar(keys %strainH)." strains left on the list to process.");
 
+# prepare output file
+if ($out) {
+   unless (open(FIL,"> $out") ) {
+      $session->die("Cannot open file $out for writing: $!");
+   }
+} else {
+   *FIL = *STDOUT;
+}
+
 foreach my $strain (sort keys %strainH) {
 
    $session->info("Processing $strain.");
@@ -117,11 +121,11 @@ foreach my $strain (sort keys %strainH) {
    if ($all || ($recheck && $pass)  || (!$recheck && !$pass) ) {
       my @insertList = getCytoAndGene($session,$strain);
       if (scalar(@insertList) > 1) {
-         map {print "$strain,",$_->{arm},",",$_->{range},",",$_->{band},",",join(" ",@{$_->{gene}}),"\n" } @insertList;
+         map {print FIL "$strain,",$_->{arm},",",$_->{range},",",$_->{band},",",join(" ",@{$_->{gene}}),"\n" } @insertList;
       } elsif (scalar(@insertList)) {
-         map {print "$strain,",$_->{arm},",",$_->{range},",",$_->{band},",",join(" ",@{$_->{gene}}),"\n" } @insertList;
+         map {print FIL "$strain,",$_->{arm},",",$_->{range},",",$_->{band},",",join(" ",@{$_->{gene}}),"\n" } @insertList;
       } else {
-         print "$strain,,\n";
+         print FIL "$strain,,\n";
       }
    } else {
       $session->info("$strain results skipped; not rechecked verified.") if !$pass;
@@ -192,8 +196,7 @@ sub getCytoAndGene
    foreach my $end qw(3 5) {
       my $saS = new Seq_AlignmentSet($session,{-seq_name=>$strain.'-'.$end})->select;
       foreach my $sa ($saS->as_list) {
-         next if $sa->status eq 'deselected';
-         next if $sa->status eq 'multiple';
+         next unless $sa->status eq 'unique' || $sa->status eq 'curated';
 
          my $isNewInsertion = 1;
          foreach my $in (@insertList) {
@@ -224,7 +227,10 @@ sub getCytoAndGene
          $in->{band} = $cyto->band;
          $in->{arm} =~ s/arm_//;
       } else {
-         $in->{band} = 'Het';
+         $cyto = new Cytology($session,{scaffold=>$in->{arm},
+                                    less_than=>{start=>$end},
+                        greater_than_or_equal=>{stop=>$start}})->select_if_exists;
+         $in->{band} = ($cyto && $cyto->band)?$cyto->band:'Het';
       }
 
       $session->log($Session::Info,
@@ -256,7 +262,7 @@ sub getCytoAndGene
           my $gene = $annot->gene;
           # if this isn't a real gene, we gotta skip it
           next unless $gene->flybase_accession_no;
-          next unless $gene->name =~ /^CG\d+$/;
+          next unless $gene->name =~ /^C[GR]\d+$/;
           push @{$in->{gene}}, $gene->name;
           $session->log($Session::Info, "Hit ".$gene->name." (".$gene->flybase_accession_no->acc_no.").");
       }
