@@ -136,6 +136,9 @@ sub reportSeq
                                     -v_trim_start=>0,-q_trim_start=>0,
                                     -v_trim_end=>$last,-q_trim_end=>$last});
 
+   } else {
+      print $cgi->center($cgi->h2("Invalid db parameter.")),"\n";
+      return;
    }
    my $sequence = uc($seq->seq);
    my $trimmed_sequence;
