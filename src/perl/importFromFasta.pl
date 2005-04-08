@@ -41,7 +41,7 @@ while (<FIL>) {
     $seq .= $_;
   }
 }
-process_old($file,$s,$gel,$lane,$seq_name,$end,$seq);
+process_old($s,$file,$gel,$lane,$seq_name,$end,$seq);
 
 close(FIL);
 
@@ -51,7 +51,7 @@ $s->exit;
 
 sub process_old
 {
-   my ($file,$s,$gel,$lane,$seq_name,$end,$seq) = @_;
+   my ($s,$file,$gel,$lane,$seq_name,$end,$seq) = @_;
 
    my $filename = basename($file);
    my $g = new Gel($s,{-name=>$gel})->select;
