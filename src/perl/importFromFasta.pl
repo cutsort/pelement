@@ -27,7 +27,7 @@ while (<FIL>) {
   chomp $_;
 
   if ($_ =~ /^>/) {
-     process_old($file,$s,$gel,$lane,$seq_name,$end,$seq) if $seq;
+     process_old($s,$file,$gel,$lane,$seq_name,$end,$seq) if $seq;
      $seq = '';
      if ( />([A-Z]+\d+)\.(\d+)\s+\S+\s+(\S+)\s([35]?)/ ) {
        $gel = $1;
