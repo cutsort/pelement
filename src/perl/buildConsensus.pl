@@ -68,6 +68,8 @@ my $endSlop = 5;
 my $maxIncrement = 30;  # how much bigger can the consensus sequence be compare
                         # to the longest base.
 
+my $command_line_name;  # do we force a command line name?
+
 GetOptions('gel=s'      => \$gel_name,
            'gel_id=i'   => \$gel_id,
            'lane=s'     => \$lane_name,
@@ -86,6 +88,7 @@ GetOptions('gel=s'      => \$gel_name,
            'ref=i'      => \$refLane,
            'endslop=i'  => \$endSlop,
            'maxinc=i'   => \$maxIncrement,
+           'name=s'     => \$command_line_name,
           );
 
 # processing hierarchy. In case multiple things are specified, we have to
@@ -123,8 +126,10 @@ if ($gel_name || $gel_id) {
    $session->die("No options specified for trimming.");
 }
 
-$session->log($Session::Info,"There are ".scalar(@lanes)." lanes to process");
+$session->info("There are ".scalar(@lanes)." lanes to process");
 
+$session->die("We can only specify a sequence name for single lane processing.")
+    if scalar(@lanes) > 1 && $command_line_name;
 
 LANE:
 foreach my $lane (@lanes) {
@@ -292,6 +297,9 @@ foreach my $lane (@lanes) {
    } else {
       $seq_name = $lane->seq_name.'-3' unless $lane->seq_name =~ /-3$/;
    }
+
+   # a special case is the seq_name given as a command line option
+   $seq_name = $command_line_name if $command_line_name;
 
    # guard against total bogus assemblies by making sure the
    # new consensus is not much bigger than the longest original
