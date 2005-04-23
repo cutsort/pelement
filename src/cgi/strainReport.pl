@@ -46,6 +46,7 @@ print $cgi->footer([
                    {link=>"batchReport.pl",name=>"Batch Report"},
                    {link=>"strainReport.pl",name=>"Strain Report"},
                    {link=>"gelReport.pl",name=>"Gel Report"},
+                   {link=>"setReport.pl",name=>"Set Report"},
                     ]);
 print $cgi->close_page;
 
@@ -82,7 +83,7 @@ sub reportStrain
    # try to make sense of the strain name. It may have an end identifier.
    $strain =~ s/\s+//g;
    # and get rid of strange periods from cutting-n-pasting
-   $strain =~ s/\.//g;
+   $strain =~ s/\.$//g;
    my $s = new Strain($session,{-strain_name=>Seq::strain($strain)});
 
    if ( !$s->db_exists ) {
