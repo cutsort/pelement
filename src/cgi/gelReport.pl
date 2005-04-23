@@ -95,7 +95,7 @@ sub reportGel
    my $laneSet = new LaneSet($session,{-gel_id=>$gel->id})->select;
    foreach my $s ($laneSet->as_list) {
       my $p = new Phred_Seq($session,{-lane_id=>$s->id})->select_if_exists;
-      push @tableRows, [$s->seq_name || 'Unknown',
+      push @tableRows, [$s->seq_name?$cgi->a({-href=>"strainReport.pl?strain=".$s->seq_name},$s->seq_name):'Unknown',
                         $s->well || $cgi->nbsp,
                         $s->run_date || 'Unknown',
                         $s->id?$cgi->a({-href=>"seqReport.pl?id=".$s->id,-target=>"_seq"},
