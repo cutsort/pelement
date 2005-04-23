@@ -21,6 +21,7 @@ use Seq;
 use SeqSet;
 use Seq_Assembly;
 use Seq_AlignmentSet;
+use Blast_ReportSet;
 use GenBankScaffold;
 use Strain;
 use IPCRSet;
@@ -59,6 +60,7 @@ if ($batch) {
                    {link=>"batchReport.pl",name=>"Batch Report"},
                    {link=>"strainReport.pl",name=>"Strain Report"},
                    {link=>"gelReport.pl",name=>"Gel Report"},
+                   {link=>"setReport.pl",name=>"Set Report"},
                    {link=>"strainStatusReport.pl",name=>"Strain Status Report"},
                    {link=>"batchReport.pl?batch=$prev_batch",name=>"Previous Batch"},
                    {link=>"batchReport.pl?batch=$next_batch",name=>"Next Batch"}
@@ -68,6 +70,7 @@ if ($batch) {
                    {link=>"batchReport.pl",name=>"Batch Report"},
                    {link=>"strainReport.pl",name=>"Strain Report"},
                    {link=>"gelReport.pl",name=>"Gel Report"},
+                   {link=>"setReport.pl",name=>"Set Report"},
                    {link=>"strainStatusReport.pl",name=>"Strain Status Report"},
                     ]);
 }
@@ -176,9 +179,11 @@ sub reportBatch
       push @rows, $r unless grep (/^$r$/,@rows);
       push @cols, $c unless grep (/^$c$/,@cols);
       $samples{$r.":".$c} = $s->strain_name;
-      $sampleLinks{$r.":".$c} = $cgi->a({-href=>"strainReport.pl?strain=".$s->strain_name},$s->strain_name);
+      $sampleLinks{$r.":".$c} = $cgi->a({-href=>"strainReport.pl?strain=".
+                                         $s->strain_name},$s->strain_name);
       my $status = new Strain($session,{-strain_name=>$s->strain_name})->select->status;
-      $statusLinks{$r.":".$c} = $cgi->a({-href=>"strainStatusReport.pl?strain=".$s->strain_name},$status);
+      $statusLinks{$r.":".$c} = $cgi->a({-href=>"strainStatusReport.pl?strain=".
+                                         $s->strain_name},$status);
    }
    @rows = sort { $a cmp $b } @rows;
    @cols = sort { $a <=> $b } @cols;
@@ -187,7 +192,8 @@ sub reportBatch
          $cgi->center($cgi->format_plate(\@rows,\@cols,\%sampleLinks,
                                               {-align=>'center'})),"\n",
          $cgi->br,
-         $cgi->html_only($cgi->a({-href=>"batchReport.pl?batch=$batch&table=plate&format=text"},
+         $cgi->html_only(
+            $cgi->a({-href=>"batchReport.pl?batch=$batch&table=plate&format=text"},
                   "View as Tab delimited list"),$cgi->br,"\n"),
          $cgi->br,$cgi->hr,"\n"
                         if (!$cgi->param('table') ||
@@ -291,6 +297,7 @@ sub reportBatch
          $wellSumH{$r.':'.$c} = 1;
          my %endSeq = ();
          my %builtSeq = ();
+         my $hitVector;
 
          my %seqs = ( '5'=>[], '3'=>[], 'other'=>[] );
 
@@ -327,11 +334,20 @@ sub reportBatch
                                       && !$saSeq->qualifier) {
                           $builtSeq{$lane->end_sequenced} .= ',c';
                         }
+
+                        # does this sequence hit vector? These are not stored
+                        # as seq alignments, but we look at blast hits on the fly
+                        my $vecReport = new Blast_ReportSet($session,
+                                         {-seq_name=>$sa->seq_name,-db=>'vector',
+                                          -greater_than=>{score=>50} })->select;
+
+                        $hitVector = 1 if $vecReport->count;
+                               
                         my $al = new Seq_AlignmentSet($session,
                                       {-seq_name=>$sa->seq_name})->select;
                         map
-                         { push @{$seqs{$lane->end_sequenced}},$_ unless $_->status =~ /deselected/}
-                                                                                   $al->as_list;
+                         { push @{$seqs{$lane->end_sequenced}},$_
+                                      unless $_->status =~ /deselected/} $al->as_list;
                      }
                   }
                }
@@ -346,7 +362,9 @@ sub reportBatch
             foreach my $nS ($seqSet->as_list) {
                next if $foundSeq{$nS->seq_name};
                my $naS = new Seq_AlignmentSet($session,{-seq_name=>$nS->seq_name})->select;
-               map { push @{$seqs{other}},$_ unless $_->status =~ /deselected/ || $_->status =~ /multiple/} $naS->as_list;
+               map { push @{$seqs{other}},$_
+                       unless $_->status =~ /deselected/ || $_->status =~ /multiple/}
+                                                $naS->as_list;
             }
          }
 
@@ -403,12 +421,13 @@ sub reportBatch
          }
          $alignSeqH{$align}++;
 
+
          my $place = $cgi->nbsp;
          my $cyto = $cgi->nbsp;
          my $coord = $cgi->nbsp;
          my $strand = $cgi->nbsp;
          my $arm = $cgi->nbsp;
-         if ($align eq '1') {
+         if ($align =~ /^1/) {
             # happiness abounds. A single unique insert
             my $mean = int(($seqs{5}->[0]->s_insert+$seqs{3}->[0]->s_insert)/2);
             my $scaff = new GenBankScaffold($session)->mapped_from_arm(
@@ -428,7 +447,7 @@ sub reportBatch
             $cyto = $cyt->band if $cyt->band;
             $coord = $mean;
             $strand = ($seqs{5}->[0]->p_end > $seqs{5}->[0]->p_start)?'+':'-';
-         } elsif ($align eq '3' || $align eq '5') {
+         } elsif ($align =~ /^[35]/ ) {
             # semi-happy. 1 good spot
             my $scaff = new GenBankScaffold($session)->mapped_from_arm(
                                               $seqs{$align}->[0]->scaffold,
@@ -442,12 +461,13 @@ sub reportBatch
             $cyto = $scaff->cytology;
             $arm = $scaff->arm;
             my $cyt = new Cytology($session,{-scaffold=>$seqs{$align}->[0]->scaffold,
-                                            -less_than=>{start=>$seqs{$align}->[0]->s_insert},
-                                -greater_than_or_equal=>{stop=>$seqs{$align}->[0]->s_insert}})->select_if_exists;
+                            -less_than=>{start=>$seqs{$align}->[0]->s_insert},
+                            -greater_than_or_equal=>{stop=>$seqs{$align}->[0]->s_insert}}
+                                                                       )->select_if_exists;
             $cyto = $cyt->band if $cyt->band;
             $coord = $seqs{$align}->[0]->s_insert;
             $strand = ($seqs{$align}->[0]->p_end > $seqs{$align}->[0]->p_start)?'+':'-';
-         } elsif ($align eq 'c') {
+         } elsif ($align =~ /^c/ ) {
             # ooooh. scary. conflicting data
             # first, clear out the space data
             map { $_ = '' } ($place,$coord,$cyto,$arm,$strand);
@@ -466,8 +486,9 @@ sub reportBatch
                }
                $arm .= $scaff->arm;
                my $cyt = new Cytology($session,{-scaffold=>$seqs{$e}->[0]->scaffold,
-                                               -less_than=>{start=>$seqs{$e}->[0]->s_insert},
-                                   -greater_than_or_equal=>{stop=>$seqs{$e}->[0]->s_insert}})->select_if_exists;
+                               -less_than=>{start=>$seqs{$e}->[0]->s_insert},
+                               -greater_than_or_equal=>{stop=>$seqs{$e}->[0]->s_insert}}
+                                                                      )->select_if_exists;
                $cyto .= $cyt->band?$cyt->band:($scaff->cytology?$scaff->cytology:'?');
                $coord .= $seqs{$e}->[0]->s_insert;
                $strand .= ($seqs{$e}->[0]->p_end > $seqs{$e}->[0]->p_start)?'+':'-';
@@ -481,7 +502,8 @@ sub reportBatch
          my ($otherPlace,$otherArm,$otherCoord,$otherCyto,$otherStrand);
          if ($allAlign) {
             foreach my $osA (@{$seqs{other}}) {
-               map { $_ .= $cgi->br if $_} ($otherPlace,$otherArm,$otherCoord,$otherCyto,$otherStrand);
+               map { $_ .= $cgi->br if $_}
+                         ($otherPlace,$otherArm,$otherCoord,$otherCyto,$otherStrand);
  
                my $scaff = new GenBankScaffold($session)->mapped_from_arm(
                                                  $osA->scaffold,
@@ -496,8 +518,9 @@ sub reportBatch
                $a =~ s/arm_//;
                $otherArm .= $a;
                my $cyt = new Cytology($session,{-scaffold=>$osA->scaffold,
-                                               -less_than=>{start=>$osA->s_insert},
-                                   -greater_than_or_equal=>{stop=>$osA->s_insert}})->select_if_exists;
+                               -less_than=>{start=>$osA->s_insert},
+                               -greater_than_or_equal=>{stop=>$osA->s_insert}}
+                                    )->select_if_exists;
                if ($cyt->band) {
                   $otherCyto .= $cyt->band;
                } else {
@@ -506,18 +529,21 @@ sub reportBatch
                $otherCoord .= $osA->s_insert;
                $otherStrand .= ($osA->p_end > $osA->p_start)?'+':'-';
             }
-            map { $_ = $cgi->nbsp unless $_ }  ($otherPlace,$otherArm,$otherCoord,$otherCyto,$otherStrand);
+            map { $_ = $cgi->nbsp unless $_ } 
+                     ($otherPlace,$otherArm,$otherCoord,$otherCyto,$otherStrand);
          }
             
+         $align .= '(v)' if $hitVector;
         
          if ($allAlign) {
             push @tableRows,
-              [$batch,$sampleLinks{$r.':'.$c},$r.$c,$seqs,$cons,$align,$place,$arm,$coord,$cyto,$strand,
-                                                   $otherPlace,$otherArm,$otherCoord,$otherCyto,$otherStrand,
-                                                   $statusLinks{$r.':'.$c}];
+              [$batch,$sampleLinks{$r.':'.$c},$r.$c,$seqs,$cons,$align,$place,$arm,
+                         $coord,$cyto,$strand,$otherPlace,$otherArm,$otherCoord,
+                         $otherCyto,$otherStrand,$statusLinks{$r.':'.$c}];
          } else {
             push @tableRows,
-              [$batch,$sampleLinks{$r.':'.$c},$r.$c,$seqs,$cons,$align,$place,$arm,$coord,$cyto,$strand,$statusLinks{$r.':'.$c}];
+              [$batch,$sampleLinks{$r.':'.$c},$r.$c,$seqs,$cons,$align,$place,$arm,
+                         $coord,$cyto,$strand,$statusLinks{$r.':'.$c}];
          }
       }
    }
@@ -527,7 +553,7 @@ sub reportBatch
                                    -width=>"80%",
                                    -bordercolor=>$HTML_TABLE_BORDERCOLOR},
             $cgi->Tr( [
-## header
+      ## header
                $cgi->th({-bgcolor=>$HTML_TABLE_HEADER_BGCOLOR,-width=>'10%'},
                       ["Batch"]).
                $cgi->th({-bgcolor=>$HTML_TABLE_HEADER_BGCOLOR,-width=>'15%'},
@@ -548,9 +574,9 @@ sub reportBatch
                       ["Other".$cgi->br."Strands"])):'').
                $cgi->th({-bgcolor=>$HTML_TABLE_HEADER_BGCOLOR,-width=>'5%'},
                       ["Status"]),
-## contents
+      ## contents
                         (map { $cgi->td({-align=>"center"}, $_ ) } @tableRows),
-## totals
+      ## totals
                $cgi->th('Totals').
                $cgi->th(scalar(keys %strainSumH)).
                $cgi->th(scalar(keys %wellSumH)).
@@ -573,17 +599,22 @@ sub reportBatch
                $cgi->th($cgi->nbsp).
                $cgi->th($cgi->nbsp).
                $cgi->th($cgi->nbsp).
-               ($allAlign?($cgi->th($cgi->nbsp).$cgi->th($cgi->nbsp).$cgi->th($cgi->nbsp).$cgi->th($cgi->nbsp).$cgi->th($cgi->nbsp).$cgi->th($cgi->nbsp)):'').
+               ($allAlign?($cgi->th($cgi->nbsp).$cgi->th($cgi->nbsp).
+                           $cgi->th($cgi->nbsp).$cgi->th($cgi->nbsp).
+                           $cgi->th($cgi->nbsp).$cgi->th($cgi->nbsp)):'').
                $cgi->th($cgi->nbsp),
                        ] ))),"\n",
          $cgi->br,
-         $cgi->html_only($cgi->a({-href=>"batchReport.pl?batch=$batch&table=align&align=all"},
+         $cgi->html_only($cgi->a(
+                  {-href=>"batchReport.pl?batch=$batch&table=align&align=all"},
                   "View Alignments of these strains from all batches"),$cgi->br,"\n"),
-         $cgi->html_only($cgi->a({-href=>"batchReport.pl?batch=$batch&table=align&format=text"},
+         $cgi->html_only($cgi->a(
+                  {-href=>"batchReport.pl?batch=$batch&table=align&format=text"},
                   "View Alignments from this batch as Tab delimited list"),$cgi->br,"\n"),
-         $cgi->html_only($cgi->a({-href=>"batchReport.pl?batch=$batch&table=align&align=all&format=text"},
-                  "View Alignments of these strains from all batches as Tab delimited list"),$cgi->br,"\n"),
-          $cgi->br,"\n"
+         $cgi->html_only($cgi->a(
+                   {-href=>"batchReport.pl?batch=$batch&table=align&align=all&format=text"},
+                  "View Alignments of these strains from all batches as Tab delimited list"),
+                  $cgi->br,"\n"),$cgi->br,"\n"
                         if (!$cgi->param('table') ||
                              $cgi->param('table') eq 'align');
 
@@ -595,7 +626,8 @@ sub reportBatch
                             qq(5 -> sequence for 5' end only),
                             qq(3 -> sequence for 3' end only),
                             qq(n -> sequence for neither end),
-                            qq(a parenthetical note on sequences indicates one or both ends is not the current consensus),
+                            qq(a parenthetical note on sequences indicates one
+                               or both ends is not the current consensus),
                                                     ]))), "\n",
          $cgi->em('Alignment Key:',
          $cgi->ul($cgi->li([ 
@@ -608,7 +640,8 @@ sub reportBatch
              qq(5 -> 5' flank aligns to a unique site, 3' flank
                      doesn't align to any site or aligns to multiple sites),
              qq(3 -> 3' flank aligns to a unique site, 5' flank
-                     doesn't align to any site or aligns to multiple sites)]))),
+                     doesn't align to any site or aligns to multiple sites),
+             qq(v -> one or both flanks show significant alignment to vector)]))),
           "\n"
                         if (!$cgi->param('table') );
             
