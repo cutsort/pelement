@@ -57,8 +57,10 @@ my $session = new Session();
 
 # command line options
 my $ifAligned = 1;        # only submit info on the "desired" aligned flanks
+my $phenotype = 1;        # do we require a pheontype record?
 my $outFile;
 GetOptions('ifaligned!' => \$ifAligned,
+           'phenotype!' => \$phenotype,
            'out=s'      => \$outFile);
 
 #if ($outFile) {
@@ -205,9 +207,9 @@ foreach my $strain_name (@ARGV) {
       $multiple = $pheno->is_multiple_insertion;
    }
 
-   # enforce requirements that we need a phenotype record.
+   # enforce requirements that we need a phenotype record (unless overridden)
    unless ($pheno->db_exists && $pheno->is_homozygous_viable && $pheno->is_homozygous_fertile) {
-      $session->die("No phenotype/genotype information for $strain_name.");
+      $session->die("No phenotype/genotype information for $strain_name.") unless (!$phenotype)
    }
 
    # if there is no derived cytology record, we'll try to infer one if the insertion
