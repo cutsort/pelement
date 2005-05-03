@@ -407,11 +407,14 @@ foreach my $strain_name (@ARGV) {
          } elsif ( $arm =~ /(.*)\.wgs3.*extension/ ) {
             my $gs = new GenBankScaffold($session,{-arm=>$arm})->select;
             my $sp = new XML::ScaffoldPosition( 
-                           { #location => ($pos_range[0]==$pos_range[1])?
-                             #             $pos_range[0]:
-                             #             $pos_range[0]."..".$pos_range[1],
+                           { location => ($pos_range[0]==$pos_range[1])?
+                                          $pos_range[0]:
+                                          $pos_range[0]."..".$pos_range[1],
                              comment => 'Unfinished centromere extension of '.$1 });
-            #$sp->add(new XML::GBAccno({accession_version => $gs->accession}));
+            my $acc = $gs->accession;
+            # take care of these weird cases
+            $acc =~ s/.seg$//;
+            $sp->add(new XML::GBAccno({accession_version => $acc}));
             $insertData->add($sp);
          }
 
