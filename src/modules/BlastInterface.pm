@@ -15,6 +15,8 @@
    $blast_sql = $blast->to_sql($result);
    $session->db->do($blast_sql);
    
+   or for the last 2 steps (improved)
+   ($run,$hitset,$hspset) = $blast->parse
 
 =head1 Options
 
@@ -29,6 +31,8 @@ use Files;
 use Blast_Run;
 use Blast_Hit;
 use Blast_HSP;
+use Blast_HitSet;
+use Blast_HSPSet;
 use lib $FLYBASE_MODULE_PATH;
 use Getopt::Long;
 use BPlite;
@@ -50,7 +54,7 @@ sub new
   my $db = $BLAST_DB."release3_genomic";
   my $parser = \&na_arms_parser;
   my $program = $BLAST_PATH."blastn";
-  my $options = "m=1 n=-2 x=6 gapx=25 q=7 r=2 gapL=1.37 gapK=.711 gapH=1.31 W=7";
+  my $options = "m=1 n=-2 x=6 gapx=25 q=7 r=2 gapL=1.37 gapK=.711 gapH=1.31 W=7 -filter dust ";
   my $output = &Files::make_temp("blast_".$$."_XXXXX.out");
   my $error  = &Files::make_temp("blast_".$$."_XXXXX.err");
   my $min_sub = 1;
@@ -168,6 +172,10 @@ sub na_geno_dros_RELEASE3_parser
 
   somewhere in between
 
+               $dbh->quote($headH->{name}).
+               (exists($headH->{desc})?",".$dbh->quote($headH->{desc}):"").
+               (exists($headH->{db})?",".$dbh->quote($headH->{db}):"").
+               (exists($headH->{acc})?",".$dbh->quote($headH->{acc}):"").
 =cut
 sub na_te_dros_parser
 {
@@ -187,18 +195,30 @@ sub na_te_dros_parser
   my %lookup = split(/\|/,$dbstring);
 
   my $hashRef = {};
-  $hashRef->{name} = 'Unidentifed Sequence';
+  $hashRef->{name} = $description;
   $hashRef->{desc} = $description;
+
+  # a prioritized search of db id's
   if( exists($lookup{gb}) ) {
     $hashRef->{db} = 'gb';
     $hashRef->{acc} = $lookup{gb};
-    if ($description) {
-       $hashRef->{name} = $description;
-       $hashRef->{name} =~ s/\s*(\S+).*/$1/;
-    } else {
-       $hashRef->{name} = $lookup{gb};
-    }
-  } 
+  } elsif ( exists($lookup{FB}) ) {
+    $hashRef->{db} = 'FB';
+    $hashRef->{acc} = $lookup{FB};
+  } elsif ( exists($lookup{FlyBase}) ) {
+    $hashRef->{db} = 'FlyBase';
+    $hashRef->{acc} = $lookup{FlyBase};
+  }
+
+  if ($description) {
+     $hashRef->{name} = $description;
+     $hashRef->{name} =~ s/\s*(\S+).*/$1/;
+  } else {
+     $record =~ s/^>//;
+     $hashRef->{name} = $record;
+     $hashRef->{name} =~ s/\s*(\S+).*/$1/;
+     $hashRef->{desc} = $record;
+  }
   return $hashRef;
 }
 
@@ -217,7 +237,9 @@ sub run
   ($self->session->error("No fasta file saved.") and return) unless $seq->{fasta};
   my $cmd = $self->{program}." ".$self->{db}." ";
   $cmd .= $seq->{fasta}." ".$self->{options};
-  $cmd .= "> ".$self->{output}." 2> ".$self->{error};
+  $cmd .= " > ".$self->{output}." 2> ".$self->{error};
+
+  $self->session->verbose("About to execute command: $cmd");
 
   &PCommon::shell($cmd);
 }
@@ -239,6 +261,12 @@ sub DESTROY
   unlink($self->{error}) or
          $self->session->log($Session::Warn,"Trouble deleting ".$self->{output});
 }
+
+=head1 parse_sql
+
+  this method is deprecated. Use parse instead
+
+=cut
 
 sub parse_sql
 {
@@ -305,6 +333,8 @@ sub parse_sql
        my $tempHash;
        map { $tempHash->{$_} = $hsp->$_ }
                qw(score bits percent match positive length P qb qe sb se qa sa as qg sg);
+       # watch out for underflows in postgres
+       $tempHash->{P} = 0.0 if $tempHash->{P} < 1e-300;
        push @allHsp, $tempHash;
     }
     # here's the sort
@@ -335,6 +365,126 @@ sub parse_sql
   $self->set_ids($runId,$hitId,$hspId);
 
   return $sql;
+}
+
+=head1 parse
+
+  look at the blast output and (optionally) insert the results into the db.
+
+=cut
+sub parse
+{
+  my $self = shift;
+
+  return unless -s $self->{output} && -r $self->{output};
+
+  my $dbh = $self->session()->get_db();
+
+  open(BLST,$self->{output}) or return;
+
+  # see if there were fatal error in this run
+  if ( $self->{error} && (my $error = `grep FATAL: $self->{error}`)) {
+     $error =~ s/FATAL:\s*//sg;
+     $error =~ s/\n//sg;
+     $self->session()->die("Blast run had error(s): $error");
+     return;
+  }
+
+  # we'll use the time stamp on the output file for the
+  # time of the blast.
+  my $blast_date = Files::file_date($self->{output});
+
+  my $parser = new BPlite(\*BLST);
+  $self->session->verbose("Opening blast output file ".$self->{output}.".");
+
+  # clean up the query and db a bit
+  my $q_name = $parser->query;
+  $q_name =~ s/\s*\([0-9,]+ letters\)\s*$//;
+  my $db_name = $parser->database;
+  $db_name =~ s/$BLAST_DB//;
+
+  my $bR = new Blast_Run($self->session,
+                      {seq_name => $q_name,
+                       db       => $db_name,
+                       option_id=> $self->{option_id},
+                       date     => $blast_date});
+
+  # prepare these containers for results
+  my $bHitSet = new Blast_HitSet($self->session);
+  my $bHspSet = new Blast_HSPSet($self->session);
+
+  my $hitCtr = 0;
+  while( my $sb = $parser->nextSbjct() ) {
+
+    $self->session->verbose("Processing hits to ".$sb->name.".");
+ 
+    my $headH = &{$self->{subject_parser}}($sb->name);
+
+    # prepare the hit and add it to the set
+    my $bH = new Blast_Hit($self->session,
+                       { run_id => $bR->ref_of('id'),
+                         name   => $headH->{name} });
+    $bH->description($headH->{desc}) if $headH->{desc};
+    $bH->db($headH->{db}) if $headH->{db};
+    $bH->accession($headH->{acc}) if $headH->{acc};
+    $bHitSet->add($bH);
+    
+    my $hspCtr = 0;
+    # we're going to extract the hsp's then sort by score.
+    # since low scoring + strand hits may preceed higher scoring
+    # - strand hits we cannot assume they are coming out in the
+    # right order
+    my @allHsp = ();
+
+    # here's the extract. The name of the object is overloaded, so we
+    # cannot just push that; we need to recreate the object in a hash
+    while( my $hsp = $sb->nextHSP() ) {
+       my $tempHash;
+       map { $tempHash->{$_} = $hsp->$_ }
+               qw(score bits percent match positive length P qb qe sb se qa sa as qg sg);
+       # watch out for underflows (only in postgres?)
+       $tempHash->{P} = 0.0 if $tempHash->{P} < 1e-300;
+       push @allHsp, $tempHash;
+    }
+    # here's the sort
+    @allHsp = sort { $b->{score} <=> $a->{score} } @allHsp;
+    # now go down the list, from biggest score to lowest.
+    foreach my $hsp (@allHsp) {
+       last if $hspCtr > $self->{max_hsp};
+       my $strand = (($hsp->{qe}-$hsp->{qb})*($hsp->{se}-$hsp->{sb}) > 0)?1:-1;
+       my $bHsp = new Blast_HSP($self->session,
+                                 { hit_id => $bH->ref_of('id') } );
+       $bHsp->score($hsp->{score});
+       $bHsp->bits($hsp->{bits});
+       $bHsp->percent($hsp->{percent});
+       $bHsp->match($hsp->{match});
+       $bHsp->length($hsp->{length});
+       $bHsp->query_begin($hsp->{qb});
+       $bHsp->query_end($hsp->{qe});
+       $bHsp->subject_begin($hsp->{sb});
+       $bHsp->subject_end($hsp->{se});
+       $bHsp->query_gaps($hsp->{qg});
+       $bHsp->subject_gaps($hsp->{sg});
+       $bHsp->p_val($hsp->{P});
+       $bHsp->query_align($hsp->{qa});
+       $bHsp->match_align($hsp->{as});
+       $bHsp->subject_align($hsp->{sa});
+       $bHsp->strand($strand);
+       $hspCtr++;
+
+       # add it to the hsp.
+       $bHspSet->add($bHsp);
+    }
+    $hitCtr++ if $hspCtr;
+    last if $hitCtr > $self->{max_sub};
+  }
+
+  unless ($_[0] eq 'noinsert') {
+    $bR->insert;
+    $bHitSet->insert;
+    $bHspSet->insert;
+  }
+  return ($bR,$bHitSet,$bHspSet);
 }
 
 sub session      { shift->{session}; }

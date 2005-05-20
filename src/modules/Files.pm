@@ -18,9 +18,13 @@ sub make_temp
    # generate a new file name by replacing X's in a template 
    # with numbers until the file name is unique
 
+   # the numbers are integers "." process id
+
    my $template = shift;
    
    $template = $PELEMENT_TMP.$template unless $template =~ /^\//;
+
+   $template .= ".".$$;
 
    my $Xs;
    if ( $template =~ /X/ ) {

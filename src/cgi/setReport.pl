@@ -195,6 +195,7 @@ sub reportSet
    my @unalignedSeq = ();
    my @badStrains = ();
    my @mergedStrains = ();
+   my @stockList = ();
    my $fastaSeq;
 
    my %reports;
@@ -204,20 +205,29 @@ sub reportSet
    # filter the set list to eliminate redundancies, end identiers, punctuation,,
 
    my %seqSet = ();
+ 
    map { map {$seqSet{Seq::strain($_)}=1 unless !$_ || $_ =~ /[,+]/ } split(/\s/,$_) } @set;
 
    foreach my $strain (sort keys %seqSet) {
 
-      my $strainLink = $cgi->a(
-                 {-href=>"strainReport.pl?strain=".$strain,
-                  -target=>"_strain"}, $strain);
-      my $seqS = new SeqSet($session,{-strain_name=>$strain})->select;
-      if (!$seqS->as_list) {
-         push @badStrains, [$strain];
-         next;
+      my $seqS;
+      if ($strain =~ /%/) {
+         # wild card search. watch out!
+         $seqS = new SeqSet($session,{-like=>{strain_name=>$strain}})->select;
+      } else {
+         $seqS = new SeqSet($session,{-strain_name=>$strain})->select;
+         if (!$seqS->as_list) {
+            push @badStrains, [$strain];
+            next;
+         }
       }
 
       foreach my $seq ($seqS->as_list) {
+
+         my $strainLink = $cgi->a(
+                    {-href=>"strainReport.pl?strain=".$seq->strain_name,
+                     -target=>"_strain"}, $seq->strain_name);
+
          # keep track of the fasta seq if desired.
          if ($reports{fasta}) {
            $fastaSeq .= '>'.$seq->seq_name;
@@ -261,6 +271,8 @@ sub reportSet
          }
 
          push @multipleHits ,[$strainLink,$seq->seq_name] if !$gotAHit;
+
+         push @stockList,generateStockList($session,$seq->strain_name) if $reports{'stock'}; 
       }
    }
 
@@ -349,8 +361,7 @@ sub reportSet
    $setLink =~ s/\s+/+/g;
    map { $setLink .= "&view=$_" } keys %reports;
 
-   my @stockList;
-   if ($reports{'stock'} && (@stockList = generateStockList($session,\%seqSet)) ) {
+   if ($reports{'stock'} ) {
       # replace null strings with nbsp's
       map { map { $_ = $_?$_:$cgi->nbsp } @$_ } @stockList;
       print $cgi->center($cgi->h3("Stock List"),$cgi->br),"\n",
@@ -379,22 +390,19 @@ sub reportSet
 
 sub generateStockList{
 
-   my ($session,$strainH) = @_;
+   my ($session,$strain) = @_;
    my @returnList;
 
-   foreach my $strain (sort keys %$strainH) {
+   ##my $laneSet = new LaneSet($session,{-seq_name=>$strain})->select;
+   ##next unless $laneSet->as_list;
 
-      my $laneSet = new LaneSet($session,{-seq_name=>$strain})->select;
-      next unless $laneSet->as_list;
+   # default operation if batch was not specified is to consider it a 'pass'
 
-      # default operation if batch was not specified is to consider it a 'pass'
-
-      my @insertList = getCytoAndGene($session,$strain);
-      if (scalar(@insertList) ) {
-         map {push @returnList, [$strain,$_->{arm},$_->{range},$_->{band},join(" ",@{$_->{gene}})] } @insertList;
-      } else {
-         push @returnList, [$strain,,,,];
-      }
+   my @insertList = getCytoAndGene($session,$strain);
+   if (scalar(@insertList) ) {
+      map {push @returnList, [$strain,$_->{arm},$_->{range},$_->{band},join(" ",@{$_->{gene}})] } @insertList;
+   } else {
+      push @returnList, [$strain,,,,];
    }
 
    return @returnList;

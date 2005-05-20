@@ -25,7 +25,8 @@ use Session;
 use Carp;
 
 @ISA = qw(Exporter);
-@EXPORT = qw(new initialize_self select add as_list as_list_ref AUTOLOAD DESTROY);
+@EXPORT = qw(new initialize_self select add as_list as_list_ref 
+             insert delete count AUTOLOAD DESTROY);
 
 =head1
 
@@ -78,9 +79,16 @@ sub initialize_self
   $self->{_session} = $sessionHandle;
   $self->{_constraint} = '';
 
-  my $sql = $sessionHandle->db->prepare("Select * from $tablename limit 0");
-  $sql->execute();
-  $self->{_cols} = \@{$sql->{NAME}};
+  # try to read a cached (a.k.a.stashed) record of
+  # column names for this table.
+  unless ( exists $self->{_cols} &&
+           scalar @{$self->{_cols} = [ @{$self->{_session}->{col_hash}->{$tablename}} ]} ) {
+     my $sql = $sessionHandle->db->prepare("Select * from $tablename where false");
+     $sql->execute();
+     $self->{_session}->{col_hash}->{$tablename} = [@{$sql->{NAME}}];
+     $self->{_cols} = \@{$sql->{NAME}};
+     $sql->finish;
+  }
   $self->{_objects} = [];
 
   # process any specified arguments
@@ -124,9 +132,8 @@ sub initialize_self
   }
   $self->{_constraint} =~ s/ and$//;
 
-  $sql->finish();
-
   return $self;
+
 }
 
 =head1
@@ -171,6 +178,7 @@ sub select
 
   }
   $st->finish;
+
   return $self;
   
 }
@@ -191,8 +199,36 @@ sub add
    push @{$self->{_objects}}, $new_obj;
 }
 
+=head1 insert, delete
 
-  
+  Without verifying if these record already exists, insert or delete the records
+  one by one
+
+=cut
+
+sub insert
+{
+   my $self = shift;
+   map { $_->insert } @{$self->{_objects}};
+}
+sub delete
+{
+   my $self = shift;
+   map { $_->delete } @{$self->{_objects}};
+}
+
+=head1 count
+
+  Hommany object we got. Not a DB query!
+
+=cut
+
+sub count
+{
+  my $self = shift;
+  return scalar(@{$self->{_objects}});
+}
+
 
 sub as_list
 {

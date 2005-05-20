@@ -11,10 +11,11 @@ SRC =	Alignment.pm AlignmentSet.pm Association.pm Batch.pm BlastInterface.pm \
 	SampleSet.pm Seq.pm SeqSet.pm Seq_Alignment.pm Seq_AlignmentSet.pm \
 	Seq_Assembly.pm Seq_AssemblySet.pm Sequence.pm Session.pm Stock_Record.pm \
 	Stock_RecordSet.pm Strain.pm Submitted_Seq.pm Trimming_Protocol.pm \
-	Vector.pm WebCache.pm WebSession.pm
+	Vector.pm WebCache.pm WebSession.pm Strain_Alias.pm fasta_extract.pm
 
 install: check
 	for I in $(SRC); do ( cp $$I $(INSTALLDIR)/modules ); done
+	cp fasta_extract.so $(INSTALLDIR)/modules
 
 
 check:	$(SRC) 

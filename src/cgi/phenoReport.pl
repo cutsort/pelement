@@ -169,6 +169,7 @@ sub reportStrain
    print 
        $cgi->center(
        $cgi->h3("Enter changes in the text fields and press Enter when done"),"\n",
+       $cgi->br,$cgi->h3("If and when I turn this on, that is."),"\n",
           $cgi->br,
           $cgi->start_form(-method=>"post",-action=>"phenoReport.pl"),"\n",
              $cgi->hidden(-name=>'strain',-value=>$strain->strain_name),"\n",

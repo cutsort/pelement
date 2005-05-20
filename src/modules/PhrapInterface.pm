@@ -81,12 +81,11 @@ sub new
 sub run
 {
   my $self = shift;
-  my $file = shift || $self->{file};
 
-  ($self->session->error("No fasta file saved.") and return) unless $file;
-  my $cmd = $self->{program}." ".$self->{options}." ".$file;
-  $cmd .= " > ".$self->{output}." 2> ".$self->{error};
+  my $file = $_[0] || $self->{file};
+  my $cmd = $self->command(@_);
 
+  ($self->session->error("No run command.") and return) unless $cmd;
   &PCommon::shell($cmd);
 
   $self->{ace} = $file.".ace" if -e $file.".ace";
@@ -96,6 +95,24 @@ sub run
   # figure out a more better return value later.
   return 1;
 }
+
+=head1 command
+
+   Construct the command. Useful as an external routine when being chatty.
+
+=cut
+sub command
+{
+  my $self = shift;
+  my $file = shift || $self->{file};
+
+  ($self->session->error("No fasta file saved.") and return) unless $file;
+  my $cmd = $self->{program}." ".$self->{options}." ".$file;
+  $cmd .= " > ".$self->{output}." 2> ".$self->{error};
+
+  return $cmd;
+}
+
 =head1 contigs
 
    In a scalar context, returns the number of contigs; in a list

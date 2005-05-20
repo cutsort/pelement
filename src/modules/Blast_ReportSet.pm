@@ -17,22 +17,64 @@ use PCommon;
 use PelementDBI;
 use DbObjectSet;
 
-=head1
+use Blast_Run;
 
-   new create a generic set of db rows.
+=head1 insert
 
-=cut 
+   The blast report is a view, so we need to write the insert method
+   The model here is that we're going to insert a set of blast_report objects
+   that all correspond to the a minimal set of  blast runs/hit/hsps
 
-sub new
+=cut
+sub insert
 {
-  my $class = shift;
-  my $session = shift;
-  my $args = shift;
+   my $self = shift;
+  
+   my $args = shift || {};
 
-  my $self = initialize_self($class,$session,$args);
+   #$bRun->date( PCommon::parseArgs($args,'date') || 'now');
+   #$bRun->program( PCommon::parseArgs($args,'program') || 'blastn');
 
-  return bless $self,$class;
+   #my $bRun = Blast_Run($self->session);
+   #print "here we would insert the report set.<br>\n";
 
+   # test only. everthing is a new run
+   # map {$_->insert({program=>'sim4'}) } $self->as_list;
+
+   my $old_db;
+   my $old_name;
+
+   my $old_run_id;
+   my $old_hit_id;
+
+   # take the list of blast report objects, sort them so that
+   # db and names are adjacent, and zoom along. Sorting by
+   # score is purely aesthethic
+
+   my @sorted_list = sort { $a->db cmp $b->db ||
+                            $a->name cmp $b->name  ||
+                            $b->score <=> $a->score } $self->as_list;
+
+
+   foreach my $b (@sorted_list) {
+      if ($b->name eq $old_name && $b->db eq $old_db) {
+         $b->run_id($old_run_id);
+         $b->hit_id($old_hit_id);
+         $b->insert($args);
+      } elsif ($b->db eq $old_db) {
+         $b->run_id($old_run_id);
+         $b->insert($args);
+         $old_hit_id = $b->hit_id;
+      } else {
+         $b->insert($args);
+         $old_hit_id = $b->hit_id;
+         $old_run_id = $b->run_id;
+      }
+      $old_db = $b->db;
+      $old_name = $b->name;
+   }
+       
+   return $self;
 }
 
 1;

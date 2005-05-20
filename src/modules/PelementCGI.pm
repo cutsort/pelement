@@ -106,7 +106,7 @@ sub init_page
   my $self = shift;
 
   my $argRef = shift || {};
-  $argRef->{-bgcolor} = $HTML_BODY_BGCOLOR;
+  $argRef->{-bgcolor} = $HTML_BODY_BGCOLOR unless exists($argRef->{-bgcolor});
   return $self->start_html($argRef) if $self->format eq 'html';
  
 }

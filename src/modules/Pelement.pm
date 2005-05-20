@@ -75,7 +75,7 @@ $PELEMENT_CROSS_MATCHBIN = "/usr/local/bdgp/bin/cross_match";
 $ENV{PHRED_PARAMETER_FILE} = "/usr/local/bdgp/etc/phredpar.dat";
 
 # include paths for blast tools
-$BLAST_PATH = "/usr/local/bdgp/wublast/";
+$BLAST_PATH = "/usr/local/bdgp/wublast-2.0-030822/";
 $BLAST_DB = "/data/pelement/blast/";
 $ENV{BLASTDB} = $BLAST_DB;
 $ENV{BLASTMAT} = "$BLAST_PATH/matrix";

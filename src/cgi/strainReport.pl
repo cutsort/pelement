@@ -84,7 +84,14 @@ sub reportStrain
    $strain =~ s/\s+//g;
    # and get rid of strange periods from cutting-n-pasting
    $strain =~ s/\.$//g;
-   my $s = new Strain($session,{-strain_name=>Seq::strain($strain)});
+   $strain = Seq::strain($strain);
+   my $s = new Strain($session,{-strain_name=>$strain});
+
+   # try again, stripping off insertion id.
+   if ( !$s->db_exists && $strain =~ /(.*)[a-z]$/) {
+     $strain = $1;
+     $s = new Strain($session,{-strain_name=>$strain});
+   }
 
    if ( !$s->db_exists ) {
       # if this doesn't exists, check to see if it is an alias

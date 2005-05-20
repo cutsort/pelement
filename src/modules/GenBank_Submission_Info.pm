@@ -81,11 +81,17 @@ sub print
   my $l = length($self->sequence);
   my $in = $self->insertion_pos;
   $comment =~ s/<SEQLENGTH>/$l/sg;
-  $comment =~ s/<SEQINSERT>/$in/sg;
+
+  # we use the word 'unspecified' for undetermined insertions
+  if ($in < 1 || $in > $l) {
+    $comment =~ s/<SEQINSERT>/unspecified/sg;
+  } else {
+    $comment =~ s/<SEQINSERT>/$in/sg;
+  }
   $comment =~ s/(.+)/~$1~/g;
   $output .= "COMMENT:\n$comment\n";
   my $seq = $self->sequence;
-  $seq =~ s/(.{50})/$1\n/g;
+  $seq =~ s/(.{60})/$1\n/g;
   $seq .= "\n";
   $seq =~ s/\n\n/\n/;
   $output .= "SEQUENCE:\n$seq||";

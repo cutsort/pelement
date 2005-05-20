@@ -121,27 +121,38 @@ sub performAction
                             "This must be curated before a new sequence can be labeled current.");
          return;
       }
-      $session->db_begin;
-      my $bRS = new Blast_RunSet($session,{-seq_name=>$seq->seq_name})->select;
-      my $sAsS = new Seq_AssemblySet($session,{-seq_name=>$seq->seq_name})->select;
-      my $sAlS = new Seq_AlignmentSet($session,{-seq_name=>$seq->seq_name})->select;
 
-      # update all of these records to the new seq name
-      foreach my $r ($bRS->as_list, $sAsS->as_list, $sAlS->as_list) {
-         $r->unique_identifier;
-         $r->seq_name($currentSeqName);
-         $r->update;
-      }
+      updateSeqRecords($session,$seq,$currentSeqName);
 
-      $seq->unique_identifier;
-      $seq->seq_name($currentSeqName);
-      $seq->update;
- 
-      $session->db_commit;
       $cgi->param('seq',$seq->seq_name);
 
    } elsif (lc($cgi->param('action')) eq 'curated') {
-      print $cgi->center('here we would rename it to a .letter. This is currently not functional.');
+      my $sS = new SeqSet($session,{-strain_name=>$seq->strain_name})->select;
+      my $letter;
+      my $baseStrain = $seq->strain_name;
+      map {  my $this_strain = $_->strain;
+             if ($this_strain =~/${baseStrain}([a-z])$/ ) {
+               $letter  = $1 if ord($1) > ord($letter) && $_->end eq $seq->end;
+             } } $sS->as_list;
+      if ($letter) {
+         (print $cgi->center("We cannot have more than 26 insertions!") and return) if $letter eq 'z';
+        $letter = chr(ord($letter)+1);
+      } else {
+        $letter = 'a';
+      }
+      my $new_name = $baseStrain.$letter;
+      $new_name .= '-'.$seq->end if $seq->end =~ /[35]/;
+
+      # make sure there is not one of these already
+      if ( new Seq($session,{-seq_name=>$new_name})->db_exists) {
+         print $cgi->center("There is already a sequence named $new_name.");
+      } else {
+         print $cgi->center("Update sequence name to $new_name.");
+         updateSeqRecords($session,$seq,$new_name);
+      }
+
+      $cgi->param('seq',$seq->seq_name);
+      
    } elsif (lc($cgi->param('action')) eq 'transitory') {
 
       # find the highest numbered seq_name
@@ -152,30 +163,41 @@ sub performAction
         $newNumber = $1 + 1 if $1 >= $newNumber;
       }
        
-      $session->db_begin;
-
-      my $bRS = new Blast_RunSet($session,{-seq_name=>$seq->seq_name})->select;
-      my $sAsS = new Seq_AssemblySet($session,{-seq_name=>$seq->seq_name})->select;
-      my $sAlS = new Seq_AlignmentSet($session,{-seq_name=>$seq->seq_name})->select;
-
-      # update all of these records to the new seq name
-      foreach my $r ($bRS->as_list, $sAsS->as_list, $sAlS->as_list) {
-         $r->unique_identifier;
-         $r->seq_name($r->seq_name.'.'.$newNumber);
-         $r->update;
-      }
-
-      $seq->unique_identifier;
-      $seq->seq_name($seq->seq_name.'.'.$newNumber);
-      $seq->update;
- 
-      $session->db_commit;
+      updateSeqRecords($session,$seq,$seq->seq_name.'.'.$newNumber);
       $cgi->param('seq',$seq->seq_name);
+
    } else {
       print $cgi->center('Do not know how to treat action '.$cgi->param('action'));
    }
 
    reportSeq($cgi,$session);
+}
+
+sub updateSeqRecords
+{
+   my $session = shift;
+   my $seq = shift;
+   my $new_name = shift;
+
+   $session->db_begin;
+
+   my $bRS = new Blast_RunSet($session,{-seq_name=>$seq->seq_name})->select;
+   my $sAsS = new Seq_AssemblySet($session,{-seq_name=>$seq->seq_name})->select;
+   my $sAlS = new Seq_AlignmentSet($session,{-seq_name=>$seq->seq_name})->select;
+
+   # update all of these records to the new seq name
+   foreach my $r ($bRS->as_list, $sAsS->as_list, $sAlS->as_list) {
+      $r->unique_identifier;
+      $r->seq_name($new_name);
+      $r->update;
+   }
+
+   # now update the seq
+   $seq->unique_identifier;
+   $seq->seq_name($new_name);
+   $seq->update;
+
+   $session->db_commit;
 }
 
 sub reportSeq

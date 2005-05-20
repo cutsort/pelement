@@ -15,6 +15,82 @@ use strict;
 use DbObject;
 use PelementCGI;
 
+use Blast_Run;
+use Blast_Hit;
+use Blast_HSP;
+
+=head1 insert
+
+   Since the blast report is a view, we need to make this insert happen
+   The model 1 Blast_Report insert corresponds to a 1 run, 1 hit and 1 hsp.
+
+=cut
+sub insert
+{
+   my $self = shift;
+
+   my $args = shift || {};
+   # there some fields not specified in the blast report view that we
+   # need in the run, hit and hsp inserts. These are set to defaults
+   # or are passed.
+
+   # are we attaching to an existing blast run? Let's see
+   # if the blast run id is set. If not, insert. We're not
+   # validating that the run_id really is in the db.
+   if (!$self->run_id) {
+      my $bRun = new Blast_Run($self->session);
+      $bRun->seq_name($self->seq_name);
+      $bRun->db($self->db);
+      $bRun->date( PCommon::parseArgs($args,'date') || 'now');
+      $bRun->program( PCommon::parseArgs($args,'program') || 'blastn');
+      $bRun->insert;
+
+      $self->run_id($bRun->id);
+   }
+
+   # how about the hit id?
+   if (!$self->hit_id) {
+      my $bHit = new Blast_Hit($self->session);
+      $bHit->run_id($self->run_id);
+      $bHit->name($self->name);
+      $bHit->insert;
+
+      $self->hit_id($bHit->id);
+   }
+
+   # now we really not ought to have an hsp id set
+   if (!$self->id ) {
+      my $bHsp = new Blast_HSP($self->session);
+      $bHsp->hit_id($self->hit_id);
+      $bHsp->score($self->score);
+      $bHsp->bits($self->bits);
+      $bHsp->percent($self->percent);
+      $bHsp->match($self->match);
+      $bHsp->length($self->length);
+   
+      $bHsp->query_begin($self->query_begin);
+      $bHsp->query_end($self->query_end);
+      $bHsp->query_gaps($self->query_gaps);
+   
+      $bHsp->subject_begin($self->subject_begin);
+      $bHsp->subject_end($self->subject_end);
+      $bHsp->subject_gaps($self->subject_gaps);
+   
+      $bHsp->p_val($self->p_val);
+      $bHsp->query_align($self->query_align);
+      $bHsp->match_align($self->match_align);
+      $bHsp->subject_align($self->subject_align);
+      $bHsp->strand($self->strand);
+   
+      $bHsp->insert;
+
+      $self->id($bHsp->id);
+   }
+
+   return $self;
+
+}
+
 =head1 to_html
 
    create a html formatted view of the blast alignment in a form
@@ -103,7 +179,7 @@ sub to_html
     $rS .= sprintf("       %${field_width}s $m_seg\n"," ");
     $rS .= sprintf("Sbjct: %${field_width}d $s_seg",$s_ctr);
     $s_seg =~ s/-//g;
-    $s_ctr += $s_inc*length($s_seg)-1;
+    $s_ctr += $s_inc*(length($s_seg)-1);
     $rS .= sprintf(" %${field_width}d\n\n",$s_ctr);
     $s_ctr += $s_inc;
   }

@@ -21,7 +21,7 @@ package PCommon;
 
 use Exporter ();
 @ISA = qw(Exporter);
-@EXPORT = qw(parseArgs shell time_value is_true);
+@EXPORT = qw(parseArgs shell time_value is_true date_cmp);
 
 use Sys::Hostname ();
 
@@ -54,6 +54,18 @@ sub is_true
 {
   my $val = shift;
   return $val eq 'T' || $val eq 't' || $val eq '1';
+}
+
+=head1
+
+  date_cmp Needed when sorting dates.
+
+  lexigraphic comparisons are easy.
+
+=cut
+sub date_cmp
+{
+   return $_[0] cmp $_[1];
 }
 
 sub hostname

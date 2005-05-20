@@ -35,6 +35,8 @@ print $cgi->banner;
 
 if ($strain) {
    reportStrain($cgi,$strain);
+} elsif ($seq_name && $cgi->param('action') ) {
+   rebuildSeqAssembly($cgi,$seq_name);
 } elsif ($seq_name) {
    reportSeqAssemblyAlignment($cgi,$seq_name);
 } else {
@@ -71,6 +73,29 @@ sub selectStrain
           ),"\n",
        $cgi->end_form,"\n",
     ),"\n";
+}
+
+   
+sub rebuildSeqAssembly
+{
+   my ($cgi,$seq_name) = @_;
+   my $session = new Session({-log_level=>0});
+
+   my $action = $cgi->param("action");
+
+   if ($action eq 'import') {
+     print $cgi->center("we would reimport sequence for $seq_name."),"\n";
+
+   } elsif ($action eq 'build') {
+     print $cgi->center("we would rebuild consensus sequence for $seq_name."),"\n";
+
+   } elsif ($action eq 'merge') {
+     print $cgi->center("we would remerge end sequence for $seq_name."),"\n";
+
+   } else {
+     print $cgi->center("no action specified for $seq_name."),"\n";
+
+   }
 }
 
 sub reportSeqAssemblyAlignment
@@ -145,13 +170,8 @@ sub reportSeqAssemblyAlignment
    $bR->strand(1);
    $bR->subject_begin($exon->{from1});
    $bR->subject_end($exon->{to1});
-   #if ($flipped) {
-   #   $bR->query_begin($exon->{to2});
-   #   $bR->query_end($exon->{from2});
-   #} else {
-      $bR->query_begin($exon->{from2});
-      $bR->query_end($exon->{to2});
-   #}
+   $bR->query_begin($exon->{from2});
+   $bR->query_end($exon->{to2});
    $bR->percent($exon->{match});
    $bR->match($exon->{nmatches});
    $bR->length($exon->{length});
@@ -203,6 +223,7 @@ sub reportStrain
 
      my $info;
      
+     my $buildbutton;
      foreach my $sA ($sAS->as_list) {
         if ($sA->src_seq_src eq 'phred_seq') {
 
@@ -230,6 +251,14 @@ sub reportStrain
                              -target=>"_blast"},
                             ' Show Alignment').$cgi->br;
 
+           if ( $buildbutton ) {
+              $buildbutton = $cgi->a({-href=>'assemblyReport.pl?seq_name='.$sA->seq_name.'&action=build'},
+                              ' Rebuild sequence for '.$sA->seq_name);
+           } else {
+              $buildbutton = $cgi->a({-href=>'assemblyReport.pl?seq_name='.$sA->seq_name.'&action=import'},
+                            ' Reimport sequence for '.$sA->seq_name);
+           }
+
         } elsif ($sA->src_seq_src eq 'seq') {
            my $b = new Seq($session,{-id=>$sA->src_seq_id})->select_if_exists;
            if ($b->seq_name) {
@@ -242,8 +271,10 @@ sub reportStrain
         }
      }
      $info = $cgi->em('This sequence assembly not tracked in the database.') unless $info;
+
+     $buildbutton = $cgi->nbsp unless $buildbutton;
         
-     push @tableRows, $cgi->td({-align=>'center'},[$seq->seq_name]).$cgi->td({-align=>'left'},[$info]);
+     push @tableRows, $cgi->td({-align=>'center'},[$seq->seq_name]).$cgi->td({-align=>'left'},[$info,$buildbutton]);
   }
   $seq_names =~ s/,$/)/;
 
@@ -253,7 +284,7 @@ sub reportStrain
   print $cgi->center($cgi->table({-border=>2,-width=>"80%",-bordercolor=>$HTML_TABLE_BORDERCOLOR},
            $cgi->Tr( [
               $cgi->th({-bgcolor=>$HTML_TABLE_HEADER_BGCOLOR},
-                      ["Sequence<br>Name","Data Source"] ),
+                      ["Sequence<br>Name","Data Source","Manually<br>Reprocess"] ),
                            @tableRows,
                        ] )
                      )),"\n";

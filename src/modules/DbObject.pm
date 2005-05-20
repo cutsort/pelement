@@ -26,7 +26,7 @@ use Carp;
 
 @ISA = qw(Exporter);
 @EXPORT = qw(new initialize_self select select_if_exists db_exists insert unique_identifier
-             get_next_id set_id update delete resolve_ref session AUTOLOAD DESTROY);
+             get_next_id set_id update delete ref_of resolve_ref session AUTOLOAD DESTROY);
 
 =head1
 
@@ -408,11 +408,19 @@ sub insert
    $sql .= $sqlVal;
    $qSql =~ s/ and $//;
    $self->{_session}->log($Session::Verbose,"Inserting info to ".$self->{_table});
-   $self->{_session}->db->do($sql);
+   my $statement = $self->{_session}->db->prepare($sql);
+   $statement->execute;
 
    return unless exists $self->{id};
 
-   $self->{id} = $self->{_session}->db->select_value($qSql);
+   if ($sessionHandle->db->{dbh}->{Driver}->{Name} eq 'Pg') {
+      # we can determine the id in a intelligent manner in a DB dependent way
+      my $oid = $statement->{pg_oid_status};
+      $self->{id} = $self->{_session}->db->select_value("select id from ".
+                      $self->{_table}." where oid=$oid");
+   } else {
+      $self->{id} = $self->{_session}->db->select_value($qSql);
+   }
 
    return $self->{id};
 }
@@ -468,7 +476,6 @@ sub set_id
    # postgres
    if ($sessionHandle->db->{dbh}->{Driver}->{Name} eq 'Pg') {
       my $iGot =  $sessionHandle->db->select_value("select setval('".$self->{_table}."_".$col."_seq',$val)");
-      print "next_id is $iGot.\n";
       return $iGot;
    } else {
       $sessionHandle->error("Unimplemented DB driver for set_id.");
@@ -507,6 +514,22 @@ sub resolve_ref
    }
    return $thingy;
 }
+
+=head1 ref_of
+
+  returns a reference to the field. promiscous: anyone can mess with it.
+
+=cut
+sub ref_of
+{
+   my $self = shift;
+   my $name = shift;
+   if (! exists( $self->{$name} ) ) {
+     $self->{_session}->error("$name is not a column for ".ref($self).".");
+   }
+   return \$self->{$name};
+}
+
 
 sub AUTOLOAD
 {
