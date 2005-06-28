@@ -290,6 +290,16 @@ foreach my $strain_name (@ARGV) {
       $insert = new XML::Insertion(
                             {transposon_symbol => $submit_info->transposon_symbol });
 
+      # locate the stock record info by either the seq name or the strain name
+      my $s = new Stock_Record($session,{-insertion=>$seq->seq_name});
+      # fallback is the strain name
+      $s->insertion($seq->strain_name) unless $s->db_exists;
+      if ($s->db_exists) {
+        $s->select;
+        $insert->attribute('fbti',$s->fbti);
+        $insert->attribute('insertion_symbol',$s->insertion) unless $s->insertion eq $s->strain_name;
+      }
+
       # the fallback cytology for the insertion is the annotated cytology;
       # we may change this later as we extract alignments.
       my $insertData = new XML::InsertionData({is_homozygous_viable=>uc($pheno->is_homozygous_viable),
