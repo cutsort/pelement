@@ -447,6 +447,9 @@ foreach my $strain_name (@ARGV) {
                              start => $pos_range[0],
                                end => $pos_range[-1]};
 
+      } elsif (!$ifAligned) {
+         # only push the unaligned if requested.
+         push @insertionData, {xml => $insertData};
       }
    }
 
@@ -467,6 +470,7 @@ foreach my $strain_name (@ARGV) {
     
       $session->warn("Cannot determine insertion for curated gene ".$annot->{name}.".") and
                   next unless $bestInsert;
+
       my $localGene = new XML::LocalGene({fbgn=>$annot->{fbgn},
                                           cg_number => $annot->{name}});
       $localGene->attribute(fb_transcript_symbol=>$annot->{transcript}) if $annot->{transcript};
@@ -475,15 +479,17 @@ foreach my $strain_name (@ARGV) {
       my $affGene = new XML::AffectedGene({rel_orientation=>$rel,
                                            comment => $annot->{comment}});
       $affGene->add($localGene);
-      if ($annot->{transcript}) {
-         my $d5 = abs($annot->{start}-$bestInsert->{start})<abs($annot->{start}-$bestInsert->{end})?
-                  abs($annot->{start}-$bestInsert->{start}):abs($annot->{start}-$bestInsert->{end});
-         my $d3 = abs($annot->{end}-$bestInsert->{start})<abs($annot->{end}-$bestInsert->{end})?
-                  abs($annot->{end}-$bestInsert->{start}):abs($annot->{end}-$bestInsert->{end});
-         $affGene->attribute(distance_to_transcript_5=>$d5,
-                             distance_to_transcript_3=>$d3);
+      if ($bestInsert) {
+         if ($annot->{transcript} && $bestInsert->{start} && $bestInsert->{end} && $bestInsert->{arm}) {
+            my $d5 = abs($annot->{start}-$bestInsert->{start})<abs($annot->{start}-$bestInsert->{end})?
+                     abs($annot->{start}-$bestInsert->{start}):abs($annot->{start}-$bestInsert->{end});
+            my $d3 = abs($annot->{end}-$bestInsert->{start})<abs($annot->{end}-$bestInsert->{end})?
+                     abs($annot->{end}-$bestInsert->{start}):abs($annot->{end}-$bestInsert->{end});
+            $affGene->attribute(distance_to_transcript_5=>$d5,
+                                distance_to_transcript_3=>$d3);
+         }
+         $bestInsert->{xml}->add($affGene);
       }
-      $bestInsert->{xml}->add($affGene);
    }
 }
 
