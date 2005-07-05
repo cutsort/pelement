@@ -59,8 +59,10 @@ my $session = new Session();
 my $ifAligned = 1;        # only submit info on the "desired" aligned flanks
 my $phenotype = 1;        # do we require a pheontype record?
 my $outFile;
+my $update = 0;           # mark ALL insertion data as 'is_update=Y'
 GetOptions('ifaligned!' => \$ifAligned,
            'phenotype!' => \$phenotype,
+           'update!'    => \$update,
            'out=s'      => \$outFile);
 
 #if ($outFile) {
@@ -302,11 +304,13 @@ foreach my $strain_name (@ARGV) {
 
       # the fallback cytology for the insertion is the annotated cytology;
       # we may change this later as we extract alignments.
-      my $insertData = new XML::InsertionData({is_homozygous_viable=>uc($pheno->is_homozygous_viable),
-                                               is_homozygous_fertile=>uc($pheno->is_homozygous_fertile),
-                                               associated_aberration=>$pheno->associated_aberration,
-                                               derived_cytology=>$pheno->derived_cytology,
-                                               comment=>$pheno->phenotype_comment});
+      my $insertData = new XML::InsertionData(
+             {is_homozygous_viable=>uc($pheno->is_homozygous_viable),
+             is_homozygous_fertile=>uc($pheno->is_homozygous_fertile),
+             associated_aberration=>$pheno->associated_aberration,
+                  derived_cytology=>$pheno->derived_cytology,
+                           comment=>$pheno->phenotype_comment,
+              ($update?(is_update=>'Y'):())});
 
       # have we put this insertData into the insert?
       my $addThisInsertData = 0;
