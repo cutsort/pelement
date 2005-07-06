@@ -79,10 +79,13 @@ sub loadFile
       my $fn = $cgi->param('upfile');
       my $fh = $cgi->upload($fn);
 
-      print "DEBUG: file handle is $fh corresponding to upfile ".$cgi->param('upfile')."<br>\n";
+      print "DEBUG: file handle is $fh corresponding to upfile ".
+                                           $cgi->param('upfile')."<br>\n";
       foreach my $k (keys %{$cgi->{'.tmpfiles'}}) {
-         print "DEBUG: what is this: ".join(' ',%{$cgi->{'.tmpfiles'}->{$k}})."<br>\n";
-         print "DEBUG: what is this: ".join(' ',%{$cgi->{'.tmpfiles'}->{$k}->{'info'}})."<br>\n";
+         print "DEBUG: what is this: ".
+                     join(' ',%{$cgi->{'.tmpfiles'}->{$k}})."<br>\n";
+         print "DEBUG: what is this: ".
+                     join(' ',%{$cgi->{'.tmpfiles'}->{$k}->{'info'}})."<br>\n";
       }
       my @lines = <$fh>;
 
@@ -139,7 +142,8 @@ sub selectSet
    while (@strains) {
       my $next = shift @strains;
       if ($loaded) {
-         if (int( (length($loaded)+length($next))/$COLS ) != int( (length($loaded)-1)/$COLS) ) {
+         if (int( (length($loaded)+length($next))/$COLS ) !=
+                                  int( (length($loaded)-1)/$COLS) ) {
             $loaded .= "\n";
          } else {
             $loaded .= " ";
@@ -155,27 +159,48 @@ sub selectSet
    # nothing is given. present a form to type into.
    print
      $cgi->center(
-       $cgi->h3("Enter the Strain identifiers, separated by spaces or commas:"),"\n",
+      $cgi->h3("Enter the Strain identifiers, separated by spaces or commas:"),
+       "\n",
        $cgi->start_form(-method=>"get",-action=>"setReport.pl"),"\n",
           $cgi->table( {-bordercolor=>$HTML_TABLE_BORDERCOLOR},
              $cgi->Tr( [
               $cgi->td({-colspan=>2,-align=>'center'},
                     [$cgi->textarea(-name=>'strain',-cols=>$COLS,-rows=>20)]),
               # this dont work
-              #$cgi->td({-colspan=>2,-align=>'center'},['Upload a text file of strains names: <b> this is not working yet.</b>']),
-              #$cgi->td([$cgi->filefield('upfile'),$cgi->submit(-name=>'action',-value=>'Read')]),
-              $cgi->td({-colspan=>2,-align=>'center'},['Include strains from the batch(s):']),
-              $cgi->td([$cgi->textfield(-name=>'batch'),$cgi->submit(-name=>'action',-value=>'Add')]),
-              $cgi->td({-colspan=>2,-align=>'center'},[$cgi->h3('Reports to view:')]),
-              $cgi->td([$cgi->checkbox(-name=>'view',-label=>'Uniquely Aligned Sequences',-value=>'align',-checked=>1),
-                        $cgi->checkbox(-name=>'view',-label=>'Unaligned Sequences',-value=>'unalign',-checked=>1)]),
-              $cgi->td([$cgi->checkbox(-name=>'view',-label=>'Multiply Aligned Sequences',-value=>'multiple',-checked=>1),
-                        $cgi->checkbox(-name=>'view',-label=>'Missing Sequences',-value=>'bad',-checked=>1)]),
-              $cgi->td([$cgi->checkbox(-name=>'view',-label=>'Merged Sequences',-value=>'merged',-checked=>1),
-                        $cgi->checkbox(-name=>'view',-label=>'Stock Center Submission',-value=>'stock')]),
-              $cgi->td([$cgi->checkbox(-name=>'view',-label=>'Fasta Sequences',-value=>'fasta')]),
+              #$cgi->td({-colspan=>2,-align=>'center'},
+              #   ['Upload a text file of strains: <b> not working yet.</b>']),
+              #$cgi->td([$cgi->filefield('upfile'),
+              #     $cgi->submit(-name=>'action',-value=>'Read')]),
+              $cgi->td({-colspan=>2,-align=>'center'},
+                      ['Include strains from the batch(s):']),
+              $cgi->td([$cgi->textfield(-name=>'batch'),
+                     $cgi->submit(-name=>'action',-value=>'Add')]),
+              $cgi->td({-colspan=>2,-align=>'center'},
+                       [$cgi->h3('Reports to view:')]),
+              $cgi->td([$cgi->checkbox(-name=>'view',
+              -label=>'Uniquely Aligned Sequences',-value=>'align',-checked=>1),
+                        $cgi->checkbox(-name=>'view',
+                                       -label=>'Unaligned Sequences',
+                                       -value=>'unalign',-checked=>1)]),
+              $cgi->td([$cgi->checkbox(-name=>'view',
+                                       -label=>'Multiply Aligned Sequences',
+                                       -value=>'multiple',-checked=>1),
+                        $cgi->checkbox(-name=>'view',
+                                       -label=>'Missing Sequences',
+                                       -value=>'bad',-checked=>1)]),
+              $cgi->td([$cgi->checkbox(-name=>'view',
+                                       -label=>'Merged Sequences',
+                                       -value=>'merged',-checked=>1),
+                        $cgi->checkbox(-name=>'view',
+                                       -label=>'Stock Center Submission',
+                                       -value=>'stock')]),
+              $cgi->td([$cgi->checkbox(-name=>'view',
+                                       -label=>'Fasta Sequences',
+                                       -value=>'fasta')]),
               $cgi->td({-align=>'center'},
-                  [$cgi->submit(-name=>'action',-value=>'Report'),$cgi->reset(-name=>'Reset')]) ]
+                  [$cgi->submit(-name=>'action',
+                                       -value=>'Report'),
+                                       $cgi->reset(-name=>'Reset')]) ]
              ),"\n",
           ),"\n",
        $cgi->end_form(),"\n",
@@ -202,11 +227,13 @@ sub reportSet
    my @reports = $cgi->param('view');
    map { $reports{$_}=1 } @reports;
 
-   # filter the set list to eliminate redundancies, end identiers, punctuation,,
-
-   my %seqSet = ();
+   # so that we don't double report stocks
+   my %stockReport = ();
  
-   map { map {$seqSet{Seq::strain($_)}=1 unless !$_ || $_ =~ /[,+]/ } split(/\s/,$_) } @set;
+   # filter the set list to eliminate redundancies, end identiers, punctuation,,
+   my %seqSet = ();
+   map { map {$seqSet{Seq::strain($_)}=1 unless !$_ || $_ =~ /[,+]/ }
+                                                   split(/\s/,$_) } @set;
 
    foreach my $strain (sort keys %seqSet) {
 
@@ -215,7 +242,7 @@ sub reportSet
          # wild card search. watch out!
          $seqS = new SeqSet($session,{-like=>{strain_name=>$strain}})->select;
       } else {
-         $seqS = new SeqSet($session,{-strain_name=>$strain})->select;
+         $seqS = $session->SeqSet({-strain_name=>$strain})->select;
          if (!$seqS->as_list) {
             push @badStrains, [$strain];
             next;
@@ -236,43 +263,56 @@ sub reportSet
               $sub->select;
               $fastaSeq .= ' '.$sub->gb_acc;
            }
-           $fastaSeq .= ' [insertion position '.$seq->insertion_pos.']' if $seq->insertion_pos;
+           $fastaSeq .= ' [insertion position '.$seq->insertion_pos.']'
+                                                   if $seq->insertion_pos;
            $fastaSeq .= "\n";
            my $s = $seq->sequence;
            $s =~ s/(.{50})/$1\n/g;
            $fastaSeq .= $s ."\n";
          }
+
+         # some merged seqs are the basis of alignments; other times
+         # they are not
+         my $ok_if_unaligned;
          if ($seq->end eq 'b') {
             push @mergedStrains, [$strainLink];
-            next;
+            $ok_if_unaligned = 1;
          }
-         my $seqAS = new Seq_AlignmentSet($session,{-seq_name=>$seq->seq_name})->select;
+         my $seqAS = new Seq_AlignmentSet($session,
+                                      {-seq_name=>$seq->seq_name})->select;
          if (!scalar($seqAS->as_list)) {
-            push @unalignedSeq , [$strainLink,$seq->seq_name,length($seq->sequence)];
-            next;
+            push @unalignedSeq ,
+                        [$strainLink,$seq->seq_name,length($seq->sequence)]
+                        unless $ok_if_unaligned;
          }
 
-         # we'll go through this list looking for things other than muliples or deselected
+         # we'll go through this list looking for things other
+         # than muliples or deselected
          my $gotAHit = 0;
          foreach my $seqA ($seqAS->as_list) {
             if ($seqA->status ne 'multiple' && $seqA->status ne 'deselected' ) {
                if ( $gotAHit ) {
                   push @goodHits,
-                       [$strainLink,$seq->seq_name,$seqA->scaffold,$seqA->s_insert,
-                             ($seqA->p_end>$seqA->p_start)?'Plus':'Minus',$seqA->status." TROUBLE"];
+                       [$strainLink,$seq->seq_name,$seqA->scaffold,
+                                                 $seqA->s_insert,
+                       ($seqA->p_end>$seqA->p_start)?'Plus':'Minus',
+                                             $seqA->status." TROUBLE"];
                } else {
                   $gotAHit = 1;
                   (my $arm = $seqA->scaffold) =~ s/arm_//;
                   push @goodHits,
                        [$strainLink,$seq->seq_name,$arm,$seqA->s_insert,
-                             ($seqA->p_end>$seqA->p_start)?'Plus':'Minus',$seqA->status];
+                             ($seqA->p_end>$seqA->p_start)?'Plus':'Minus',
+                                             $seqA->status];
                }
             }
          }
 
-         push @multipleHits ,[$strainLink,$seq->seq_name] if !$gotAHit;
+         push @multipleHits ,[$strainLink,$seq->seq_name] if !$gotAHit && !$ok_if_unaligned;
 
-         push @stockList,generateStockList($session,$seq->strain_name) if $reports{'stock'}; 
+         push @stockList,generateStockList($session,$seq->strain_name)
+                     if $reports{'stock'} && !$stockReport{$seq->strain_name}; 
+         $stockReport{$seq->strain_name} = 1;
       }
    }
 
@@ -280,16 +320,19 @@ sub reportSet
       if ( @goodHits ) {
          @goodHits = sort { $a->[1] cmp $b->[1] } @goodHits;
          print $cgi->center($cgi->h3("Sequence Alignments"),$cgi->br),"\n",
-            $cgi->center($cgi->table({-border=>2,-width=>"80%",-bordercolor=>$HTML_TABLE_BORDERCOLOR},
+            $cgi->center($cgi->table({-border=>2,-width=>"80%",
+                                     -bordercolor=>$HTML_TABLE_BORDERCOLOR},
               $cgi->Tr( [
                  $cgi->th({-bgcolor=>$HTML_TABLE_HEADER_BGCOLOR},
                          ["Strain","Sequence<br>Name","Scaffold",
                           "Location","Strand","Status"] ),
-                              (map { $cgi->td({-align=>"center"}, $_ ) } @goodHits),
+                              (map { $cgi->td({-align=>"center"}, $_ ) }
+                                                               @goodHits),
                           ] )
                         )),$cgi->br,$cgi->hr({-width=>'70%'}),"\n";
       } else {
-         print $cgi->center($cgi->h3("No Sequence Alignments for this set."),$cgi->br),$cgi->hr({-width=>'70%'}),"\n",
+         print $cgi->center($cgi->h3("No Sequence Alignments for this set."),
+               $cgi->br),$cgi->hr({-width=>'70%'}),"\n",
       }
    }
 
@@ -297,15 +340,18 @@ sub reportSet
       if (@unalignedSeq) {
          @unalignedSeq = sort { $b->[2] <=> $a->[2] } @unalignedSeq;
          print $cgi->center($cgi->h3("Unaligned Sequences"),$cgi->br),"\n",
-            $cgi->center($cgi->table({-border=>2,-width=>"80%",-bordercolor=>$HTML_TABLE_BORDERCOLOR},
+            $cgi->center($cgi->table({-border=>2,-width=>"80%",
+                                      -bordercolor=>$HTML_TABLE_BORDERCOLOR},
               $cgi->Tr( [
                  $cgi->th({-bgcolor=>$HTML_TABLE_HEADER_BGCOLOR},
                          ["Strain","Sequence<br>Name","Sequence<br>Length"] ),
-                          (map { $cgi->td({-align=>"center"}, $_ ) } @unalignedSeq),
+                          (map { $cgi->td({-align=>"center"}, $_ ) }
+                                                             @unalignedSeq),
                          ] )
                         )),$cgi->br,$cgi->hr({-width=>'70%'}),"\n";
       } else {
-         print $cgi->center($cgi->h3("No Unaligned Sequences for this set."),$cgi->br),$cgi->hr({-width=>'70%'}),"\n",
+         print $cgi->center($cgi->h3("No Unaligned Sequences for this set."),
+                                     $cgi->br),$cgi->hr({-width=>'70%'}),"\n",
       }
    }
 
@@ -313,17 +359,21 @@ sub reportSet
       if ( @multipleHits ) {
 
          @multipleHits = sort { $a->[1] cmp $b->[1] } @multipleHits;
-         print $cgi->center($cgi->h3("Sequences With Multiple Hits"),$cgi->br),"\n",
-            $cgi->center($cgi->table({-border=>2,-width=>"50%",-bordercolor=>$HTML_TABLE_BORDERCOLOR},
+         print $cgi->center($cgi->h3("Sequences With Multiple Hits"),$cgi->br),
+            "\n",
+            $cgi->center($cgi->table({-border=>2,-width=>"50%",
+                                      -bordercolor=>$HTML_TABLE_BORDERCOLOR},
               $cgi->Tr( [
                  $cgi->th({-bgcolor=>$HTML_TABLE_HEADER_BGCOLOR},
                          ["Strain","Sequence<br>Name"] ),
-                          (map { $cgi->td({-align=>"center"}, $_ ) } @multipleHits),
-                         ] )
+                          (map { $cgi->td({-align=>"center"}, $_ ) }
+                                    @multipleHits), ] )
                         )),$cgi->br,$cgi->hr({-width=>'70%'}),"\n";
       
       } else {
-         print $cgi->center($cgi->h3("No Multiply Aligned Sequences for this set."),$cgi->br),$cgi->hr({-width=>'70%'}),"\n",
+         print $cgi->center(
+               $cgi->h3("No Multiply Aligned Sequences for this set."),
+                              $cgi->br),$cgi->hr({-width=>'70%'}),"\n",
       }
    }
 
@@ -332,23 +382,30 @@ sub reportSet
 
          @mergedStrains = sort { $a->[0] cmp $b->[0] } @mergedStrains;
          print $cgi->center($cgi->h3("Merged Flanking Sequences"),$cgi->br),"\n",
-            $cgi->center($cgi->table({-border=>2,-width=>"30%",-bordercolor=>$HTML_TABLE_BORDERCOLOR},
+            $cgi->center(
+              $cgi->table({-border=>2,-width=>"30%",
+                           -bordercolor=>$HTML_TABLE_BORDERCOLOR},
               $cgi->Tr( [
                  $cgi->th({-bgcolor=>$HTML_TABLE_HEADER_BGCOLOR},
                          ["Strain"] ),
-                          (map { $cgi->td({-align=>"center"}, $_ ) } @mergedStrains),
+                          (map { $cgi->td({-align=>"center"}, $_ ) }
+                                                 @mergedStrains),
                          ] )
                         )),$cgi->br,$cgi->hr({-width=>'70%'}),"\n";
       
       } else {
-         print $cgi->center($cgi->h3("No Merged Flanking Sequences for this set."),$cgi->br),$cgi->hr({-width=>'70%'}),"\n",
+         print $cgi->center(
+               $cgi->h3("No Merged Flanking Sequences for this set."),
+                            $cgi->br),$cgi->hr({-width=>'70%'}),"\n",
       }
    }
 
    if ( $reports{'bad'} && @badStrains ) {
       @badStrains = sort { $a->[0] cmp $b->[0] } @badStrains;
       print $cgi->center($cgi->h3("Strains not in the DB"),$cgi->br),"\n",
-         $cgi->center($cgi->table({-border=>2,-width=>"30%",-bordercolor=>$HTML_TABLE_BORDERCOLOR},
+         $cgi->center(
+           $cgi->table({-border=>2,-width=>"30%",
+                        -bordercolor=>$HTML_TABLE_BORDERCOLOR},
            $cgi->Tr( [
               $cgi->th({-bgcolor=>$HTML_TABLE_HEADER_BGCOLOR},
                       ["Strain"] ),
@@ -365,7 +422,9 @@ sub reportSet
       # replace null strings with nbsp's
       map { map { $_ = $_?$_:$cgi->nbsp } @$_ } @stockList;
       print $cgi->center($cgi->h3("Stock List"),$cgi->br),"\n",
-         $cgi->center($cgi->table({-border=>2,-width=>"80%",-bordercolor=>$HTML_TABLE_BORDERCOLOR},
+         $cgi->center(
+           $cgi->table({-border=>2,-width=>"80%",
+                                      -bordercolor=>$HTML_TABLE_BORDERCOLOR},
            $cgi->Tr( [
               $cgi->th({-bgcolor=>$HTML_TABLE_HEADER_BGCOLOR},
                       ["Strain","Arm","Range","Cytology","Gene(s)"] ),
@@ -381,14 +440,17 @@ sub reportSet
    }
 
    print $cgi->br,
-         $cgi->html_only($cgi->a({-href=>"setReport.pl?action=Report&strain=$setLink&format=text"},
-                  "View Report on this set as Tab delimited list."),$cgi->br,"\n"),
-         $cgi->html_only($cgi->a({-href=>"setReport.pl?action=Report&strain=$setLink"},
-                  "Refresh Report on this set."),$cgi->br,"\n");
+         $cgi->html_only($cgi->a(
+             {-href=>"setReport.pl?action=Report&strain=$setLink&format=text"},
+              "View Report on this set as Tab delimited list."),$cgi->br,"\n"),
+         $cgi->html_only($cgi->a(
+             {-href=>"setReport.pl?action=Report&strain=$setLink"},
+              "Refresh Report on this set."),$cgi->br,"\n");
   $session->exit();
 }
 
-sub generateStockList{
+sub generateStockList
+{
 
    my ($session,$strain) = @_;
    my @returnList;
@@ -400,14 +462,14 @@ sub generateStockList{
 
    my @insertList = getCytoAndGene($session,$strain);
    if (scalar(@insertList) ) {
-      map {push @returnList, [$strain,$_->{arm},$_->{range},$_->{band},join(" ",@{$_->{gene}})] } @insertList;
+      map {push @returnList, [$strain,$_->{arm},$_->{range},$_->{band},
+                                  join(" ",@{$_->{gene}})] } @insertList;
    } else {
       push @returnList, [$strain,,,,];
    }
 
    return @returnList;
 }
-
 
 sub getCytoAndGene
 {
@@ -417,14 +479,18 @@ sub getCytoAndGene
    # we need to look at the alignments for the unqualified sequences.
    # and look for if we have the mappable insertions.
    my @insertList = ();
-   foreach my $end qw(3 5) {
-      my $saS = new Seq_AlignmentSet($session,{-seq_name=>$strain.'-'.$end})->select;
+   my $seqList = new SeqSet($session,{-strain_name=>$strain})->select;
+   foreach my $seq ($seqList->as_list) {
+      next if $seq->qualifier;
+      my $saS = new Seq_AlignmentSet($session,
+                                   {-seq_name=>$seq->seq_name})->select;
       foreach my $sa ($saS->as_list) {
          next unless $sa->status eq 'unique' || $sa->status eq 'curated';
 
          my $isNewInsertion = 1;
          foreach my $in (@insertList) {
-           if ($in->{arm} eq $sa->scaffold && closeEnuf($in->{range},$sa->s_insert)) {
+           if ($in->{arm} eq $sa->scaffold &&
+                                   closeEnuf($in->{range},$sa->s_insert)) {
               $in->{range} = mergeRange($in->{range},$sa->s_insert);
               $isNewInsertion = 0;
               last;
@@ -438,6 +504,7 @@ sub getCytoAndGene
          }
       }
    }
+
    my $gadflyDba;
    $ENV{GADB_SUPPRESS_RESIDUES} = 1;
    foreach my $in (@insertList) {
@@ -447,18 +514,16 @@ sub getCytoAndGene
       if ($arm =~ s/arm_// ) {
          $cyto = new Cytology($session,{scaffold=>$in->{arm},
                                     less_than=>{start=>$end},
-                        greater_than_or_equal=>{stop=>$start}})->select_if_exists;
+                    greater_than_or_equal=>{stop=>$start}})->select_if_exists;
          $in->{band} = $cyto->band;
          $in->{arm} =~ s/arm_//;
       } else {
          $cyto = new Cytology($session,{scaffold=>$in->{arm},
                                     less_than=>{start=>$end},
-                        greater_than_or_equal=>{stop=>$start}})->select_if_exists;
+                    greater_than_or_equal=>{stop=>$start}})->select_if_exists;
          $in->{band} = ($cyto && $cyto->band)?$cyto->band:'Het';
       }
 
-      $session->log($Session::Info,
-                      "Looking at hit on $arm at position range ".$in->{range});
       if (grep(/$arm$/,qw(2L 2R 3L 3R 4 X)) ) {
          # euchromatic release 3 arm
          $gadflyDba = GxAdapters::ConnectionManager->get_adapter("gadfly");
@@ -477,8 +542,6 @@ sub getCytoAndGene
          @annot = $seqs->annotation_list()?@{$seqs->annotation_list}:();
       };
 
-      $session->log($Session::Info,"Found ".scalar(@annot)." genes.");
-
       # look at each annotation and decide if we're inside it.
 
       foreach my $annot (@annot) {
@@ -488,22 +551,20 @@ sub getCytoAndGene
           next unless $gene->flybase_accession_no;
           next unless $gene->name =~ /^C[GR]\d+$/;
           push @{$in->{gene}}, $gene->name;
-          $session->log($Session::Info, "Hit ".$gene->name." (".$gene->flybase_accession_no->acc_no.").");
       }
       $gadflyDba->close;
    }
 
    # if possible, we'll update the phenotype/genotype list
    if (scalar(@insertList) == 1) {
-      my $pheno = new Phenotype($session,{-strain_name=>$strain})->select_if_exists;
+      my $pheno = new Phenotype($session,{-strain_name=>$strain}
+                                                 )->select_if_exists;
       my $in = $insertList[0];
       if ($in->{band} && !$pheno->derived_cytology) {
          $pheno->derived_cytology($in->{band});
          if ($pheno->id) {
-            $session->info("Updating cytology info for $strain");
             $pheno->update;
          } else {
-            $session->info("Inserting cytology info for $strain");
             $pheno->insert;
          }
       }
