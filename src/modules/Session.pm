@@ -19,6 +19,7 @@
                   $Session::Warn (unexpected but recoverable messages only),
                   $Session::Info (routine processing),
                   $Session::Verbose (more messages)
+                  $Session::SQL  (even more; including SQL parsing)
 
 =cut
 
@@ -26,6 +27,7 @@ package Session;
 
 use strict;
 use File::Basename;
+use Getopt::Long qw(:config pass_through);
 no strict 'refs';
 
 use Pelement;
@@ -41,24 +43,26 @@ BEGIN {
    $Session::Warn     = 2;
    $Session::Info     = 3;
    $Session::Verbose  = 4;
+   $Session::SQL      = 5;
 }
 
 
 =head1 PUBLIC METHODS
 
-=head2  new 
+=head2  new
 
   Create a session.
 
 =cut
-sub new 
+sub new
 {
   my $class = shift;
 
   # things to declare
   my $dbh;
 
-  # we'll look for a hash of optional arguments
+  # we'll look for a hash of optional arguments. these maybe overriden
+  # by things that were passed commandline
   my $args = shift;
 
   # default settings for arguments
@@ -77,6 +81,19 @@ sub new
   my $log_level = defined(PCommon::parseArgs($args,"log_level"))?
                           PCommon::parseArgs($args,"log_level"):$Session::Info;
 
+
+  # command line options. passed through if not understood
+  my ($verbose,$quiet);
+  GetOptions( "verbose!" => \$verbose,
+              "quiet!"   => \$quiet,
+              "db!"      => \$useDb, );
+
+  Getopt::Long::Configure("no_pass_through");
+
+  $log_level = $Session::NoLog if $quiet;
+  $log_level = $Session::Verbose if $verbose;
+
+
   my $self = {"exit_code"     => [],
               "error_code"    => {},
               "caller"        => $caller,
@@ -89,7 +106,7 @@ sub new
 
   if ($self->{log_level} ) {
      open(LOG,">$PELEMENT_LOG/$caller.$$")
-                   or die "Serious trouble: cannot open log file.";
+                   or die "Serious trouble: cannot open log file: $!";
      $self->{log_file_name} = "$PELEMENT_LOG/$caller.$$";
   } else {
      open(LOG,">/dev/null");
@@ -105,10 +122,15 @@ sub new
     $self->{db_tx} = 0;
   }
 
-  $self->log($Session::Info,"$caller ".join(" ",@::ARGV)." started.");
+  if (@::ARGV) {
+    $self->log($Session::Info,"$caller ".join(" ",@::ARGV)." started.");
+  } else {
+    $self->log($Session::Info,"$caller started.");
+  }
+
 
   return $blessed_self;
-           
+
 }
 
 =head2 db_begin db_commit db_rollback
@@ -131,6 +153,7 @@ sub db_begin
   }
   $self->{db}->do('set constraints all deferred');
   $self->{db_tx} = time;
+  $self->verbose("Beginning a transaction");
 
 }
 sub db_commit
@@ -146,6 +169,7 @@ sub db_commit
      $self->die("Some trouble attempting to stop a transaction:".
                   $self->{db}->errstr);
   }
+  $self->verbose("Committing a transaction");
 }
 sub db_rollback
 {
@@ -161,11 +185,14 @@ sub db_rollback
      $self->die("Some trouble attempting to stop a transaction:".
                   $self->{db}->errstr);
   }
+  $self->verbose("Rolling back a transaction");
 }
 
 =head2 exit
 
-   Close the current session. This does not terminate the script
+   Close the current session. This does not terminate the script. This
+   should be safe if it gets called repeatedly but ineffectual after
+   the first.
 
 =cut
 
@@ -176,53 +203,58 @@ sub exit
   # first we execute the stack of exit routines
   # make this work.
   foreach my $block (reverse @{$self->{exit_code}}) {
-    $self->log($Session::Verbose,"Executing block of exit code.");
+    $self->verbose("Executing block of exit code.");
     &$block;
   }
 
   # check to see if we're in a transaction. Uncommitted changes are
   # rolled back.
-
-  if ($self->{db}) {
-     if ($self->{db_tx} ) {
-        $self->warn("Rolling back uncommited changes.");
-        $self->db_rollback;
-     }
-     $self->log($Session::Verbose,"Disconnecting from db.");
-     $self->db()->disconnect();
+  if ($self->{db} && $self->{db_tx} ) {
+    $self->warn("Rolling back uncommited changes.");
+    $self->db_rollback;
   }
 
-  # and the log file
-  $self->log($Session::Info,"Processing ".$self->{caller}." ended.");
-  close($self->{log_file});
+  if ( $self->{log_file} ) {
+     # close the log file
+     $self->log($Session::Info,"Processing ".$self->{caller}." ended.");
+     close($self->{log_file});
+     $self->{log_file} = '';
 
+     unless ( $self->{log_file_name} eq "/dev/null" ) {
 
-  return 1 if $self->{log_file_name} eq "/dev/null";
+        my $bigLogFile = "$PELEMENT_LOG/".$self->{caller}.".log";
 
-  my $bigLogFile = "$PELEMENT_LOG/".$self->{caller}.".log";
+        # now, append the log file to the master log. We should probalby
+        # implement a better file locking mechanism to ensure we are not
+        # appending from two process, but until then (read that: never) we'll
+        # make sure the master log has been stagnant for 5 seconds.
+        if ( -e $bigLogFile ) {
 
-  # now, append the log file to the master log. We should probalby
-  # implement a better file locking mechanism to ensure we are not
-  # appending from two process, but until then (read that: never) we'll
-  # make sure the master log has been stagnant for 5 seconds.
-  if ( -e $bigLogFile ) {
+            # we try this multiple times, but then just say the hell with it
+            # if we are waiting too long.
+            my $nTries = 0;
+            while( time() - Files::file_timestamp($bigLogFile) < 10  &&
+                    $nTries < 20 )   {
+               $nTries++;
+               sleep(2);
+            }
+         } else {
+            Files::touch($bigLogFile) or warn "Cannot create log file: $!";
+         }
+         if ( Files::append($self->{log_file_name},$bigLogFile) ) {
+            Files::delete($self->{log_file_name}) or
+                                   warn "Cannot delete log file: $!";
+         } else {
+            warn "Cannot append to log file $bigLogFile: $!";
+         }
 
-      # we try this multiple times, but then just say the hell with it
-      # if we are waiting too long.
-      my $nTries = 0;
-      while( time() - Files::file_timestamp($bigLogFile) < 3  &&
-              $nTries < 10 )   {
-         $nTries++;
-         sleep(1);
-      }
-   } else {
-      Files::touch($bigLogFile) or warn "Cannot create log file: $!";
+     }
    }
-   if ( Files::append($self->{log_file_name},$bigLogFile) ) {
-      Files::delete($self->{log_file_name}) or
-                             warn "Cannot delete log file: $!";
-   } else {
-      warn "Cannot append to log file $bigLogFile: $!";
+
+   unless ($self->{db}) {
+      # finally close the db handle
+      $self->db()->disconnect() if $self->{db};
+      $self->{db} = '';
    }
 
    return 1;
@@ -233,30 +265,35 @@ sub exit
 
    Gets or Sets the value of the amount log information processed.
    Values are:
-   $Session::NoLog    nothing is printed, ever 
+   $Session::NoLog    nothing is printed, ever
    $Session::Error    error messages only are printed,
    $Session::Warn     unexpected, but recoverable, situations are reported
    $Session::Info     normal processing message are printed,
    $Session::Verbose  copious verbiage
+   $Session::SQL      copious and SQL
 
    When a message is logged, a optional level level (default is $Info) is
    passed. If the current log_level is less than or equal to the value of
    log_level the message is printed.
-  
+
 =cut
 
 sub log_level
 {
   my $self = shift;
-  my $level = shift || return $self->{log_level};
-  
-  if (grep(/^$level$/,($Session::NoLog,$Session::Error,$Session::Info,$Session::Verbose)) ) {
-    $self->{log_level} = $level;
-    $self->log($Session::Info,"log level set to $level.");
+  if (@_) {
+    my $level = shift @_;
+
+    if (grep(/^$level$/,($Session::NoLog,$Session::Error,$Session::Info,$Session::Verbose,$Session::SQL)) ) {
+      $self->{log_level} = $level;
+      $self->log($Session::Info,"log level set to $level.");
+    } else {
+      $self->error("Invalid Parameter","value for log level: $level not valid.");
+    }
+    return;
   } else {
-    $self->error("Value for log level: $level not valid.");
+    return $self->{log_level};
   }
-  return;
 }
 
 =head2 log
@@ -264,12 +301,12 @@ sub log_level
   Prints the current message if the level of this message is greater
   than or equal to the current logging  level
 
-=cut 
+=cut
 sub log
 {
   my $self = shift;
   my $level = shift;
-  my $message = join("",@_);
+  my $message = join('',@_);
 
   print {$self->{log_file}} &time_value(),"\t$message\n"
                      if $level <= $self->log_level;
@@ -287,7 +324,7 @@ sub warn { return shift->log($Session::Warn,@_) }
 sub info { return shift->log($Session::Info,@_) }
 sub debug { return shift->log($Session::Verbose,@_) }
 sub verbose { return shift->log($Session::Verbose,@_) }
-  
+
 =head2 get_db
 
    Returns the database handle
@@ -326,7 +363,7 @@ sub at_exit
   Installs various error handlers into the current session. This
   requires 2 arguments: a tag for the error class, and block of code
   to run.
- 
+
   I'm having doubts about this implementation right now; it relies on
   passing a > 1 element list to error and using the first element as
   a key to the error handler.
@@ -366,6 +403,54 @@ sub die
   my $self = shift;
   $self->error(@_);
   CORE::exit(2);
+}
+
+sub DESTROY
+{
+  my $self = shift;
+  $self->exit;
+}
+
+sub AUTOLOAD
+{
+  my $self = shift;
+  CORE::die "$self is not an object." unless ref($self);
+
+  my $name = $Session::AUTOLOAD;
+
+  $name =~ s/.*://;
+  my @packageClass;
+
+  if ($name =~ /^([A-Z].*)Set/ ) {
+    push @packageClass, ($1,'DbObject',$name,'DbObjectSet');
+  } elsif ($name =~ /^([A-Z].*)Cursor/ ) {
+    push @packageClass, ($1,'DbObject',$name,'DbObjectCursor');
+  } elsif ($name =~ /^([A-Z].*)/ ) {
+    push @packageClass, ($name,'DbObject');
+  }
+
+  $self->die("No such method $name.") unless @packageClass;
+
+  my $loaded = 0;
+  foreach my $dir (@INC) {
+    if (-e $dir.'/'.$name.'.pm') {
+       require $name.'.pm';
+       $loaded = 1;
+       last;
+    }
+  }
+
+  # fallback
+  unless ($loaded) {
+    while (@packageClass) {
+      my ($a,$b) = splice(@packageClass,0,2);
+      eval "package $a; use $b;";
+    }
+  }
+
+  my $thingy = $name->new($self,@_);
+  return $thingy;
+
 }
 
 1;
