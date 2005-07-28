@@ -442,8 +442,9 @@ sub reportBatch
             $arm = $scaff->arm;
             # see if we can be more specific about the cytology
             my $cyt = new Cytology($session,{-scaffold=>$seqs{5}->[0]->scaffold,
-                                            -less_than=>{start=>$mean},
-                                -greater_than_or_equal=>{stop=>$mean}})->select_if_exists;
+                                -less_than_or_equal=>{start=>$mean},
+                                -greater_than_or_equal=>{stop=>$mean}}
+                                                       )->select_if_exists;
             $cyto = $cyt->band if $cyt->band;
             $coord = $mean;
             $strand = ($seqs{5}->[0]->p_end > $seqs{5}->[0]->p_start)?'+':'-';
