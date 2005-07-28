@@ -39,7 +39,7 @@ require Exporter;
 $PELEMENT = "/data/pelement/";
 $PELEMENT_USER = "pelement";
 $PELEMENT_HOME = "/users/pelement/";
-$PELEMENT_BIN = $PELEMENT_HOME . "/bin/";
+$PELEMENT_BIN = $PELEMENT_HOME . "/scripts/";
 $PELEMENT_PLATFORM_BIN = $PELEMENT_BIN . "$^O/";
 $PELEMENT_HTML = "/opt/http/cgi-bin/pelement/";
 
