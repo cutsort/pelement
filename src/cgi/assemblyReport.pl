@@ -16,6 +16,7 @@ use Seq_Assembly;
 use Seq_AssemblySet;
 use Gel;
 use Lane;
+use LaneSet;
 use Phred_Seq;
 use Blast_Report;
 use Processing;
@@ -66,9 +67,11 @@ sub selectStrain
           $cgi->table( {-bordercolor=>$HTML_TABLE_BORDERCOLOR},
              $cgi->Tr( [
                 $cgi->td({-align=>"right",-align=>"left"},
-                                    ["Strain",$cgi->textfield(-name=>"strain")]),
-                $cgi->td({-colspan=>2,-align=>"center"},[$cgi->submit(-name=>"Report")]),
-                $cgi->td({-colspan=>2,-align=>"center"},[$cgi->reset(-name=>"Clear")]) ]
+                                 ["Strain",$cgi->textfield(-name=>"strain")]),
+                $cgi->td({-colspan=>2,-align=>"center"},
+                                 [$cgi->submit(-name=>"Report")]),
+                $cgi->td({-colspan=>2,-align=>"center"},
+                                 [$cgi->reset(-name=>"Clear")]) ]
              ),"\n",
           ),"\n",
        $cgi->end_form,"\n",
@@ -83,18 +86,56 @@ sub rebuildSeqAssembly
 
    my $action = $cgi->param("action");
 
-   if ($action eq 'import') {
-     print $cgi->center("we would reimport sequence for $seq_name."),"\n";
+   # make sure seq_name is legit. A bogus value could spoof us.
+   if ($seq_name) {
 
-   } elsif ($action eq 'build') {
-     print $cgi->center("we would rebuild consensus sequence for $seq_name."),"\n";
+     if ($action eq 'import') {
 
-   } elsif ($action eq 'merge') {
-     print $cgi->center("we would remerge end sequence for $seq_name."),"\n";
+       # a potential security hole: we'll be passing this as an argument
+       # to a script so we need to make sure the seq_name is legitimate.
+       my $old_s = $session->Seq({-seq_name=>$seq_name});
+       unless ($old_s->db_exists) {
+         print $cgi->center("There is no none sequence $seq_name."),$cgi->br,"\n";
+         return;
+       }
 
+
+       print $cgi->center("Deleting alignment information for $seq_name...."),
+             $cgi->br,"\n";
+       $session->Seq_AlignmentSet({-seq_name=>$seq_name})->select->delete;
+       print $cgi->center("Deleting blast runs or $seq_name..."),
+             $cgi->br,"\n";
+       $session->Blast_RunSet({-seq_name=>$seq_name})->select->delete;
+       print $cgi->center("Deleting sequence assembly info for $seq_name..."),
+             $cgi->br,"\n";
+       $session->Seq_AssemblySet({-seq_name=>$seq_name})->select->delete('seq_name');
+       print $cgi->center("Deleting sequence for $seq_name..."),
+             $cgi->br,"\n";
+       $session->Seq({-seq_name=>$seq_name})->select->delete;
+
+       # re-import
+       print $cgi->center("Reprocessing sequence $seq_name..."),
+             $cgi->br,"\n";
+      
+       `$PELEMENT_BIN/seqImporter.pl -quiet -seq $seq_name`;
+
+       # done.
+       print $cgi->center("Processing complete."),$cgi->br,"\n";
+
+     } elsif ($action eq 'new') {
+       print $cgi->center("we would import sequence for $seq_name."),"\n";
+
+     } elsif ($action eq 'build') {
+       print $cgi->center("we would rebuild consensus for $seq_name."),"\n";
+
+     } elsif ($action eq 'merge') {
+       print $cgi->center("we would remerge end sequence for $seq_name."),"\n";
+
+     } else {
+       print $cgi->center("no action specified for $seq_name."),"\n";
+     }
    } else {
-     print $cgi->center("no action specified for $seq_name."),"\n";
-
+       print $cgi->center("no sequence specified for $seq_name."),"\n";
    }
 }
 
@@ -191,7 +232,8 @@ sub reportSeqAssemblyAlignment
    $orient = $cgi->param('orient') || 1;
    print $bR->to_html($cgi,$orient);
    $orient = -1*$orient;
-   print $cgi->center($cgi->a({-href=>'assemblyReport.pl?seq_name='.$seq_name.'&id='.$id.'&orient='.$orient,
+   print $cgi->center($cgi->a({-href=>'assemblyReport.pl?seq_name='.
+                                $seq_name.'&id='.$id.'&orient='.$orient,
                                -target=>"_blast"},
                                'Reverse Complement Alignment').$cgi->br);
 
@@ -210,7 +252,7 @@ sub reportStrain
   my $s = new Strain($session,{-strain_name=>Seq::strain($strain)});
 
   if ( !$s->db_exists ) {
-     print $cgi->center($cgi->h2("No flanking sequence for strain $strain.")),"\n";
+     print $cgi->center($cgi->h2("No strain $strain in the db.")),"\n";
      return;
   }
 
@@ -218,73 +260,180 @@ sub reportStrain
 
   my @tableRows = ();
 
+  # we're going to keep track of the ends to report unimported seq
+  my %endsCaught;
   foreach my $seq ($seqSet->as_list) {
-     my $sAS = new Seq_AssemblySet($session,{-seq_name=>$seq->seq_name})->select;
+     my $sAS = new Seq_AssemblySet($session,
+                                     {-seq_name=>$seq->seq_name})->select;
 
      my $info;
      
      my $buildbutton;
      foreach my $sA ($sAS->as_list) {
+        # keep track of this
+        $endsCaught{Seq::end($sA->seq_name)} = 1;
         if ($sA->src_seq_src eq 'phred_seq') {
 
+=head1 makeLabel
+
+  A routine for turning something silly (i.e. a phred_seq id) into
+  text that makes a better label (i.e. a batch and well location).
+  we do this by tracking back from the id into the highest level we
+  can.
+
+=cut
+
+sub makeLabel
+{
+  my $s = shift;
+  my $id = shift;
+  my $level = shift;
+  my $args = shift;
+
+  if ($level eq 'phred' ) {
+    my $phredFrom = new Phred_Seq($s,{-id=>$id})->select();
+    return makeLabel($s,$phredFrom->lane_id,'lane') || "Phred Sequence ".$id 
+                                   if ( $phredFrom && $phredFrom->lane_id);
+    return "Phred Sequence $id";
+  } elsif ($level eq 'lane') {
+    my $laneFrom = new Lane($s,{-id=>$id})->select();
+    return unless $laneFrom;
+    return makeLabel($s,$laneFrom->gel_id,'gel',$laneFrom->well)  ||
+                             "Lane Sequence $id" if $laneFrom->gel_id;
+    return "Sequence from file ".$laneFrom->file if $laneFrom->file;
+    return "Lane Sequence $id";
+
+  } elsif ($level eq 'gel') {
+    my $gelFrom = new Gel($s,{-id=>$id})->select;
+    return unless $gelFrom;
+    return "Sequence from batch ".
+                Processing::batch_id($gelFrom->ipcr_name).":".$args
+            if ($gelFrom->ipcr_name && $gelFrom->ipcr_name ne 'untracked');
+    reuturn;
+  }
+
+  return;
+
+}
+           my $linkText = makeLabel($session,$sA->src_seq_id,'phred');
+           if (0 ) {
            # trace this back and find the highest level we can 
+
            my $linkText = "Phred Sequence ".$sA->src_seq_id;
-           my $phredFrom = new Phred_Seq($session,{-id=>$sA->src_seq_id})->select();
+           my $phredFrom = new Phred_Seq($session,{-id=>$sA->src_seq_id}
+                                                              )->select();
            if ($phredFrom && $phredFrom->lane_id) {
-              my $laneFrom = new Lane($session,{-id=>$phredFrom->lane_id})->select();
+              my $laneFrom = new Lane($session,{-id=>$phredFrom->lane_id}
+                                                              )->select();
               if ($laneFrom && $laneFrom->file) {
                  $linkText = "Sequence from ".$laneFrom->file;
               }
               if ($laneFrom && $laneFrom->gel_id) {
-                 my $gelFrom = new Gel($session,{-id=>$laneFrom->gel_id})->select;
+                 my $gelFrom = new Gel($session,{-id=>$laneFrom->gel_id}
+                                                              )->select;
                  if ($gelFrom && $gelFrom->id) {
-                    $linkText = "Sequence from gel ".$gelFrom->name.":".$laneFrom->well;
+                    $linkText = "Sequence from gel ".$gelFrom->name.
+                                                       ":".$laneFrom->well;
                  }
-                 if ($gelFrom && $gelFrom->ipcr_name && $gelFrom->ipcr_name ne 'untracked' ) {
-                    $linkText = "Sequence from batch ".Processing::batch_id($gelFrom->ipcr_name).":".$laneFrom->well;
+                 if ($gelFrom && $gelFrom->ipcr_name &&
+                                        $gelFrom->ipcr_name ne 'untracked' ) {
+                    $linkText = "Sequence from batch ".
+                Processing::batch_id($gelFrom->ipcr_name).":".$laneFrom->well;
                  }
               }
            }
-           $info .= $cgi->a({-href=>'seqReport.pl?db=phred_seq&id='.$sA->src_seq_id,
-                           -target=>'_seq'},$linkText).' assembled '.$sA->assembly_date.
-                    $cgi->a({-href=>'assemblyReport.pl?seq_name='.$sA->seq_name.'&id='.$sA->src_seq_id,
+           }
+           $info .= $cgi->a({-href=>'seqReport.pl?db=phred_seq&id='.
+                                                         $sA->src_seq_id,
+                           -target=>'_seq'},$linkText).' assembled '.
+                                                        $sA->assembly_date.
+                    $cgi->a({-href=>'assemblyReport.pl?seq_name='.
+                                        $sA->seq_name.'&id='.$sA->src_seq_id,
                              -target=>"_blast"},
                             ' Show Alignment').$cgi->br;
 
            if ( $buildbutton ) {
-              $buildbutton = $cgi->a({-href=>'assemblyReport.pl?seq_name='.$sA->seq_name.'&action=build'},
+              $buildbutton = $cgi->a({-href=>'assemblyReport.pl?seq_name='.
+                                             $sA->seq_name.'&action=build'},
                               ' Rebuild sequence for '.$sA->seq_name);
            } else {
-              $buildbutton = $cgi->a({-href=>'assemblyReport.pl?seq_name='.$sA->seq_name.'&action=import'},
+              $buildbutton = $cgi->a({-href=>'assemblyReport.pl?seq_name='.
+                                             $sA->seq_name.'&action=import'},
                             ' Reimport sequence for '.$sA->seq_name);
            }
 
         } elsif ($sA->src_seq_src eq 'seq') {
            my $b = new Seq($session,{-id=>$sA->src_seq_id})->select_if_exists;
            if ($b->seq_name) {
-              $info .= $cgi->em('Assembled from '.$b->seq_name).' on '.$sA->assembly_date.$cgi->br;
+              $info .= $cgi->em('Assembled from '.$b->seq_name).' on '.
+                                                $sA->assembly_date.$cgi->br;
            } else {
-              $info .= $cgi->em('Assembled from a sequence which has disappered!').$cgi->br;
+              $info .= $cgi->em('Assembled from a sequence which '.
+                                'has disappered!').$cgi->br;
            }
         } else {
            $info .= $cgi->em('Internal db inconsistency!');
         }
      }
-     $info = $cgi->em('This sequence assembly not tracked in the database.') unless $info;
+
+     
+     $info = $cgi->em('This sequence assembly not tracked in the database.')
+                                                                 unless $info;
 
      $buildbutton = $cgi->nbsp unless $buildbutton;
         
-     push @tableRows, $cgi->td({-align=>'center'},[$seq->seq_name]).$cgi->td({-align=>'left'},[$info,$buildbutton]);
+     push @tableRows, $cgi->td({-align=>'center'},
+             [$seq->seq_name]).$cgi->td({-align=>'left'},[$info,$buildbutton]);
   }
+
+  # now track down 3' or 5' flanks not imported if we do not have primary data
+   foreach my $end qw( 3 5) {
+      next if $endsCaught{$end};
+
+      # we do this if we have not identified a phred seq; look for a lane
+      my $laneSet = new LaneSet($session,{-seq_name=>$s->strain_name,
+                           -end_sequenced=>$end})->select;
+
+      next unless $laneSet->as_list;
+
+      my $info;
+      foreach my $lane ($laneSet->as_list) {
+
+         $info .= $cgi->br if $info;
+
+         my $p = new Phred_Seq($session,{-lane_id=>$lane->id})->select;
+         if( $p) {
+            my $linkText = makeLabel($session,$lane->id,'lane') ||
+                                            "Lane Sequence ".$lane->id;
+            $info .= $cgi->a({-href=>'seqReport.pl?db=phred_seq&id='.$p->id,
+                             -target=>'_seq'},$linkText).' Not imported.';
+         } else {
+            $info .= "No data available for lane ".$lane->id;
+         }
+      }
+                                                        
+      my $seq_name = $s->strain_name.'-'.$end;
+  
+      my $buildbutton = $cgi->a({-href=>'assemblyReport.pl?seq_name='.
+                                            $seq_name.'&action=new'},
+                           ' Import sequence for '.$seq_name);
+      push @tableRows, $cgi->td({-align=>'center'},
+            [$seq_name]).$cgi->td({-align=>'left'},[$info,$buildbutton]);
+    
+   }
+    
+    
   $seq_names =~ s/,$/)/;
 
 
-  print $cgi->center($cgi->h3("Sequence Data Source Tracking For Strain $strain"),$cgi->br),"\n";
+  print $cgi->center($cgi->h3("Sequence Data Source Tracking For ".
+                              "Strain $strain"),$cgi->br),"\n";
 
-  print $cgi->center($cgi->table({-border=>2,-width=>"80%",-bordercolor=>$HTML_TABLE_BORDERCOLOR},
+  print $cgi->center($cgi->table({-border=>2,-width=>"80%",
+                             -bordercolor=>$HTML_TABLE_BORDERCOLOR},
            $cgi->Tr( [
               $cgi->th({-bgcolor=>$HTML_TABLE_HEADER_BGCOLOR},
-                      ["Sequence<br>Name","Data Source","Manually<br>Reprocess"] ),
+                  ["Sequence<br>Name","Data Source","Manually<br>Reprocess"] ),
                            @tableRows,
                        ] )
                      )),"\n";
