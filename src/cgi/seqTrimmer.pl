@@ -40,7 +40,8 @@ sub selectSeq
 
    my $cgi = shift;
 
-   # if passed a strain identifier, look for the lanes with sequence that match this
+   # if passed a strain identifier, look for the lanes with
+   #sequence that match this
    my @tableRows = ();
    if ($cgi->param('strain') ) {
       my $session = new Session({-log_level=>0});
@@ -49,7 +50,8 @@ sub selectSeq
       map { push @tableRows, [$_->seq_name || 'Unknown' ,
                          $_->end_sequenced || 'Unknown' ,
                               $_->run_date || 'Unknown' ,
-                              $cgi->a({-href=>"seqTrimmer.pl?id=".$_->id},$_->id)] } $laneSet->as_list;
+                $cgi->a({-href=>"seqTrimmer.pl?id=".$_->id},$_->id)] }
+                                                         $laneSet->as_list;
 
       if (@tableRows) {
 
@@ -67,7 +69,8 @@ sub selectSeq
                        ] )
                      )),"\n";
       } else {
-          print $cgi->h3("No lanes were found for strain ".$cgi->param('strain')),"\n";
+          print $cgi->h3("No lanes were found for strain ".
+                                         $cgi->param('strain')),"\n";
       }
       $session->exit;
 
@@ -82,11 +85,15 @@ sub selectSeq
              $cgi->table( {-bordercolor=>$HTML_TABLE_BORDERCOLOR},
                 $cgi->Tr( [
                    $cgi->td({-align=>"right",-align=>"left"},
-                                       ["Lane ID",$cgi->textfield(-name=>"id")]),
+                                   ["Lane ID",
+                                         $cgi->textfield(-name=>"id")]),
                  $cgi->td({-align=>"right",-align=>"left"},
-                       [$cgi->em('or').' Strain',$cgi->textfield(-name=>"strain")]),
-                   $cgi->td({-colspan=>2,-align=>"center"},[$cgi->submit(-name=>"Select")]),
-                   $cgi->td({-colspan=>2,-align=>"center"},[$cgi->reset(-name=>"Clear")]) ]
+                        [$cgi->em('or').' Strain',
+                                         $cgi->textfield(-name=>"strain")]),
+                   $cgi->td({-colspan=>2,-align=>"center"},
+                                         [$cgi->submit(-name=>"Select")]),
+                   $cgi->td({-colspan=>2,-align=>"center"},
+                                         [$cgi->reset(-name=>"Clear")]) ]
                 ),"\n",
              ),"\n",
           $cgi->end_form(),"\n",
@@ -136,21 +143,25 @@ sub trimSeq
 
 
       # I need to check all of these to see how many are off by 1.
-      if ($seq->q_trim_start && $seq->q_trim_end && $seq->q_trim_end > $seq->q_trim_start) {
+      if ($seq->q_trim_start && $seq->q_trim_end &&
+                                  $seq->q_trim_end > $seq->q_trim_start) {
          foreach my $i ($seq->q_trim_start .. $seq->q_trim_end) {
             substr($bases,$i,1) = uc(substr($bases,$i,1));
          }
       }
       # insert a restriction site
-      substr($bases,$seq->v_trim_end) = '<'.substr($bases,$seq->v_trim_end) if ($seq->v_trim_end);
+      substr($bases,$seq->v_trim_end) = '<'.substr($bases,$seq->v_trim_end)
+                                                       if ($seq->v_trim_end);
       # insert a vector junction site
-      substr($bases,$seq->v_trim_start) = '>'.substr($bases,$seq->v_trim_start) if ($seq->v_trim_start);
+      substr($bases,$seq->v_trim_start) = '>'.substr($bases,$seq->v_trim_start)
+                                                       if ($seq->v_trim_start);
 
       my $rowsNeeded = int(length($bases)/50)+1;
 
       # toss in a <cr> every now and then
       $bases =~ s/(.{50})/$1\n/g;
-      print $cgi->center($cgi->start_form(-method=>'post',-action=>'seqTrimmer.pl'),"\n",
+      print $cgi->center($cgi->start_form(-method=>'post',
+                                          -action=>'seqTrimmer.pl'),"\n",
                    $cgi->textarea(-name=>"seq",-cols=>50,-rows=>$rowsNeeded,
                                   -wrap=>'virtual',-value=>$bases),$cgi->br,
                    $cgi->hidden(-name=>'id',-value=>$seq->lane_id),
@@ -236,15 +247,20 @@ sub processTrimmedSeq
    $workSeq =~ tr/acgtn/ACGTN/;
 
    unless ($oldSeq eq $workSeq) {
-      print $cgi->h3("There is some change in the sequence $oldSeq and $workSeq. Not updating.");
+      print $cgi->h3("There is no change in the sequence $oldSeq and $workSeq. Not updating.");
       return;
    }
 
    my $update = 0;
+   my $tunneled_sql;
    if ($v_trim_start ne '' && $phred->v_trim_start != $v_trim_start) {
       print $cgi->b("Updating vector trimming from ".
                  $phred->v_trim_start." to $v_trim_start."),$cgi->br;
       $phred->v_trim_start($v_trim_start);
+      $update = 1;
+   } elsif ($v_trim_start eq '') {
+      $tunneled_sql .= qq(update phred_seq set v_trim_start=null where
+                          id=$phred->id;);
       $update = 1;
    }
    
@@ -252,6 +268,10 @@ sub processTrimmedSeq
       print $cgi->b("Updating restriction site trimming from "
                  .$phred->v_trim_end." to $v_trim_end."),$cgi->br;
       $phred->v_trim_end($v_trim_end);
+      $update = 1;
+   } elsif ($v_trim_end eq '') {
+      $tunneled_sql .= qq(update phred_seq set v_trim_end=null where
+                          id=$phred->id;);
       $update = 1;
    }
    
@@ -270,6 +290,7 @@ sub processTrimmedSeq
    }
 
    $phred->update if $update;
+   $session->db->do($tunneled_sql) if $tunneled_sql;
 
    print $cgi->b("No updates given."),$cgi->br unless $update;
    
