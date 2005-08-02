@@ -23,12 +23,13 @@ use Getopt::Long;
 
 my $file;
 
+my $session = new Session();
+
 GetOptions("file=s" => \$file
           );
 
 usage() unless $file;
 
-my $session = new Session();
 
 $session->warn("Removing $file.") if (-e $file );
 
