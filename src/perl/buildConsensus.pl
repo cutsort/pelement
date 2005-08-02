@@ -79,7 +79,6 @@ GetOptions('gel=s'      => \$gel_name,
            'max=i'      => \$maxSeqSize,
            'force!'     => \$force,
            'test!'      => \$test,
-           'verbose!'   => \$verbose,
            'insert!'    => \$canInsert,
            'score=i'    => \$scoreOpt,
            'save!'      => \$save,
@@ -95,8 +94,6 @@ GetOptions('gel=s'      => \$gel_name,
 # decide what to process. (Or flag it as an error? No. Always deliver something)
 # gels by name are first, then by gel_id, then by lane name, then by lane_id.
 
-
-$session->log_level($Session::Verbose) if $verbose;
 
 my ($gel,@lanes);
 

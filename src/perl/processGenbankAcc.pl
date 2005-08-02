@@ -19,15 +19,13 @@ use File::Basename;
 use Getopt::Long;
 
 # defaults
-
-my $verbose = 0;
 my $file;
-GetOptions("file=s"   => \$file,
-           "verbose!" => \$verbose);
 
 my $session = new Session;
 
-$session->log_level($Session::Verbose) if $verbose;
+GetOptions("file=s"   => \$file,
+           );
+
 
 $session->die("Need to supply a -file argument.") unless $file;
 open(FIL,$file) or $session->die("Cannot open $file: $!");
