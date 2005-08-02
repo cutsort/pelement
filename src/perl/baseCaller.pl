@@ -21,6 +21,7 @@ use PelementDBI;
 use PhredInterface;
 use Phred_Seq;
 use Phred_Qual;
+use IPCR;
 use lib '/users/joe/src/production/utilities/';
 use EditTrace::TraceData;
 use EditTrace::ABIData;
@@ -29,7 +30,6 @@ use EditTrace::SCFData;
 use File::Basename;
 use Getopt::Long;
 use strict;
-
 
 my $session = new Session();
 
@@ -204,12 +204,41 @@ foreach my $file (@files) {
   # attempt to translate the primer into an 'end sequenced'. If this primer
   # does not exists in the db, we'll label it with the primer name; this
   # will need to be cleared up manually.
-  my $primer = new Primer($session,{-seq_primer=>$comments{$comment_db{primer}->[0]}})->select_if_exists;
+  my $primer = new Primer($session,
+        {-seq_primer=>$comments{$comment_db{primer}->[0]}})->select_if_exists;
   if ($primer->end_sequenced) {
-     $lane->end_sequenced($primer->end_sequenced);
+     if ($primer->end_sequenced eq 'b') {
+        # if we cannot determine the end from the sequencing primer, 
+        # we need to chase the ipcr
+        $session->info("Chasing the primer to the ipcr.");
+        my $end;
+        my $ipcr = new IPCR($session,
+                          {-name=>$gel->ipcr_name})->select_if_exists;
+        $session->die("Will not be able to determine end type.")
+                                                  unless $ipcr->id;
+        if ($ipcr->end_type) {
+          $end = $ipcr->end_type;
+        } elsif ($ipcr->primer1) {
+           my $primer = new Primer($session,
+                          {-seq_primer=>$ipcr->primer1})->select_if_exists;
+           $end = $primer->end_sequenced
+                                  if $primer->id && $primer->end_sequenced;
+        } elsif (ipcr->primer2) {
+           # doubtful that we'll find it here...
+           my $primer = new Primer($session,
+                          {-seq_primer=>$ipcr->primer2})->select_if_exists;
+           $end = $primer->end_sequenced
+                                  if $primer->id && $primer->end_sequenced;
+        }
+        $session->die("Cannot determine end type.") unless $end;
+        $lane->end_sequenced($end);
+     } else {
+        $lane->end_sequenced($primer->end_sequenced);
+     }
   } else {
      $lane->end_sequenced($comments{$comment_db{primer}->[0]});
-     $session->log($Session::Warn,"The primer ".$comments{$comment_db{primer}->[0]}." is not known to the db.");
+     $session->warn("The primer ".$comments{$comment_db{primer}->[0]}.
+                                            " is not known to the db.");
   }
 
   $lane->insert;
