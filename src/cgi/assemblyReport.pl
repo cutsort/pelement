@@ -36,8 +36,12 @@ print $cgi->banner;
 
 if ($strain) {
    reportStrain($cgi,$strain);
+   print $cgi->center($cgi->a({-href=>'strainReport.pl?strain='.$strain},
+                               'Return to Report for '.$strain).$cgi->br);
 } elsif ($seq_name && $cgi->param('action') ) {
    rebuildSeqAssembly($cgi,$seq_name);
+   print $cgi->center($cgi->a({-href=>'strainReport.pl?strain='.$seq_name},
+                               'Return to Report for '.$seq_name).$cgi->br);
 } elsif ($seq_name) {
    reportSeqAssemblyAlignment($cgi,$seq_name);
 } else {
@@ -95,20 +99,23 @@ sub rebuildSeqAssembly
        # to a script so we need to make sure the seq_name is legitimate.
        my $old_s = $session->Seq({-seq_name=>$seq_name});
        unless ($old_s->db_exists) {
-         print $cgi->center("There is no none sequence $seq_name."),$cgi->br,"\n";
+         print $cgi->center("There is no known sequence $seq_name."),$cgi->br,"\n";
          return;
        }
 
+       my $stuff = $session->Seq_AlignmentSet({-seq_name=>$seq_name})->select->delete;
+       print $cgi->center("Deleting ".$stuff->count." alignments for $seq_name...."),
+             $cgi->br,"\n";
 
-       print $cgi->center("Deleting alignment information for $seq_name...."),
+       $stuff = $session->Blast_RunSet({-seq_name=>$seq_name})->select->delete;
+       print $cgi->center("Deleting ".$stuff->count." blast runs or $seq_name..."),
              $cgi->br,"\n";
-       $session->Seq_AlignmentSet({-seq_name=>$seq_name})->select->delete;
-       print $cgi->center("Deleting blast runs or $seq_name..."),
+
+       $stuff = $session->Seq_AssemblySet({-seq_name=>$seq_name})->select->delete('seq_name');
+       print $cgi->center("Deleting ".$stuff->count.
+                          " sequence assembly records for $seq_name..."),
              $cgi->br,"\n";
-       $session->Blast_RunSet({-seq_name=>$seq_name})->select->delete;
-       print $cgi->center("Deleting sequence assembly info for $seq_name..."),
-             $cgi->br,"\n";
-       $session->Seq_AssemblySet({-seq_name=>$seq_name})->select->delete('seq_name');
+
        print $cgi->center("Deleting sequence for $seq_name..."),
              $cgi->br,"\n";
        $session->Seq({-seq_name=>$seq_name})->select->delete;
