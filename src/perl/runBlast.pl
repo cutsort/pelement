@@ -14,6 +14,7 @@ use Pelement;
 use Session;
 use BlastInterface;
 use Blast_OptionSet;
+use Blast_RunSet;
 use Seq;
 use Files;
 use PelementDBI;
@@ -26,15 +27,15 @@ my $db = "";
 my $parser = "";
 my $blastOptions = "";
 my $protocol = '';
-my $verbose;
+# delete previous?
+my $delete;
 GetOptions( "db=s"       => \$db,
             "parser=s"   => \$parser,
             "blastopt=s" => \$blastOptions,
             "protocol=s" => \$protocol,
-            "verbose!"   => \$verbose,
+            "delete!"    => \$delete,
            );
 
-$session->log_level($Session::Verbose) if $verbose;
 
 # see if there is a predefined set of option for a blast protocol
 
@@ -80,6 +81,15 @@ unless ($seq->sequence) {
    $session->die("No record for sequence $ARGV[0].");
 }
 
+# do we start with a delete?
+if ($delete || ($delete eq '' && $blastArg->{-delete}) ) {
+   # there is probably only 1 of these.
+   my $oldRun = new Blast_RunSet($session,
+            {-seq_name=>$seq->seq_name, -db=>$blastArg->{-db}})->select;
+   map { $session->info("Deleting previous blast run from ".$_->date);
+         $_->delete } $oldRun->as_list;
+}
+
 my $fasta_file = &Files::make_temp("seqXXXXX.fasta");
 
 $seq->to_fasta($fasta_file);
@@ -94,11 +104,8 @@ $blastRun->run($seq);
 
 $session->info("Blast completed.");
 
-my $sql = $blastRun->parse_sql();
-
-$session->verbose("SQL: $sql.");
-
-$session->get_db->do($sql) if ($sql);
+# parse and insert
+$session->error("Was not able to insert the blast run") unless $blastRun->parse;
 
 $session->exit();
 
