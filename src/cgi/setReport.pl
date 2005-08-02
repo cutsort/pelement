@@ -25,7 +25,7 @@ use PelementDBI;
 
 # gadfly modules
 use lib $ENV{FLYBASE_MODULE_PATH};
-use GeneralUtils::XML::Generator;
+##use GeneralUtils::XML::Generator;
 use GxAdapters::ConnectionManager qw(get_handle close_handle
                              set_handle_readonly);
 use GeneralUtils::Structures qw(rearrange);
@@ -55,6 +55,8 @@ if ( $action eq 'Add') {
 } elsif ($action eq 'Report' && $cgi->param('strain')) {
    my @strain = $cgi->param('strain');
    reportSet($cgi);
+} elsif ($action eq 'Format') {
+   selectSet($cgi);
 } else {
    selectSet($cgi);
 }
@@ -165,7 +167,11 @@ sub selectSet
           $cgi->table( {-bordercolor=>$HTML_TABLE_BORDERCOLOR},
              $cgi->Tr( [
               $cgi->td({-colspan=>2,-align=>'center'},
-                    [$cgi->textarea(-name=>'strain',-cols=>$COLS,-rows=>20)]),
+                    [$cgi->textarea(-name=>'strain',-cols=>$COLS,-rows=>20,-id=>'textArea')]),
+              $cgi->td({-align=>'center'},
+                      [$cgi->submit(-name=>'action',-value=>'Format'),
+                       $cgi->nbsp.$cgi->em('"Format" cleans up the').
+                         $cgi->br.$cgi->em('list of strain id\'s')]),
               # this dont work
               #$cgi->td({-colspan=>2,-align=>'center'},
               #   ['Upload a text file of strains: <b> not working yet.</b>']),
