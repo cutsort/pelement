@@ -9,8 +9,6 @@
 
   transferTables.pl [-verbose | -noverbose]
 
-  default behavior is -verbose
-
 =cut
 
 
@@ -30,13 +28,11 @@ my $session = new Session();
 
 my $nIpcrInsert = 0;
 my $nGelInsert = 0;
-my $verbose = 1;
 my $painfullyVerbose = 0;
 my $test = 0;
 
-GetOptions("verbose!" => \$verbose,
-           "test!"    => \$test,
-);
+GetOptions( "test!"    => \$test,
+               );
 
 my $epflowDB = DBI->connect("dbi:Informix:epflow") or
                die "Trouble talking to informix.";
@@ -58,7 +54,7 @@ while ($row = $st->fetchrow_arrayref) {
      $session->log($Session::Info,"Record for ".$batch->id." exists.") if $painfullyVerbose;
      next;
    } else {
-     $session->log($Session::Info,"Creating record for batch ".$batch->id.".") if $verbose;
+     $session->verbose("Creating record for batch ".$batch->id.".");
    }
 
    $batch->id($id);
@@ -79,10 +75,12 @@ while ($row = $st->fetchrow_arrayref) {
    my ($id,$num,$pos,$strain) = @$row;
    my $sample = new Sample($session,{-batch_id=>$num,-well=>$pos});
    if ($sample->db_exists) {
-     $session->log($Session::Info,"Record for ".$sample->batch_id." exists.") if $painfullyVerbose;
+     $session->log($Session::Info,"Record for ".$sample->batch_id." exists.")
+                                                       if $painfullyVerbose;
      next;
    } else {
-     $session->log($Session::Info,"Creating sample record for batch ".$sample->batch_id.".") if $verbose && $strain;
+     $session->verbose("Creating sample record for batch ".
+                                    $sample->batch_id.".") if $strain;
    }
    # don't try to stick in empty strains.
    next unless $strain;
@@ -113,7 +111,7 @@ while ($row = $st->fetchrow_arrayref) {
      $session->log($Session::Info,"Record for ".$sample->name." exists.") if $painfullyVerbose;
      next;
    } else {
-     $session->log($Session::Info,"Creating record for ".$sample->name.".") if $verbose;
+     $session->verbose("Creating record for ".$sample->name.".");
    }
    $sample->batch_id($num);
    $sample->enzyme1($e1);
@@ -137,7 +135,7 @@ while ($row = $st->fetchrow_arrayref) {
      $session->log($Session::Info,"Record for ".$sample->name." exists.") if $painfullyVerbose;
      next;
    } else {
-     $session->log($Session::Info,"Creating record for ".$sample->name.".") if $verbose;
+     $session->verbose("Creating record for ".$sample->name.".");
    }
    $sample->digestion_name($dig);
    $sample->user_login($user);
@@ -165,7 +163,7 @@ while ($row = $st->fetchrow_arrayref) {
      $session->log($Session::Info,"Record for ".$ipcr->name." exists.") if $painfullyVerbose;
      next;
    } else {
-     $session->log($Session::Info,"Creating record for ".$ipcr->name.".") if $verbose;
+     $session->verbose("Creating record for ".$ipcr->name.".");
    }
    $ipcr->name($ipcr_id);
    $ipcr->ligation_name($ligation_id);
@@ -199,7 +197,7 @@ while ($row = $st->fetchrow_arrayref) {
      $session->log($Session::Info,"Record for ".$gel->name." exists.") if $painfullyVerbose;
      next;
    } else {
-     $session->log($Session::Info,"Creating record for ".$gel->name.".") if $verbose;
+     $session->verbose("Creating record for ".$gel->name.".");
    }
    $gel->name($gel_name);
    $gel->ipcr_name($ipcr_id);
