@@ -55,8 +55,11 @@ my $session = new Session();
 #                           to the vector-insert junction (for offline
 #                           processing)
 #         -test             testmode only; no updates
+#         -redo             reprocess lanes where values have been set
+#                           this will erase manually set values
+#                           If ANY value is set, nothing will be changed
 
-my ($gel_name,$gel_id,$lane_name,@lane_id,$enzyme,$vector_junc,$offset);
+my ($gel_name,$gel_id,$lane_name,@lane_id,$enzyme,$vector_junc,$offset,$redo);
 my $test = 0;
 
 GetOptions('gel=s'      => \$gel_name,
@@ -67,6 +70,7 @@ GetOptions('gel=s'      => \$gel_name,
            'test!'      => \$test,
            'vector=s'   => \$vector_junc,
            'insert=i'   => \$offset,
+           'redo!'      => \$redo,
           );
 
 # processing hierarchy. In case multiple things are specified, we have to
@@ -97,9 +101,10 @@ if ($gel_name || $gel_id) {
 
 $session->log($Session::Info,"There are ".scalar(@lanes)." lanes to process");
 
+LANE:
 foreach my $lane (@lanes) {
 
-   $session->log($Session::Info,"Processing lane ".$lane->seq_name);
+   $session->info("Processing lane ".$lane->seq_name);
 
    # be certain there is enough info for processing the lane
    $session->die("End_sequenced not specified for lane ".$lane->id)
@@ -145,13 +150,23 @@ foreach my $lane (@lanes) {
    my $phred_seq = new Phred_Seq($session,
                          {-lane_id=>$lane->id})->select_if_exists;
 
-   ($session->log($Session::Warn,"No sequence for lane $lane->id.") and next )
+   ($session->warn("No sequence for lane $lane->id.") and next LANE)
                                                           unless $phred_seq;
+   if ( (defined($phred_seq->v_trim_start) ||
+         defined($phred_seq->v_trim_end) ||
+         defined($phred_seq->q_trim_start) ||
+         defined($phred_seq->q_trim_end) )
+           && !$redo) {
+      $session->info("Some trimming has been done and redo is false. ".
+                     "Skipping this lane.");
+      next LANE;
+   }
+  
+     
    my $phred_qual = new Phred_Qual($session,
                          {-phred_seq_id=>$phred_seq->id})->select_if_exists;
 
-   ($session->log($Session::Warn,
-                    "No quality for lane $lane->id.") and next )
+   ($session->warn("No quality for lane $lane->id.") and next )
                                                    unless $phred_qual;
       
    my $vector;
