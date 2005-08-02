@@ -104,8 +104,9 @@ GetOptions('gel=s'      => \$gel_name,
 $session->db_begin();
 
 # processing hierarchy. In case multiple things are specified, we have to
-# decide what to process. (Or flag it as an error? No. Always deliver something)
-# gels by name are first, then by gel_id, then by lane name, then by lane_id.
+# decide what to process. (Or flag it as an error? No. Always deliver
+# something) gels by name are first, then by gel_id, then by lane name,
+# then by lane_id.
 
 
 my ($gel,@lanes);
@@ -120,7 +121,8 @@ if ($gel_name || $gel_id) {
    $session->die("Cannot find lanes with gel id $gel.") unless $laneSet;
    @lanes = $laneSet->as_list;
    if ($start || $length) {
-      $session->warn("Ignoring start or length position when importing multiple lanes.");
+      $session->warn(
+        "Ignoring start or length position when importing multiple lanes.");
       $start = 0;
       $length = 0;
    }
@@ -131,11 +133,14 @@ if ($gel_name || $gel_id) {
 } elsif ( $seq_name ) {
    my ($seq,$end) = Seq::parse($seq_name);
    undef $end if $end eq 'b';
-   my @all_lanes = new LaneSet($session,{-seq_name=>$seq,-end_sequenced=>$end})->select->as_list;
+   my @all_lanes = new LaneSet($session,
+             {-seq_name=>$seq,-end_sequenced=>$end})->select->as_list;
    # a temp hash to keep track of the ends
    my %earliest;
-   map { $earliest{$_->end_sequenced} = $_ if !exists($earliest{$_->end_sequenced})
-                 || ($_->run_date cmp $earliest{$_->end_sequenced}->run_date) == -1 } @all_lanes;
+   map { $earliest{$_->end_sequenced} = $_ if  !($_->failure ) &&
+        (!exists($earliest{$_->end_sequenced}) ||
+         ($_->run_date cmp $earliest{$_->end_sequenced}->run_date) == -1) }
+                                                                @all_lanes;
    @lanes = values %earliest;
 } else {
    $session->die("No options specified for trimming.");
@@ -342,7 +347,7 @@ sub insertRecheckRecord
 
    $session->info("Inserting unconfirmed recheck as r$newId.");
    $seqRecord->seq_name($seqRecord->seq_name.".r$newId");
-   $seqRecord->last_update('today');
+   $seqRecord->last_update('now');
    $seqRecord->insert;
 
    $s_a->seq_name($seqRecord->seq_name);
@@ -378,7 +383,7 @@ sub insertNewRecord
       $session->log($Session::Info,
                  "Sequence record has changed and forcing an update.")
                                                         unless $noChanges;
-      $newRecord->last_update('today');
+      $newRecord->last_update('now');
       $action = 'update';
       my $old_assem = new Seq_AssemblySet($session,
                          {-src_seq_src => 'phred_seq',
@@ -391,7 +396,7 @@ sub insertNewRecord
    $newRecord->sequence($seqRecord->sequence);
    $newRecord->insertion_pos($seqRecord->insertion_pos);
    $newRecord->strain_name($seqRecord->strain_name);
-   $newRecord->last_update('today');
+   $newRecord->last_update('now');
    $newRecord->$action unless $noChanges;
 
    # what we're doing here is updating the sequence assembly
