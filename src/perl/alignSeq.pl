@@ -38,16 +38,14 @@ my $extrapolate = 0;
 # to let transferCurations do this
 my $deleteOld = 0;
 
+my $session = new Session;
+
 GetOptions( 'percent=i'    => \$percent_threshold,
             'length=i'     => \$length_threshold,
             'test!'        => \$test,
-            'verbose!'     => \$verbose,
             'extrapolate!' => \$extrapolate,
             'delete!'      => \$deleteOld,
            );
-
-my $session = new Session;
-$session->log_level($Session::Verbose) if $verbose;
 
 my $seq_name = $ARGV[0];
 
