@@ -64,6 +64,9 @@ my $dbh = GxAdapters::ConnectionManager::get_handle($db);
 set_handle_readonly($dbh);
 $ENV{GADB_SUPPRESS_RESIDUES} = 1;
 
+# assume it's gb if not specified
+$gbUnit = $ARGV[0] if (!$gbUnit && !$arm && $ARGV[0]);
+
 # for now, require coordinates or gb unit
 $start = $start || 0;
 die unless (($arm && $end) || $gbUnit);
