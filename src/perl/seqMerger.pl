@@ -55,30 +55,26 @@ my $force = 0;
 my $use = 3;
 my $ifAligned = 1;
 my $test = 0;
-my $verbose = 0;
 GetOptions('use=i'     => \$use,
            'force!'    => \$force,
            'ifaligned' => \$ifAligned,
            'test!'     => \$test,
-           'verbose!'  => \$verbose,
           );
 
 # processing hierarchy. In case multiple things are specified, we have to
 # decide what to process. (Or flag it as an error? No. Always deliver something)
 # gels by name are first, then by gel_id, then by lane name, then by lane_id.
 
-$session->log_level($Session::Debug) if $verbose;
 $session->db_begin;
 
 STRAIN:
 foreach my $strain (@ARGV) {
 
-   # both end seqs
-   my %ends = ();
-   # both insertion positions
-   my %pos = ();
-   # and their reference names
-   my %names = ();
+   # all the labeled insertions
+   my %insertions = ();
+
+   # all pre-existing sequence
+   my %prebuilt = ();
 
    $session->info("Processing strain $strain.");
 
@@ -90,110 +86,128 @@ foreach my $strain (@ARGV) {
       next STRAIN;
    }
 
-   # scan through the seqs to see if there is already one in the db. delete
-   # if we're forcing an update.
+   # scan through the seqs to see what we have in the db. Deleting preexisting
+   # built sequences if asked to force an update.
 
+   SEQ:
    foreach my $seq ($seqSet->as_list) {
       my ($seqS,$seqE,$seqQ) = $seq->parse;
       ($session->verbose("Skipping qualified end sequence.",$seq->seq_name) and next) if $seqQ; 
       if ($seqE eq '3' || $seqE eq '5') {
-         # an unqualified sequence with an end
-         if ($ends{$seqE}) {
-            $session->warn("This cannot deal with multiple insertions yet. Skipping.");
-            next STRAIN;
-         }
+         # we're dealing with unqualified sequences with an end
          unless ($seq->sequence && $seq->insertion_pos) {
             $session->warn("Sequence record for ".$seq->seq_name." is missing information. Skipping.");
-            next STRAIN;
+            next SEQ;
          }
-         $ends{$seqE} = $seq->sequence;
-         $pos{$seqE} = $seq->insertion_pos;
-         $names{$seqE} = $seq->seq_name;
+         $insertions{$seqS} = {ends=>{},pos=>{},names=>{}} unless exists $insertions{$seqS};
+         $insertions{$seqS}->{ends}{$seqE} = $seq->sequence;
+         $insertions{$seqS}->{pos}{$seqE} = $seq->insertion_pos;
+         $insertions{$seqS}->{names}{$seqE} = $seq->seq_name;
       } else {
          # there is a 'both' end.
          if ($force) {
-            $session->info("Deleting both-end sequence for $strain.");
+            $session->info("Deleting both-end sequence for $seqS.");
             my $seqAssSet = new Seq_AssemblySet($session,{-seq_name=>$seq->seq_name})->select;
             map { $_->delete } $seqAssSet->as_list;
             $seq->delete;
          } else {
-            $session->warn("A both-end sequence already exists for $strain. Skipping.");
-            next STRAIN;
+            $session->warn("A both-end sequence already exists for $seqS. Skipping.");
+            $prebuilt{$seqS} = 1;
+            next SEQ;
          }
       }
    }
 
-   unless ( exists($ends{3}) && exists($ends{5}) ) {
-      $session->warn("Both 3' and 5' sequences for $strain not present.");
-      next STRAIN;
-   }
+   INSERTION:
+   foreach my $insert (keys %insertions) {
 
-   # make sure there is a consistent alignment.
-   if ($ifAligned) {
-      my $seqAs5 = new Seq_AlignmentSet($session,{-seq_name=>$names{5}})->select;
-      my $seqAs3 = new Seq_AlignmentSet($session,{-seq_name=>$names{3}})->select;
-      my $foundCommon = 0;
+      # don't try to rebuild these
+      next INSERTION if $prebuilt{$insert};
 
-      LOOKFORCOMMON:
-      foreach my $s5 ($seqAs5->as_list) {
-         next if $s5->status eq 'deselected';
-         foreach my $s3 ($seqAs3->as_list) {
-            next if $s3->status eq 'deselected';
-            $foundCommon = 1 and last LOOKFORCOMMON if $s5->s_insert == $s3->s_insert;
+      # simplify the hash derefencing
+      my %ends = %{$insertions{$insert}->{ends}};
+      my %pos = %{$insertions{$insert}->{pos}};
+      my %names = %{$insertions{$insert}->{names}};
+
+      unless ( exists($ends{3}) && exists($ends{5}) ) {
+         $session->warn("Both 3' and 5' sequences for $insert not present.");
+         next INSERTION;
+      }
+
+      # make sure there is a consistent alignment.
+      if ($ifAligned) {
+         my $seqAs5 = new Seq_AlignmentSet($session,{-seq_name=>$names{5}})->select;
+         my $seqAs3 = new Seq_AlignmentSet($session,{-seq_name=>$names{3}})->select;
+         my $foundCommon = 0;
+
+         LOOKFORCOMMON:
+         foreach my $s5 ($seqAs5->as_list) {
+            next if $s5->status eq 'deselected';
+            foreach my $s3 ($seqAs3->as_list) {
+               next if $s3->status eq 'deselected';
+               $foundCommon = 1 and last LOOKFORCOMMON if $s5->s_insert == $s3->s_insert;
+            }
+         }
+         unless ($foundCommon) {
+            $session->info("Cannot find a common insertion location for $insert.");
+            next INSERTION;
          }
       }
-      unless ($foundCommon) {
-         $session->info("Cannot find a common insertion location for $strain.");
-         next STRAIN;
+
+      foreach my $end qw(3 5) {
+         unless ( ($pos{$end} > 0)  && ($pos{$end} < length($ends{$end})) ) {
+            $session->warn("Insertion for end $end is outside the sequence.");
+            next INSERTION;
+         }
       }
-   }
+        
+    
+      # build the both-end by taking the 5' sequence first
+      my $bothSeq = $ends{5};
 
-   foreach my $end qw(3 5) {
-      unless ( ($pos{$end} > 0)  && ($pos{$end} < length($ends{$end})) ) {
-         $session->warn("Insertion for end $end is outside the sequence.");
-         next STRAIN;
+      # and look at the overlap
+      my $ctr = 0;
+      foreach my $olap (0..(length($ends{3})-1)) {
+         my $base3 = substr($ends{3},$olap,1);
+         my $base5 = substr($ends{5},$olap+$pos{5}-$pos{3},1);
+         # hop out as soon as we get to the end.
+         ($bothSeq .= substr($ends{3},$olap) and last) unless $base5;
+         $session->verbose("Comparing bases $base3 and $base5 at positions $olap and ".
+                                       ($olap+$pos{5}-$pos{3}));
+         ($session->warn("Sequences do not agree at overlap. Skipping.") and next STRAIN )
+                                       unless $base3 eq $base5;
+         $ctr++;
+         
       }
+      $session->log_level($Session::Info);
+
+      $session->info("Built both-end sequence for $insert. Successful match on $ctr bases.");
+      $session->verbose("$insert both-end sequence is $bothSeq.");
+
+      # we already checked and know there is not a seq record for this name.
+      my $seqRecord = new Seq($session,{-seq_name      =>$insert,
+                                        -sequence      =>$bothSeq,
+                                        -insertion_pos =>$pos{5},
+                                        -strain_name   => $strain,
+                                        -last_update   =>'today'});
+      $seqRecord->insert;
+
+      # create a assembly record based on all the seq_id's of the base seq's
+      my $s_a = new Seq_Assembly($session,{-seq_name      => $insert,
+                                           -assembly_date => 'today',
+                                           -src_seq_src   => 'seq',
+                                               });
+
+
+      # we'll dip again into the list to find the id of the source sequences. 
+      foreach my $end (keys %names) {
+         $s_a->src_seq_id(new Seq($session,{-seq_name=>$names{$end}})->select->id);
+         $s_a->insert;
+      }
+
+      $session->info("Sequence record for $insert inserted.");
+
    }
-     
- 
-   # build the both-end by taking the 5' sequence first
-   my $bothSeq = $ends{5};
-
-   # and look at the overlap
-   my $ctr = 0;
-   foreach my $olap (0..(length($ends{3})-1)) {
-      my $base3 = substr($ends{3},$olap,1);
-      my $base5 = substr($ends{5},$olap+$pos{5}-$pos{3},1);
-      # hop out as soon as we get to the end.
-      ($bothSeq .= substr($ends{3},$olap) and last) unless $base5;
-      $session->verbose("Comparing bases $base3 and $base5 at positions $olap and ".
-                                    ($olap+$pos{5}-$pos{3}));
-      ($session->warn("Sequences do not agree at overlap. Skipping.") and next STRAIN )
-                                    unless $base3 eq $base5;
-      $ctr++;
-      
-   }
-   $session->log_level($Session::Info);
-
-   $session->info("Built both-end sequence for $strain. Successful match on $ctr bases.");
-   $session->verbose("$strain both-end sequence is $bothSeq.");
-
-   # we already checked and know there is not a seq record for this name.
-   my $seqRecord = new Seq($session,{-seq_name      =>$strain,
-                                     -sequence      =>$bothSeq,
-                                     -insertion_pos =>$pos{5},
-                                     -strain_name   => $strain,
-                                     -last_update   =>'today'});
-   $seqRecord->insert;
-
-   # create a assembly record based on all the seq_id's of the base seq's
-   my $s_a = new Seq_Assembly($session,{-seq_name      => $strain,
-                                        -assembly_date => 'today',
-                                        -src_seq_src   => 'seq',
-                                            });
-   map { $s_a->src_seq_id($_->id); $s_a->insert } $seqSet->as_list;
-
-   $session->info("Sequence record for $strain inserted.");
 
 }
 
