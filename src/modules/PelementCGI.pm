@@ -108,7 +108,7 @@ sub init_page
   my $argRef = shift || {};
   $argRef->{-bgcolor} = $HTML_BODY_BGCOLOR unless exists($argRef->{-bgcolor});
   return $self->start_html($argRef) if $self->format eq 'html';
- 
+
 }
 
 sub close_page
@@ -144,19 +144,19 @@ sub footer
                        $self->br,"\n",$table));
 }
 
-
 =head format_plate
 
-  a utility for formatting 'plate'-like tables of a collection of rows and columns,
-  intended for use when formatting a 96-well plate. We pass along a list ref of
-  the rows, a list ref of the columns, and a hash of entries. An optional 4'th
-  argument is the attributes attached to each cell.
+  a utility for formatting 'plate'-like tables of a collection of rows
+  and columns, intended for use when formatting a 96-well plate. We pass
+  along a list ref of the rows, a list ref of the columns, and a hash
+  of entries. An optional 4'th argument is the attributes attached to
+  each cell.
 
-  The cell contents are specifed as $cRef->{$row:$col} where $row and $col are
-  entries in the row and column lists.
+  The cell contents are specifed as $cRef->{$row:$col} where $row and
+  $col are entries in the row and column lists.
 
-  We're being silly and trying to set this up so that there are no assumptions
-  about the number of wells.
+  We're being silly and trying to set this up so that there are no
+  assumptions about the number of wells.
 
 =cut
 sub format_plate
@@ -171,7 +171,7 @@ sub format_plate
    my @tableRows = ();
 
    my $colWidth = int(100/(scalar(@$cRef)+.5) + .5);
- 
+
    my @row = ();
    map {push @row , $_} @$cRef;
    push @tableRows, $self->th({-width=>($colWidth/2).'%'},[$self->nbsp]).
@@ -230,13 +230,13 @@ sub Tr
 
    my $arg = shift;
    $arg = shift if ref($arg) eq 'HASH';
-      
+
    if (ref($arg) eq 'ARRAY') {
       return join("\n",@$arg);
    } else {
       return join("\n",($arg,@_));
    }
-   
+
 }
 
 sub table
@@ -245,9 +245,9 @@ sub table
    return $self->SUPER::table(@_) if $self->format eq 'html';
    my $arg = shift;
    $arg = shift if ref($arg) eq 'HASH';
-      
+
    return "\n".join(" ",($arg,@_))."\n";
-   
+
 }
 
 sub a
@@ -258,7 +258,7 @@ sub a
    $arg = shift if ref($arg) eq 'HASH';
    return join(" ",($arg,@_));
 }
-   
+
 sub nbsp
 {
    my $self = shift;
