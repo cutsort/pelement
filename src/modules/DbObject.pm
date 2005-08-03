@@ -25,16 +25,18 @@ use Session;
 use Carp;
 
 @ISA = qw(Exporter);
-@EXPORT = qw(new initialize_self select select_if_exists db_exists insert unique_identifier
-             get_next_id set_id update delete ref_of resolve_ref session AUTOLOAD DESTROY);
+@EXPORT = qw(new initialize_self select select_if_exists db_exists insert
+             unique_identifier get_next_id set_id update delete ref_of
+             resolve_ref session AUTOLOAD DESTROY);
 
 =head1
 
-  new, a generic 'turn a table into an object' constructor
+  new, a generic 'turn a table record into an object' constructor. This is not
+  meant to be instanced directly, but rather through an inherited class.
 
 =cut
 
-sub new 
+sub new
 {
   my $class = shift;
   my $session = shift || die "Session argument required.";
@@ -45,7 +47,7 @@ sub new
   return bless $self,$class;
 
 }
-    
+
 =head1
 
   initialize_self creates a hash and prepares a set of keys for
@@ -78,7 +80,6 @@ sub initialize_self
   $self->{_session} = $sessionHandle;
   $self->{_constraint} = '';
 
-
   # try to read a cached (a.k.a.stashed) record of
   # column names for this table.
   unless ( exists $self->{_cols} &&
@@ -94,47 +95,51 @@ sub initialize_self
   }
 
   # process any specified arguments
-  map { $self->{$_} = PCommon::parseArgs($args,$_) } @{$self->{_cols}};
+  map { $self->{$_} = parseArgs($args,$_) } @{$self->{_cols}};
 
   # apply supplemental constraints.
   # nulls are specified by the contents of an array pointed to by the -null arg
-  foreach my $is_null (@{PCommon::parseArgs($args,'null') || [] }) {
+  foreach my $is_null (@{parseArgs($args,'null') || [] }) {
      $self->{_constraint} .= " $is_null is null and";
   }
-  # not equals, greater than's and less than's and likes are specified by hashes
+  # not nulls are specified by the contents of an array pointed to by the
+  # -notnull arg
+  foreach my $isnt_null (@{parseArgs($args,'notnull') || [] }) {
+     $self->{_constraint} .= " $isnt_null is not null and";
+  }
+  # not equals, greater than's and less than's are specified by hashes
   # of key/values
-  my $ne_constraint = PCommon::parseArgs($args,'not_equal') || {};
+  my $ne_constraint = parseArgs($args,'not_equal') || {};
   foreach my $not_equal (keys %$ne_constraint) {
      $self->{_constraint} .= " $not_equal != ".
              $sessionHandle->db->quote($ne_constraint->{$not_equal})." and";
   }
-  my $gt_constraint = PCommon::parseArgs($args,'greater_than') || {};
+  my $gt_constraint = parseArgs($args,'greater_than') || {};
   foreach my $greater_than (keys %$gt_constraint) {
      $self->{_constraint} .= " $greater_than > ".
              $sessionHandle->db->quote($gt_constraint->{$greater_than})." and";
   }
-  my $lt_constraint = PCommon::parseArgs($args,'less_than') || {};
+  my $lt_constraint = parseArgs($args,'less_than') || {};
   foreach my $less_than (keys %$lt_constraint) {
      $self->{_constraint} .= " $less_than < ".
              $sessionHandle->db->quote($lt_constraint->{$less_than})." and";
   }
-  my $ge_constraint = PCommon::parseArgs($args,'greater_than_or_equal') || {};
+  my $ge_constraint = parseArgs($args,'greater_than_or_equal') || {};
   foreach my $greater_than_or_equal (keys %$ge_constraint) {
      $self->{_constraint} .= " $greater_than_or_equal >= ".
              $sessionHandle->db->quote($ge_constraint->{$greater_than_or_equal})." and";
   }
-  my $le_constraint = PCommon::parseArgs($args,'less_than_or_equal') || {};
+  my $le_constraint = parseArgs($args,'less_than_or_equal') || {};
   foreach my $less_than_or_equal (keys %$le_constraint) {
      $self->{_constraint} .= " $less_than_or_equal <= ".
              $sessionHandle->db->quote($le_constraint->{$less_than_or_equal})." and";
   }
-  my $like_constraint = PCommon::parseArgs($args,'like') || {};
+  my $like_constraint = parseArgs($args,'like') || {};
   foreach my $like (keys %$like_constraint) {
      $self->{_constraint} .= " $like like ".
              $sessionHandle->db->quote($like_constraint->{$like})." and";
   }
   $self->{_constraint} =~ s/ and$//;
-
 
   return $self;
 }
@@ -160,34 +165,72 @@ sub select
   return unless $self->{_table} && $self->{_cols};
   my $sql = "select ".join(",",@{$self->{_cols}})." from ".
                      ($self->{_table})." where";
-  
+
   map { $sql .= " $_=".$sessionHandle->db->quote($self->{$_})." and"
                       if defined $self->{$_} } @{$self->{_cols}};
-   
+
   $sql .= $self->{_constraint};
   # clean up
   $sql =~ s/ and$//;
   $sql =~ s/ where$//;
 
-  $sessionHandle->log($Session::Verbose,"SQL: $sql.");
+  $sessionHandle->log($Session::SQL,"SQL: $sql.");
 
   my $st = $sessionHandle->db->prepare($sql);
   $st->execute;
-  
+
   my $href = $st->fetchrow_hashref();
   ( ($ignoreWarnings || $sessionHandle->log($Session::Warn,
                                     "SQL $sql returned no object."))
                                            and return $self) unless $href;
 
   map { $self->{$_} = $href->{$_} } @{$self->{_cols}};
-  
+
   $href = $st->fetchrow_hashref();
   $sessionHandle->log($Session::Warn,"SQL $sql returned multiple objects.")
                           if $href;
   $st->finish;
 
   return $self;
-  
+
+}
+
+=head1 select_if_exists
+
+  A variant which does not kvetch if an object does not exist
+
+=cut
+
+sub select_if_exists
+{
+  return shift->select(@_,1);
+}
+
+=head1 db_exists
+
+  returns the count of the number of items that match the specified
+  defined columns
+
+=cut
+
+sub db_exists
+{
+  my $self = shift;
+  my $sessionHandle = $self->{_session} || shift ||
+                die "Session handle required db selection";
+
+  return unless $self->{_table} && $self->{_cols};
+  my $sql = "select count(*) from ".($self->{_table})." where";
+
+  map { $sql .= " $_=".$sessionHandle->db->quote($self->{$_})." and" if defined $self->{$_} }
+                   @{$self->{_cols}};
+
+  # clean up
+  $sql =~ s/ and$//;
+  $sql =~ s/ where$//;
+
+  $sessionHandle->log($Session::SQL,"SQL: $sql.");
+  return $sessionHandle->db->select_value($sql);
 }
 
 =head1
@@ -218,13 +261,13 @@ sub unique_identifier
   map { $sql .= " $_=".$sessionHandle->db->quote($self->{$_})." and"
                       if defined $self->{$_} } @{$self->{_cols}};
 
-   
+
   $sql .= $self->{_constraint};
   # clean up
   $sql =~ s/ and$//;
   $sql =~ s/ where$//;
 
-  $sessionHandle->log($Session::Verbose,"SQL: $sql.");
+  $sessionHandle->log($Session::SQL,"SQL: $sql.");
 
   my $st = $sessionHandle->db->prepare($sql);
   $st->execute;
@@ -245,52 +288,9 @@ sub unique_identifier
 
 }
 
-
-
-=head1 select_if_exists
-
-  A variant which does not kvetch if an object does not exist
-
-=cut
-
-sub select_if_exists
-{
-  return shift->select(@_,1);
-}
-
-
-=head1 db_exists
-
-  returns the count of the number of items that match the specified
-  defined columns
-
-=cut
-  
-sub db_exists
-{
-  my $self = shift;
-  my $sessionHandle = $self->{_session} || shift ||
-                die "Session handle required db selection";
-
-  return unless $self->{_table} && $self->{_cols};
-  my $sql = "select count(*) from ".($self->{_table})." where";
-  
-  map { $sql .= " $_=".$sessionHandle->db->quote($self->{$_})." and" if defined $self->{$_} }
-                   @{$self->{_cols}};
-   
-  # clean up
-  $sql =~ s/ and$//;
-  $sql =~ s/ where$//;
-
-  $sessionHandle->log($Session::Verbose,"SQL: $sql.");
-  return $sessionHandle->db->select_value($sql);
-}
-  
-  
-
 =head1 update
 
-   update the current row with the revised info. 
+   update the current row with the revised info.
    If an id designator exists, it must be unique.
    In that case it will be used to key the update.
    Otherwise, optional arguments are specified to key the
@@ -329,8 +329,8 @@ sub update
       $self->{_session}->warn("Non-effective update on ".$self->{_table});
       return;
    }
- 
-   $self->{_session}->log($Session::Verbose,"Updating info for ".$self->{_table}.
+
+   $self->{_session}->verbose("Updating info for ".$self->{_table}.
            ($self->{id}?" id=".$self->{id}:" and specified keys."));
    $self->{_session}->db->do($sql);
 }
@@ -365,14 +365,16 @@ sub delete
                             " without specifying a key.");
       return;
    }
-	
+
 
   if (exists($self->{id})) {
-     $sessionHandle->log($Session::Verbose,"Deleting id=".$self->id." from ".$self->{_table}.".");
+     $sessionHandle->verbose("Deleting id=".$self->id." from ".$self->{_table}.".");
   } else {
-     $sessionHandle->log($Session::Verbose,"Deleting from ".$self->{_table}.".");
+     $sessionHandle->verbose("Deleting from ".$self->{_table}.".");
   }
   $sessionHandle->db->do($sql);
+
+  return $self;
 
 }
 
@@ -407,7 +409,8 @@ sub insert
    $sqlVal =~ s/,$/)/;
    $sql .= $sqlVal;
    $qSql =~ s/ and $//;
-   $self->{_session}->log($Session::Verbose,"Inserting info to ".$self->{_table});
+   $self->{_session}->verbose("Inserting info to ".$self->{_table});
+
    my $statement = $self->{_session}->db->prepare($sql);
    $statement->execute;
 
@@ -438,7 +441,7 @@ sub insert
 sub get_next_id
 {
    my $self = shift;
-   my $sessionHandle = $self->session || 
+   my $sessionHandle = $self->session ||
                 die "Session handle when getting id";
 
    return unless $self->{_table} && $self->{_cols};
@@ -465,7 +468,7 @@ sub get_next_id
 sub set_id
 {
    my $self = shift;
-   my $sessionHandle = $self->{_session} || 
+   my $sessionHandle = $self->{_session} ||
                 die "Session handle when setting id";
 
    my $val =  shift;
@@ -492,7 +495,7 @@ sub session
 {
   return shift->{_session};
 }
-   
+
 =head1 resolve_ref
 
   internal convenience routine for finding the eventual value of
@@ -506,7 +509,7 @@ sub resolve_ref
    my $thingy = shift;
    my  %beenThereDoneThat = ();
    while ( ref($thingy) eq "SCALAR" ) {
-      $self->{_session}->log($Session::Verbose,"Resolving scalar referance.");
+      $self->{_session}->verbose("Resolving scalar referance.");
       $self->{_session}->error("Scalar reference loop.")
                    if ( $beenThereDoneThat{$thingy});
       $beenThereDoneThat{$thingy} = 1;
@@ -529,7 +532,6 @@ sub ref_of
    }
    return \$self->{$name};
 }
-
 
 sub AUTOLOAD
 {

@@ -25,8 +25,8 @@ use Session;
 use Carp;
 
 @ISA = qw(Exporter);
-@EXPORT = qw(new initialize_self select add as_list as_list_ref 
-             insert delete count AUTOLOAD DESTROY);
+@EXPORT = qw(new initialize_self select add insert delete count
+                      as_list as_list_ref AUTOLOAD DESTROY);
 
 =head1
 
@@ -92,40 +92,45 @@ sub initialize_self
   $self->{_objects} = [];
 
   # process any specified arguments
-  map { $self->{$_} = PCommon::parseArgs($args,$_) } @{$self->{_cols}};
+  map { $self->{$_} = parseArgs($args,$_) } @{$self->{_cols}};
 
   # apply supplemental constraints.
   # nulls are specified by the contents of an array pointed to by the -null arg
-  foreach my $is_null (@{PCommon::parseArgs($args,'null') || [] }) {
+  foreach my $is_null (@{parseArgs($args,'null') || [] }) {
      $self->{_constraint} .= " $is_null is null and";
   }
+  # not nulls are specified by the contents of an array pointed to by the
+  # -notnull arg
+  foreach my $isnt_null (@{parseArgs($args,'notnull') || [] }) {
+     $self->{_constraint} .= " $isnt_null is not null and";
+  }
   # not equals, greater than's and less than's are specified by hashes of key/values
-  my $ne_constraint = PCommon::parseArgs($args,'not_equal') || {};
+  my $ne_constraint = parseArgs($args,'not_equal') || {};
   foreach my $not_equal (keys %$ne_constraint) {
      $self->{_constraint} .= " $not_equal != ".
              $sessionHandle->db->quote($ne_constraint->{$not_equal})." and";
   }
-  my $gt_constraint = PCommon::parseArgs($args,'greater_than') || {};
+  my $gt_constraint = parseArgs($args,'greater_than') || {};
   foreach my $greater_than (keys %$gt_constraint) {
      $self->{_constraint} .= " $greater_than > ".
              $sessionHandle->db->quote($gt_constraint->{$greater_than})." and";
   }
-  my $lt_constraint = PCommon::parseArgs($args,'less_than') || {};
+  my $lt_constraint = parseArgs($args,'less_than') || {};
   foreach my $less_than (keys %$lt_constraint) {
      $self->{_constraint} .= " $less_than < ".
              $sessionHandle->db->quote($lt_constraint->{$less_than})." and";
   }
-  my $ge_constraint = PCommon::parseArgs($args,'greater_than_or_equal') || {};
+  my $ge_constraint = parseArgs($args,'greater_than_or_equal') || {};
   foreach my $greater_than (keys %$ge_constraint) {
      $self->{_constraint} .= " $greater_than >= ".
              $sessionHandle->db->quote($ge_constraint->{$greater_than})." and";
   }
-  my $le_constraint = PCommon::parseArgs($args,'less_than_or_equal') || {};
+  my $le_constraint = parseArgs($args,'less_than_or_equal') || {};
   foreach my $less_than (keys %$le_constraint) {
      $self->{_constraint} .= " $less_than <= ".
              $sessionHandle->db->quote($le_constraint->{$less_than})." and";
   }
-  my $like_constraint = PCommon::parseArgs($args,'like') || {};
+  my $like_constraint = parseArgs($args,'like') || {};
   foreach my $like (keys %$like_constraint) {
      $self->{_constraint} .= " $like like ".
              $sessionHandle->db->quote($like_constraint->{$like})." and";
@@ -133,7 +138,6 @@ sub initialize_self
   $self->{_constraint} =~ s/ and$//;
 
   return $self;
-
 }
 
 =head1
@@ -154,23 +158,23 @@ sub select
   return unless $self->{_table} && $self->{_cols};
 
   my $class = $self->{_table};
-  require $class.'.pm';
+  eval {require $class.'.pm'};
 
   my $sql = "select ".join(",",@{$self->{_cols}})." from ".($self->{_table})." where";
-  
+
   map { $sql .= " $_=".$sessionHandle->db->quote($self->{$_})." and" if defined($self->{$_})}
                    @{$self->{_cols}};
-   
+
   $sql .= $self->{_constraint};
   # clean up
   $sql =~ s/ and$//;
   $sql =~ s/ where$//;
 
-  $sessionHandle->log($Session::Verbose,"SQL: $sql.");
+  $sessionHandle->log($Session::SQL,"SQL: $sql.");
 
   my $st = $sessionHandle->db->prepare($sql);
   $st->execute;
-  
+
   while ( my $href = $st->fetchrow_hashref() ) {
     my $new_self = $class->new($sessionHandle);
     map { $new_self->{$_} = $href->{$_} } @{$self->{_cols}};
@@ -178,9 +182,18 @@ sub select
 
   }
   $st->finish;
-
   return $self;
-  
+
+}
+
+sub as_list
+{
+  return @{shift->{_objects}};
+}
+
+sub as_list_ref
+{
+  return shift->{_objects};
 }
 
 =head1 add
@@ -210,16 +223,18 @@ sub insert
 {
    my $self = shift;
    map { $_->insert } @{$self->{_objects}};
+   return $self;
 }
 sub delete
 {
    my $self = shift;
-   map { $_->delete } @{$self->{_objects}};
+   map { $_->delete(@_) } @{$self->{_objects}};
+   return $self;
 }
 
 =head1 count
 
-  Hommany object we got. Not a DB query!
+  Hommany object we got. Not a DB query! So this works even after a delete.
 
 =cut
 
@@ -229,16 +244,6 @@ sub count
   return scalar(@{$self->{_objects}});
 }
 
-
-sub as_list
-{
-  return @{shift->{_objects}};
-}
-
-sub as_list_ref
-{
-  return shift->{_objects};
-}
 
 sub DESTROY {}
 
