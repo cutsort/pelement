@@ -265,6 +265,7 @@ foreach my $file (@files) {
   }
   $seq->q20($q20);
   $seq->q30($q30);
+  $seq->last_update('now');
 
   $seq->insert;
   

@@ -298,11 +298,13 @@ foreach my $lane (@lanes) {
             if $qEnd && $phred_seq->q_trim_end &&
                                      $qEnd != $phred_seq->q_trim_end;
    # update
-   $phred_seq->v_trim_start($vStart) if $vStart;
-   $phred_seq->v_trim_end($vEnd) if $vEnd;
-   $phred_seq->q_trim_start($qStart) if $qStart;
-   $phred_seq->q_trim_end($qEnd) if $qEnd;
-   $phred_seq->update unless $test;
+   my $is_updated = 0;
+   $phred_seq->v_trim_start($vStart) && ($is_updated = 1 ) if $vStart;
+   $phred_seq->v_trim_end($vEnd)     && ($is_updated = 1 ) if $vEnd;
+   $phred_seq->q_trim_start($qStart) && ($is_updated = 1 ) if $qStart;
+   $phred_seq->q_trim_end($qEnd)     && ($is_updated = 1 ) if $qEnd;
+   $phred_seq->last_update('now') if $is_updated;
+   $phred_seq->update if ($is_updated && !$test);
    
 
 }
