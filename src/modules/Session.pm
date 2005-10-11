@@ -224,16 +224,16 @@ sub exit
 
         my $bigLogFile = "$PELEMENT_LOG/".$self->{caller}.".log";
 
-        # now, append the log file to the master log. We should probalby
+        # now, append the log file to the master log. We should probably
         # implement a better file locking mechanism to ensure we are not
         # appending from two process, but until then (read that: never) we'll
-        # make sure the master log has been stagnant for 5 seconds.
+        # make sure the master log has been stagnant for 3 seconds.
         if ( -e $bigLogFile ) {
 
             # we try this multiple times, but then just say the hell with it
             # if we are waiting too long.
             my $nTries = 0;
-            while( time() - Files::file_timestamp($bigLogFile) < 10  &&
+            while( time() - Files::file_timestamp($bigLogFile) < 3  &&
                     $nTries < 20 )   {
                $nTries++;
                sleep(2);
