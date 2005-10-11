@@ -382,13 +382,6 @@ sub parse
 
   open(BLST,$self->{output}) or return;
 
-  # see if there were fatal error in this run
-  if ( $self->{error} && (my $error = `grep FATAL: $self->{error}`)) {
-     $error =~ s/FATAL:\s*//sg;
-     $error =~ s/\n//sg;
-     $self->session()->die("Blast run had error(s): $error");
-     return;
-  }
 
   # we'll use the time stamp on the output file for the
   # time of the blast.
@@ -400,18 +393,33 @@ sub parse
   # clean up the query and db a bit
   my $q_name = $parser->query;
   $q_name =~ s/\s*\([0-9,]+ letters\)\s*$//;
-  my $db_name = $parser->database;
+ 
+
+  # if there was an error, we cannot parse the db name
+  my $db_name = $parser->database || $self->{db};
   $db_name =~ s/$BLAST_DB//;
 
+  # prepare the blast run record.
   my $bR = new Blast_Run($self->session,
                       {seq_name => $q_name,
-                       db       => $db_name,
+                       db       => $db_name || $self->{db},
                        option_id=> $self->{option_id},
+                       program  => 'blastn',
                        date     => $blast_date});
-
   # prepare these containers for results
   my $bHitSet = new Blast_HitSet($self->session);
   my $bHspSet = new Blast_HSPSet($self->session);
+
+  # see if there were fatal error in this run. But we'll still record the
+  # run even if it failed.
+  if ( $self->{error} && (my $error = `grep FATAL: $self->{error}`)) {
+     $error =~ s/FATAL:\s*//sg;
+     $error =~ s/\n//sg;
+     $self->session->warn("Blast run had error(s): $error");
+     $bR->insert unless ($_[0] eq 'noinsert');
+     close(BLST);
+     return ($bR,$bHitSet,$bHspSet);
+  }
 
   my $hitCtr = 0;
   while( my $sb = $parser->nextSbjct() ) {
@@ -484,6 +492,8 @@ sub parse
     $bHitSet->insert;
     $bHspSet->insert;
   }
+
+  close(BLST);
   return ($bR,$bHitSet,$bHspSet);
 }
 
