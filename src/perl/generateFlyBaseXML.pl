@@ -402,12 +402,26 @@ foreach my $strain_name (@ARGV) {
          (my $chrom = $arm) =~ s/arm_//;
          if ( grep(/$chrom/,qw(X 2L 2R 3L 3R 4)) ) {
             $insertData->add(new XML::GenomePosition(
-                                      { genome_version => 3,
-                                        arm            => $chrom,
-                                        strand         => ($strand>0)?'p':'m',
-                                        location       => ($pos_range[0]==$pos_range[1])?
-                                                           $pos_range[0]:
-                                                           $pos_range[0]."..".$pos_range[1] }));
+                                   { genome_version => 3,
+                                     arm            => $chrom,
+                                     strand         => ($strand>0)?'p':'m',
+                                     location       => ($pos_range[0]==$pos_range[1])?
+                                                        $pos_range[0]:
+                                                        $pos_range[0]."..".$pos_range[1]}));
+            # let's see if we can map it
+            my $r4_coord_lo =
+                        $session->db->select_value("select r4_map('$chrom',$pos_range[0])");
+            my $r4_coord_hi =
+                        $session->db->select_value("select r4_map('$chrom',$pos_range[1])");
+            if ($r4_coord_lo && $r4_coord_hi) {
+              $insertData->add(new XML::GenomePosition(
+                                   { genome_version => 4,
+                                     arm            => $chrom,
+                                     strand         => ($strand>0)?'p':'m',
+                                     location       => ($r4_coord_lo==$r4_coord_hi)?
+                                                        $r4_coord_lo:
+                                                        $r4_coord_lo."..".$r4_coord_lo}));
+            }
          } elsif ( $arm =~ /^210000222/ ) {
             my $gs = new GenBankScaffold($session,{-arm=>$arm})->select;
             next unless $gs->accession;
