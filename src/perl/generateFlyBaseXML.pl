@@ -251,7 +251,9 @@ foreach my $strain_name (@ARGV) {
                              is_multiple_insertion_line => $multiple,
                              comment => $pheno->strain_comment
                           });
-   $sub->add($line);
+   # we've created the line record, but we'll defer adding
+   # it to the submission until we have data.
+   my $addThisLine = 0;
 
    # the problem remains on how to deal with the separate sequences. Are they
    # individual insertions? or are they separate elements of insertion data
@@ -336,6 +338,10 @@ foreach my $strain_name (@ARGV) {
          unless ($addThisInsert) {
             $line->add($insert);
             $addThisInsert = 1;
+            unless ($addThisLine) {
+              $sub->add($line);
+              $addThisLine = 1;
+            }
          }
       }
 
@@ -509,6 +515,9 @@ foreach my $strain_name (@ARGV) {
          $bestInsert->{xml}->add($affGene);
       }
    }
+
+   $session->die("Strain $strain_name was not inserted in the xml.")
+                                                     unless $addThisLine;
 }
 
 $sub->validate;
