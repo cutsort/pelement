@@ -60,9 +60,9 @@ while(<FIL>) {
          } elsif ( $fields[$i] =~ /^is_multi_comment$/i ) {
            $xref{is_multi_comment} = $i;
          } elsif ( $fields[$i] =~ /^is_homo_viable$/i ) {
-           $xref{is_homo_viable} = $i;
+           $xref{is_homozygous_viable} = $i;
          } elsif ( $fields[$i] =~ /^is_homo_fertile$/i ) {
-           $xref{is_homo_fertile} = $i;
+           $xref{is_homozygous_fertile} = $i;
          } elsif ( $fields[$i] =~ /^phenotype$/i ) {
            $xref{phenotype} = $i;
          } elsif ( $fields[$i] =~ /^genome_position_comment$/i ) {
