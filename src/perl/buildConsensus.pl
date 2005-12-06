@@ -375,12 +375,12 @@ foreach my $lane (@lanes) {
             # (besides - we deleted it already)
             my $new_ass = new Seq_Assembly($session,{-seq_name => $seq_name,
                                                      -src_seq_src => 'phred_seq',
-                                                     -assembly_date => 'today'});
+                                                     -assembly_date => 'now'});
             map { $new_ass->src_seq_id($_); $new_ass->insert } (keys %pidH) unless $test;
             next LANE;
          } else {
             $session->log($Session::Info,"Sequence record has changed and making an update.");
-            $seqRecord->last_update('today');
+            $seqRecord->last_update('now');
             $action = 'update';
          }
       }
@@ -392,13 +392,13 @@ foreach my $lane (@lanes) {
       $seqRecord->sequence($seq);
       $seqRecord->insertion_pos($insert_pos);
       $seqRecord->strain_name($strain->strain_name);
-      $seqRecord->last_update('today');
+      $seqRecord->last_update('now');
       $seqRecord->$action unless $test;
 
       # and install the assembly record
       my $new_ass = new Seq_Assembly($session,{-seq_name => $seq_name,
                                                -src_seq_src => 'phred_seq',
-                                               -assembly_date => 'today'});
+                                               -assembly_date => 'now'});
       map { $new_ass->src_seq_id($_); $new_ass->insert } (keys %pidH) unless $test;
 
 
