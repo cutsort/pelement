@@ -189,12 +189,12 @@ foreach my $strain (@ARGV) {
                                         -sequence      =>$bothSeq,
                                         -insertion_pos =>$pos{5},
                                         -strain_name   => $strain,
-                                        -last_update   =>'today'});
+                                        -last_update   =>'now'});
       $seqRecord->insert;
 
       # create a assembly record based on all the seq_id's of the base seq's
       my $s_a = new Seq_Assembly($session,{-seq_name      => $insert,
-                                           -assembly_date => 'today',
+                                           -assembly_date => 'now',
                                            -src_seq_src   => 'seq',
                                                });
 
