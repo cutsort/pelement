@@ -179,6 +179,7 @@ foreach my $lane (@lanes) {
 
    my $seq;
    my $insert_pos;
+   my $is_a_control;
 
    # next we need to determine the protocol for determining the insertion
    # from the trimmed portion
@@ -221,6 +222,17 @@ foreach my $lane (@lanes) {
       } else {
          # we've already checked that there a quality end trim
          $extent = $phred_seq->q_trim_end;
+      }
+
+      # deal with controls. We'll change the collection in the (not-to-be-updated) strain
+      # record and go.
+      $is_a_control = 0;
+      if ($strain->collection eq 'CTR') {
+        my $control = $session->Control({-name=>$strain->strain_name});
+        $session->die("Cannot find control info for ".$strain->strain_name) unless $control->db_exists;
+        $control->select;
+        $strain->collection($control->collection);
+        $is_a_control = 1;
       }
 
 
@@ -287,7 +299,9 @@ foreach my $lane (@lanes) {
                                       -insertion_pos => $insert_pos,
                                       -strain_name => $strain->strain_name});
 
-   if ( $recheck ) {
+   if ( $is_a_control ) {
+      $session->warn("Control checking not written yet.");
+   } elsif ( $recheck ) {
       insertRecheckRecord($session,$seqRecord,$phred_seq,$force);
    } else {
       insertNewRecord($session,$seqRecord,$phred_seq,$force);
@@ -351,7 +365,7 @@ sub insertRecheckRecord
    $seqRecord->insert;
 
    $s_a->seq_name($seqRecord->seq_name);
-   $s_a->assembly_date('today');
+   $s_a->assembly_date('now');
    $s_a->insert;
 
    # return 'true' if ok. We're not checking this (yet).
@@ -405,7 +419,7 @@ sub insertNewRecord
    # This will deal with the problem of migrating the sequence
    # assembly info into the db over time.
    $s_a->seq_name($newRecord->seq_name);
-   $s_a->assembly_date('today');
+   $s_a->assembly_date('now');
    $s_a->insert;
 
    $session->log($Session::Info,"Sequence record for ".$newRecord->seq_name.
