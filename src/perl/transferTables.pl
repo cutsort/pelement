@@ -37,6 +37,10 @@ GetOptions( "test!"    => \$test,
 my $epflowDB = DBI->connect("dbi:Informix:epflow") or
                die "Trouble talking to informix.";
 
+
+$session->die("This is defunct.");
+
+
 $session->log($Session::Info,"Test mode: no undating done.") if $test;
 
 $session->log($Session::Info,"Retrieving batch_register table.");
