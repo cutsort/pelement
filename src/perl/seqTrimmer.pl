@@ -130,16 +130,10 @@ foreach my $lane (@lanes) {
       }
       # here is the rule for determining which enzyme was used:
       #    if only enzyme1 is specified, it's used for both
-      #    if both enzyme1 and enzyme2 are given, then 1 for P1, P3, P5,...
-      #          and enzyme2 for P2, P4, P6,...
-      if ($digestion->enzyme2) {
-         my $whichPcr;
-         if (Processing::ipcr_id($gel->ipcr_name) =~ /.*(\d+)$/ ) {
-            $whichPcr = $1
-         } else {
-            $session->die("Cannot determine IPCR id for $whichPcr");
-         }
-         $enzyme = ($whichPcr%2)?$digestion->enzyme1:$digestion->enzyme2;
+      #    if both enzyme1 and enzyme2 are given, then 1 is the 3' end
+      #          and enzyme2 is the 5' end
+      if ($digestion->enzyme2 && ($digestion->enzyme2 ne $digestion->enzyme1) ) {
+         $enzyme = ($lane->end_sequenced eq '3')?$digestion->enzyme1:$digestion->enzyme2;
       } else {
          $enzyme = $digestion->enzyme1;
       }
@@ -182,13 +176,23 @@ foreach my $lane (@lanes) {
          $session->die("No collection identifier for ".$lane->seq_name);
       }
 
+      my $coll = $strain->collection;
+      # controls has handled special
+      if ($coll eq 'CTR') {
+        # chase the control to find the real collection identifer
+        my $control = $session->Control({-name=>$strain->strain_name});
+        $session->die("Cannot find control info for ".$strain->strain_name) unless $control->db_exists;
+        $control->select;
+        $coll = $control->collection;
+      }
+    
+
       my $c_p = new Collection_Protocol($session,
-                          {-collection=>$strain->collection,
+                          {-collection=>$coll,
                            -like=>{end_sequenced=>'%'.$lane->end_sequenced.'%'}}
                                                         )->select;
       unless ($c_p->protocol_id) {
-         $session->die("Cannot determine trimming protocol for ".
-                                                             $strain->collection);
+         $session->die("Cannot determine trimming protocol for $coll");
       }
 
       $t_p = new Trimming_Protocol($session,{-id=>$c_p->protocol_id})->select;
@@ -197,8 +201,7 @@ foreach my $lane (@lanes) {
                                                              $t_p->protocol_name)
                                                           if $t_p->protocol_name;
       } else {
-         $session->die("Cannot determine trimming protocol for ".
-                                                          $strain->collection);
+         $session->die("Cannot determine trimming protocol for $coll");
       }
    
       $vector = new Vector($session,{-id=>$t_p->vector_id})->select;
