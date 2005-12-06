@@ -49,7 +49,9 @@ foreach my $dir (glob("$PELEMENT_INBOX/*")) {
    next unless -d $dir;
    $session->info("Looking at directory $dir.");
    my $deleteDir = $deleteSrc;
-   foreach my $file (glob("$dir/*.ab1")) {
+   my @file_list = glob("$dir/*.ab1");
+   $session->info("There are ".scalar(@file_list)." files to transfer.");
+   foreach my $file (@file_list) {
       $session->debug("Looking at file $file.");
       my $gel_from_file = gel_from_file($file);
       next if ($gel_name && $gel_name ne $gel_from_file);
