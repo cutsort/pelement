@@ -57,11 +57,13 @@ my $session = new Session();
 
 # command line options
 my $ifAligned = 1;        # only submit info on the "desired" aligned flanks
+my $stop_without_4 = 1;   # stop if we cannot map alignment forward
 my $phenotype = 1;        # do we require a pheontype record?
 my $outFile;
 my $update = 0;           # mark ALL insertion data as 'is_update=Y'
 GetOptions('ifaligned!' => \$ifAligned,
            'phenotype!' => \$phenotype,
+           'rel4!'      => \$stop_without_4,
            'update!'    => \$update,
            'out=s'      => \$outFile);
 
@@ -407,13 +409,6 @@ foreach my $strain_name (@ARGV) {
 
          (my $chrom = $arm) =~ s/arm_//;
          if ( grep(/$chrom/,qw(X 2L 2R 3L 3R 4)) ) {
-            $insertData->add(new XML::GenomePosition(
-                                   { genome_version => 3,
-                                     arm            => $chrom,
-                                     strand         => ($strand>0)?'p':'m',
-                                     location       => ($pos_range[0]==$pos_range[1])?
-                                                        $pos_range[0]:
-                                                        $pos_range[0]."..".$pos_range[1]}));
             # let's see if we can map it
             my $r4_coord_lo =
                         $session->db->select_value("select r4_map('$chrom',$pos_range[0])");
@@ -427,7 +422,19 @@ foreach my $strain_name (@ARGV) {
                                      location       => ($r4_coord_lo==$r4_coord_hi)?
                                                         $r4_coord_lo:
                                                         $r4_coord_lo."..".$r4_coord_lo}));
+            } elsif ($stop_without_4) {
+              $session->die("Cannot map this to release 4.");
+            } else {
+              # go with release 3 insertion
+              $insertData->add(new XML::GenomePosition(
+                                     { genome_version => 3,
+                                       arm            => $chrom,
+                                       strand         => ($strand>0)?'p':'m',
+                                       location       => ($pos_range[0]==$pos_range[1])?
+                                                          $pos_range[0]:
+                                                          $pos_range[0]."..".$pos_range[1]}));
             }
+            
          } elsif ( $arm =~ /^210000222/ ) {
             my $gs = new GenBankScaffold($session,{-arm=>$arm})->select;
             next unless $gs->accession;
