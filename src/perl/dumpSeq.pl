@@ -6,7 +6,7 @@
 
 =head1 USAGE
 
-  dumpSeq.pl -file <filename> <pattern1> [<pattern2> ...]
+  dumpSeq.pl -file <filename> <-batch>|( <pattern1> [<pattern2> ...])
 
 
 =cut
@@ -22,10 +22,12 @@ use strict;
 use Getopt::Long;
 
 my $file;
+my $batch=0;
 
 my $session = new Session();
 
-GetOptions("file=s" => \$file
+GetOptions("file=s" => \$file,
+           "batch!" => \$batch,
           );
 
 usage() unless $file;
@@ -39,6 +41,17 @@ if( -e $file && !unlink ($file)) {
 
 unless (Files::touch($file)) {
    $session->die("Cannot open file $file: $!");
+}
+
+if ($batch) {
+  my $samples = $session->SampleSet->select;
+  my %sHash;
+  map { $sHash{$_->strain_name} = 1 } $samples->as_list;
+  @ARGV = keys %sHash;
+  $session->info("Extracted ".scalar(@ARGV)." strain names.");
+  my @flank = @ARGV;
+  map { $_ .= '-_' } @flank;
+  @ARGV = sort { $a cmp $b } (@ARGV,@flank);
 }
 
 while (@ARGV) {
