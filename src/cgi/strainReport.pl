@@ -80,12 +80,17 @@ sub reportStrain
 
    my $session = new Session({-log_level=>0});
 
-   # try to make sense of the strain name. It may have an end identifier.
+   # try to make sense of the strain name. It may have an end identifier or other characters
    $strain =~ s/\s+//g;
    # and get rid of strange periods from cutting-n-pasting
    $strain =~ s/\.$//g;
-   $strain = Seq::strain($strain);
+
    my $s = new Strain($session,{-strain_name=>$strain});
+   # maybe this does not exists. trim off any end id's
+   if (! $s->db_exists ) {
+     $strain = Seq::strain($strain);
+     $s = new Strain($session,{-strain_name=>$strain});
+   }
 
    # try again, stripping off insertion id.
    if ( !$s->db_exists && $strain =~ /(.*)[a-z]$/) {
