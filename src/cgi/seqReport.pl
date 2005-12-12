@@ -199,6 +199,7 @@ sub reportSeq
                                "Quality trimming end: ".($seq->q_trim_end || 'Not set'),
                                "Vector trimming start: ".($seq->v_trim_start || 'Not set'),
                                "Vector trimming end: ".($seq->v_trim_end || 'Not set')])),$cgi->br,"\n"; 
+      print $cgi->p('Phred sequence record last updated '.$seq->last_update),$cgi->br,"\n";
 
    }
    print $cgi->em('Key:'),"\n",
