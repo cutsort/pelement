@@ -97,11 +97,30 @@ sub rebuildSeqAssembly
 
        # a potential security hole: we'll be passing this as an argument
        # to a script so we need to make sure the seq_name is legitimate.
+       # tacking on spurious ;'s would enable a hole so we'll be especially
+       # careful about those.
+       $seq_name =~ s/[\/;]//g;
+
        my $old_s = $session->Seq({-seq_name=>$seq_name});
        unless ($old_s->db_exists) {
          print $cgi->center("There is no known sequence $seq_name."),$cgi->br,"\n";
          return;
        }
+
+       # see how we're going to re-import.
+       my $import_command = '-seq '.$seq_name;
+       # do we know exactly which lane it coes from?
+       my $assem = $session->Seq_Assembly({-seq_name=>$seq_name,
+                                        -src_seq_src=>'phred_seq'});
+       if ($assem->db_exists) {
+         $assem->select;
+         my $phred = $session->Phred_Seq({-id=>$assem->src_seq_id})->select_if_exists;
+         if ($phred && $phred->lane_id) {
+           $import_command = '-lane_id '.$phred->lane_id;
+         }
+       }
+       # see if we want to process this as a recheck
+       $import_command .= ' -recheck' if $old_s->qualifier;
 
        my $stuff = $session->Seq_AlignmentSet({-seq_name=>$seq_name})->select->delete;
        print $cgi->center("Deleting ".$stuff->count." alignments for $seq_name...."),
@@ -111,7 +130,8 @@ sub rebuildSeqAssembly
        print $cgi->center("Deleting ".$stuff->count." blast runs or $seq_name..."),
              $cgi->br,"\n";
 
-       $stuff = $session->Seq_AssemblySet({-seq_name=>$seq_name})->select->delete('seq_name');
+       $stuff = $session->Seq_AssemblySet({-seq_name=>$seq_name}
+                                        )->select->delete('seq_name');
        print $cgi->center("Deleting ".$stuff->count.
                           " sequence assembly records for $seq_name..."),
              $cgi->br,"\n";
@@ -124,13 +144,61 @@ sub rebuildSeqAssembly
        print $cgi->center("Reprocessing sequence $seq_name..."),
              $cgi->br,"\n";
       
-       `$PELEMENT_BIN/seqImporter.pl -quiet -seq $seq_name`;
+       `$PELEMENT_BIN/seqImporter.pl -quiet $import_command`;
+        
+       if ($old_s->db_exists) {
 
-       # done.
+         # re-blast
+         print $cgi->center("Blasting sequence $seq_name..."),
+               $cgi->br,"\n";
+      
+         `$PELEMENT_BIN/runBlast.pl -quiet $seq_name`;
+         `$PELEMENT_BIN/runBlast.pl -protocol te -quiet $seq_name`;
+         `$PELEMENT_BIN/runBlast.pl -protocol vector -quiet $seq_name`;
+         `$PELEMENT_BIN/alignSeq.pl -quiet $seq_name`;
+       } else {
+         print $cgi->center("No sequence imported. Blasting not done."),
+               $cgi->br,"\n";
+       }
+
        print $cgi->center("Processing complete."),$cgi->br,"\n";
 
      } elsif ($action eq 'new') {
-       print $cgi->center("we would import sequence for $seq_name."),"\n";
+       print $cgi->center("Processing sequence for $seq_name..."),"\n";
+       my $import_command;
+       my ($strain,$end,$qual) = Seq::parse($seq_name);
+       if ($qual) {
+         # this ought not happen
+         print $cgi->center("This is not set up to deal with qualified sequences yet.");
+         return;
+       }
+       unless ($strain && ($end eq '3' || $end eq '5')) {
+         # this ought not happen
+         print $cgi->center("This is only set up to deal with 3' or 5' sequences still.");
+         return;
+       }
+
+       # be certain there is only 1 sequence
+       my $laneSet = $session->LaneSet({-seq_name=>$strain,
+                                             -end_sequenced=>$end})->select;
+       if ($laneSet->count > 1 ) {
+         print $cgi->center("This is not set up to deal with strain with multiple sequences yet.");
+         return;
+       } elsif ($laneSet->count == 0 ) {
+         print $cgi->center("Cannot find data for $seq_name.");
+         return;
+       }
+       $import_command = '-lane_id '.($laneSet->as_list)[0]->id;
+
+       `$PELEMENT_BIN/seqImporter.pl -quiet $import_command`;
+
+       print $cgi->center("Blasting...");
+       `$PELEMENT_BIN/runBlast.pl -quiet $seq_name`;
+       `$PELEMENT_BIN/runBlast.pl -protocol te -quiet $seq_name`;
+       `$PELEMENT_BIN/runBlast.pl -protocol vector -quiet $seq_name`;
+       print $cgi->center("Aligning...");
+       `$PELEMENT_BIN/alignSeq.pl -quiet $seq_name`;
+       print $cgi->center("Processing completed.");
 
      } elsif ($action eq 'build') {
        print $cgi->center("we would rebuild consensus for $seq_name."),"\n";
@@ -280,76 +348,7 @@ sub reportStrain
         # keep track of this
         $endsCaught{Seq::end($sA->seq_name)} = 1;
         if ($sA->src_seq_src eq 'phred_seq') {
-
-=head1 makeLabel
-
-  A routine for turning something silly (i.e. a phred_seq id) into
-  text that makes a better label (i.e. a batch and well location).
-  we do this by tracking back from the id into the highest level we
-  can.
-
-=cut
-
-sub makeLabel
-{
-  my $s = shift;
-  my $id = shift;
-  my $level = shift;
-  my $args = shift;
-
-  if ($level eq 'phred' ) {
-    my $phredFrom = new Phred_Seq($s,{-id=>$id})->select();
-    return makeLabel($s,$phredFrom->lane_id,'lane') || "Phred Sequence ".$id 
-                                   if ( $phredFrom && $phredFrom->lane_id);
-    return "Phred Sequence $id";
-  } elsif ($level eq 'lane') {
-    my $laneFrom = new Lane($s,{-id=>$id})->select();
-    return unless $laneFrom;
-    return makeLabel($s,$laneFrom->gel_id,'gel',$laneFrom->well)  ||
-                             "Lane Sequence $id" if $laneFrom->gel_id;
-    return "Sequence from file ".$laneFrom->file if $laneFrom->file;
-    return "Lane Sequence $id";
-
-  } elsif ($level eq 'gel') {
-    my $gelFrom = new Gel($s,{-id=>$id})->select;
-    return unless $gelFrom;
-    return "Sequence from batch ".
-                Processing::batch_id($gelFrom->ipcr_name).":".$args
-            if ($gelFrom->ipcr_name && $gelFrom->ipcr_name ne 'untracked');
-    reuturn;
-  }
-
-  return;
-
-}
            my $linkText = makeLabel($session,$sA->src_seq_id,'phred');
-           if (0 ) {
-           # trace this back and find the highest level we can 
-
-           my $linkText = "Phred Sequence ".$sA->src_seq_id;
-           my $phredFrom = new Phred_Seq($session,{-id=>$sA->src_seq_id}
-                                                              )->select();
-           if ($phredFrom && $phredFrom->lane_id) {
-              my $laneFrom = new Lane($session,{-id=>$phredFrom->lane_id}
-                                                              )->select();
-              if ($laneFrom && $laneFrom->file) {
-                 $linkText = "Sequence from ".$laneFrom->file;
-              }
-              if ($laneFrom && $laneFrom->gel_id) {
-                 my $gelFrom = new Gel($session,{-id=>$laneFrom->gel_id}
-                                                              )->select;
-                 if ($gelFrom && $gelFrom->id) {
-                    $linkText = "Sequence from gel ".$gelFrom->name.
-                                                       ":".$laneFrom->well;
-                 }
-                 if ($gelFrom && $gelFrom->ipcr_name &&
-                                        $gelFrom->ipcr_name ne 'untracked' ) {
-                    $linkText = "Sequence from batch ".
-                Processing::batch_id($gelFrom->ipcr_name).":".$laneFrom->well;
-                 }
-              }
-           }
-           }
            $info .= $cgi->a({-href=>'seqReport.pl?db=phred_seq&id='.
                                                          $sA->src_seq_id,
                            -target=>'_seq'},$linkText).' assembled '.
@@ -449,4 +448,45 @@ sub makeLabel
 
 
   $session->exit;
+}
+
+=head1 makeLabel
+
+  A routine for turning something silly (i.e. a phred_seq id) into
+  text that makes a better label (i.e. a batch and well location).
+  we do this by tracking back from the id into the highest level we
+  can.
+
+=cut
+sub makeLabel
+{
+  my $s = shift;
+  my $id = shift;
+  my $level = shift;
+  my $args = shift;
+
+  if ($level eq 'phred' ) {
+    my $phredFrom = new Phred_Seq($s,{-id=>$id})->select();
+    return makeLabel($s,$phredFrom->lane_id,'lane') || "Phred Sequence ".$id 
+                                   if ( $phredFrom && $phredFrom->lane_id);
+    return "Phred Sequence $id";
+  } elsif ($level eq 'lane') {
+    my $laneFrom = new Lane($s,{-id=>$id})->select();
+    return unless $laneFrom;
+    return makeLabel($s,$laneFrom->gel_id,'gel',$laneFrom->well)  ||
+                             "Lane Sequence $id" if $laneFrom->gel_id;
+    return "Sequence from file ".$laneFrom->file if $laneFrom->file;
+    return "Lane Sequence $id";
+
+  } elsif ($level eq 'gel') {
+    my $gelFrom = new Gel($s,{-id=>$id})->select;
+    return unless $gelFrom;
+    return "Sequence from batch ".
+                Processing::batch_id($gelFrom->ipcr_name).":".$args
+            if ($gelFrom->ipcr_name && $gelFrom->ipcr_name ne 'untracked');
+    return;
+  }
+
+  return;
+
 }
