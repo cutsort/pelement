@@ -252,7 +252,10 @@ sub processTrimmedSeq
    }
 
    my $update = 0;
+
+   # gonna need an api for this
    my $tunneled_sql;
+
    if ($v_trim_start ne '' && $phred->v_trim_start != $v_trim_start) {
       print $cgi->b("Updating vector trimming from ".
                  $phred->v_trim_start." to $v_trim_start."),$cgi->br;
@@ -289,6 +292,7 @@ sub processTrimmedSeq
       $update = 1;
    }
 
+   $phred->last_update('now');
    $phred->update if $update;
    $session->db->do($tunneled_sql) if $tunneled_sql;
 
