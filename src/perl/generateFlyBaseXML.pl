@@ -101,7 +101,9 @@ $sub->add(new XML::DataSource(
                    {originating_lab      => $submit_info->originating_lab,
                     contact_person       => $submit_info->contact_person,
                     contact_person_email => $submit_info->contact_person_email,
-                    project_name         => $submit_info->project_name}));
+                    project_name         => $submit_info->project_name,
+                    FBrf                 => $submit_info->fbrf,
+                    comment              => $submit_info->comment}));
 
 foreach my $strain_name (@ARGV) {
 
@@ -247,12 +249,17 @@ foreach my $strain_name (@ARGV) {
    }
         
    my %stock_numbers = ();
-   map { $stock_numbers{$_->stock_number} = 1 } $stock_record_set->as_list;
+   map { $stock_numbers{$_->stock_number} = 1 if $_->stock_number } $stock_record_set->as_list;
+
+   # any other names for this guy?
+   my $stock_alias;
+   map { $stock_alias = $_->stock_name if $_->stock_name } $stock_record_set->as_list;
 
    my $line = new XML::Line({line_id => $strain->strain_name,
                              is_multiple_insertion_line => $multiple,
-                             comment => $pheno->strain_comment
-                          });
+                             comment => $pheno->strain_comment,
+                             ($stock_alias?(line_id_synonym=>$stock_alias):()),
+                            });
    # we've created the line record, but we'll defer adding
    # it to the submission until we have data.
    my $addThisLine = 0;
@@ -395,6 +402,7 @@ foreach my $strain_name (@ARGV) {
                my $submitted_seq = new Submitted_Seq($session,
                                      {-seq_name=>$this_seq_name})->select_if_exists;
                next unless $submitted_seq->gb_acc;
+               next if $submitted_seq->subsumed;
 
                # I know I asked you this already, but what what that insertion position again?
                my $this_seq_pos = new Seq($session,{-seq_name=>$this_seq_name})->select->insertion_pos;
