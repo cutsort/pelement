@@ -117,7 +117,9 @@ sub new
   my $blessed_self =  bless $self, $class;
 
   if ( $useDb ) {
-    $dbh = new PelementDBI($self,"dbi:$PELEMENT_DB_DBI:$PELEMENT_DB_CONNECT");
+    my $dbistr = defined(PCommon::parseArgs($args,"dbistr"))?
+               PCommon::parseArgs($args,"dbistr"):"dbi:$PELEMENT_DB_DBI:$PELEMENT_DB_CONNECT";
+    $dbh = new PelementDBI($self,$dbistr);
     $self->{db} = $dbh;
     $self->{db_tx} = 0;
   }
@@ -310,7 +312,16 @@ sub log
 
   print {$self->{log_file}} &time_value(),"\t$message\n"
                      if $level <= $self->log_level;
-  print "$message\n" if $level <= $self->log_level && $self->{interactive};
+
+
+  if ($level <= $self->log_level && $self->{interactive} ) {
+    # which we print on depends on the leve of the error
+    if ( $level == $Session::Error || $level == $Session::Warn ) {
+      print STDERR "$message\n";
+    } else {
+      print STDOUT "$message\n";
+    }
+  }
 
   return 1;
 }
@@ -324,6 +335,7 @@ sub warn { return shift->log($Session::Warn,@_) }
 sub info { return shift->log($Session::Info,@_) }
 sub debug { return shift->log($Session::Verbose,@_) }
 sub verbose { return shift->log($Session::Verbose,@_) }
+sub sqlverbose { return shift->log($Session::SQL,@_) }
 
 =head2 get_db
 
