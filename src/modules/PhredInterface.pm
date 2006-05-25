@@ -79,9 +79,12 @@ sub run
   $self->session->error("No file specified","No file specified for phred")
                                                      unless $self->{chromat};
 
+  my $file = $self->{chromat};
+  # we need to clean up special characters in file names
+  $file =~ s/([()\s?*])/\\$1/g;
+
   my $cmd = $self->{phred_exe}." ".$self->{options}." ";
-  $cmd .= "-sa ".$self->{seq}." -qa ".$self->{qual}." ";
-  $cmd .= $self->{chromat};
+  $cmd .= "-sa ".$self->{seq}." -qa ".$self->{qual}."  $file";
   $cmd .= " 2> ".$self->{error};
 
   &PCommon::shell($cmd);
