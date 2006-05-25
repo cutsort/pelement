@@ -96,7 +96,7 @@ sub parse
 
 =head1 strain
 
-  Returns the end designator. This is not stored in the db
+  Returns the strain designator. This is not stored in the db
   but is deduced from the sequence name
 
   This can be called on an object or called as a static routine:
