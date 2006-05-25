@@ -172,13 +172,13 @@ sub to_html
     substr($match_align,0,60) = '';
     substr($subject_align,0,60) = '';
     $rS .= sprintf("Query: %${field_width}d $q_seg",$q_ctr);
-    $q_seg =~ s/-//g;
+    $q_seg =~ s/[- ]//g;
     $q_ctr += $q_inc*(length($q_seg)-1);
     $rS .= sprintf(" %${field_width}d\n",$q_ctr);
     $q_ctr += $q_inc;
     $rS .= sprintf("       %${field_width}s $m_seg\n"," ");
     $rS .= sprintf("Sbjct: %${field_width}d $s_seg",$s_ctr);
-    $s_seg =~ s/-//g;
+    $s_seg =~ s/[- ]//g;
     $s_ctr += $s_inc*(length($s_seg)-1);
     $rS .= sprintf(" %${field_width}d\n\n",$s_ctr);
     $s_ctr += $s_inc;
