@@ -25,7 +25,7 @@ use Session;
 use Carp;
 
 @ISA = qw(Exporter);
-@EXPORT = qw(new initialize_self select select_if_exists db_exists insert
+@EXPORT = qw(new initialize_self select select_if_exists db_exists db_count insert
              unique_identifier get_next_id set_id update delete ref_of
              resolve_ref session AUTOLOAD DESTROY);
 
@@ -208,6 +208,35 @@ sub select_if_exists
 
 =head1 db_exists
 
+  returns the existence of items that match the specified
+  defined columns
+
+=cut
+
+sub db_exists
+{
+  my $self = shift;
+  my $sessionHandle = $self->{_session} || shift ||
+                die "Session handle required db selection";
+
+  return unless $self->{_table} && $self->{_cols};
+  my $sql = "select * from ".($self->{_table})." where";
+
+  map { $sql .= " $_=".$sessionHandle->db->quote($self->{$_})." and" if defined $self->{$_} }
+                   @{$self->{_cols}};
+
+  # clean up
+  $sql =~ s/ and$//;
+  $sql =~ s/ where$//;
+
+  $sql = 'select exists( '.$sql.' )';
+
+  $sessionHandle->log($Session::SQL,"SQL: $sql.");
+  return $sessionHandle->db->select_value($sql);
+}
+
+=head1 db_count
+
   returns the count of the number of items that match the specified
   defined columns
 
@@ -321,10 +350,10 @@ sub update
          $sql .= "$arg=".$self->{_session}->db->quote($self->{$arg})." and ";
       }
       $sql =~ s/ and $//;
-   } elsif ($self->{id}) {
-      $sql .= " where id=".$self->{id};
    } elsif ($self->{oid}) {
       $sql .= " where oid=".$self->{oid};
+   } elsif ($self->{id}) {
+      $sql .= " where id=".$self->{id};
    } else {
       $self->{_session}->warn("Non-effective update on ".$self->{_table});
       return;
@@ -358,6 +387,8 @@ sub delete
          $sql .= "$arg=".$sessionHandle->db->quote($self->{$arg})." and ";
       }
       $sql =~ s/ and $//;
+   } elsif ($self->{oid}) {
+      $sql .= " where oid=".$self->{oid};
    } elsif ($self->{id}) {
       $sql .= " where id=".$self->{id};
    } else {
@@ -414,17 +445,21 @@ sub insert
    my $statement = $self->{_session}->db->prepare($sql);
    $statement->execute;
 
-   return unless exists $self->{id};
-
    if ($sessionHandle->db->{dbh}->{Driver}->{Name} eq 'Pg') {
-      # we can determine the id in a intelligent manner in a DB dependent way
+      # we can determine the record in a intelligent manner in a DB dependent way
       my $oid = $statement->{pg_oid_status};
+      # now do a select to find any default fields filled in.
+      # this isn't right now. it's only getting an 'id' field; but 1) other
+      # fields may have defaults and 2) trimming may modify some and 3) triggers
+      # or rules could modify others
       $self->{id} = $self->{_session}->db->select_value("select id from ".
-                      $self->{_table}." where oid=$oid");
+                      $self->{_table}." where oid=$oid") if exists $self->{id};
    } else {
+      return unless exists $self->{id};
       $self->{id} = $self->{_session}->db->select_value($qSql);
    }
 
+   return unless exists $self->{id};
    return $self->{id};
 }
 
