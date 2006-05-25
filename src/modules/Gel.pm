@@ -49,4 +49,53 @@ sub default_dir
     }
 }
 
+=head1
+
+  Generate the contents of a sample sheet for a gel. This is the preferred method
+  for generating a sample sheet for a registered gel
+
+=cut
+
+sub sample_sheet 
+{
+  my $self = shift;
+
+  (my $batch = $self->ipcr_name) =~ s/^(\d+)\..*/$1/;
+
+  return unless $batch;
+
+  my $sS = $self->{_session}->SampleSet({-batch_id=>$batch})->select;
+
+  my $contents;
+
+  $contents = "Container Name\tPlate ID\tDescription\t".
+              "Application\tApplication Instance\tContainerType\t".
+              "Owner\tOperator\tPlateSealing\tSchedulingPref\n".
+              $self->name."\t".$self->name."\t".$self->name."\tSequencingAnalysis\t\t96-Well\t".
+              "pelement\tpelement\tSepta\t1234\n".
+              "Well\tSample Name\tComment\tResults Group\t".
+              "Instrument Protocol 1\tAnalysis Protocol 1\n";
+
+  my @samples = sort { substr($a->well,1) <=> substr($b->well,1) ||
+                       substr($a->well,0,1) cmp substr($b->well,0,1)  }
+                                                              $sS->as_list;
+  foreach my $i (0..95) {
+    my $row = substr('abcdefgh',int($i%8),1);
+    my $col = int($i/8) + 1;
+    my $well = $row.$col;
+    my $padded_well = uc($row).($col<10?'0':'').$col;
+    if ($samples[0] && $samples[0]->well eq $well) {
+      my $sample = shift @samples;
+      $contents .= "$padded_well\t".$self->name."_".$sample->strain_name."_".uc($well)."_RD\t".$self->seq_primer;
+    } else {
+      $contents .= "$padded_well\tEMPTY\tEMPTY";
+    }
+    $contents .= "\tP-Element\tDefault\t3730BDTv3-KB-DeNovo_v5\n";
+  }
+
+  return $contents;
+
+}
+
+1;
 1;
