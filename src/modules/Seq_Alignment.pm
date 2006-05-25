@@ -56,8 +56,8 @@ sub from_Blast_Report
       my $q_pos = $bR->query_begin;
       my $q_inc = ($bR->query_end>$bR->query_begin)?+1:-1;
       foreach my $i (1..length($bR->query_align)) {
-         $q_pos += $q_inc if substr($bR->query_align,$i-1,1) ne '-';
-         $s_insert++ if substr($bR->subject_align,$i-1,1) ne '-';
+         $q_pos += $q_inc if substr($bR->query_align,$i-1,1) !~ /[- ]/;
+         $s_insert++ if substr($bR->subject_align,$i-1,1) !~ /[- ]/;
          last if $q_pos==$seq->insertion_pos;
       }
    } elsif ( $bR->query_end > $bR->query_begin && $seq->insertion_pos > $bR->query_end) {
@@ -88,6 +88,11 @@ sub from_Blast_Report
    $self->s_end($bR->subject_end);
    $self->s_insert($s_insert);
    $self->hsp_id($bR->id);
+   # no release-10 bug here
+   if ($bR->db =~ /release(\d+)/ ) {
+     my $rel = $1;
+     $self->seq_release($rel);
+   }
 
    return $self;
 }
