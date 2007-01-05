@@ -152,10 +152,12 @@ sub rebuildSeqAssembly
          print $cgi->center("Blasting sequence $seq_name..."),
                $cgi->br,"\n";
       
-         `$PELEMENT_BIN/runBlast.pl -quiet $seq_name`;
+         `$PELEMENT_BIN/runBlast.pl -protocol release3 -quiet $seq_name`;
+         `$PELEMENT_BIN/runBlast.pl -protocol release5 -quiet $seq_name`;
          `$PELEMENT_BIN/runBlast.pl -protocol te -quiet $seq_name`;
          `$PELEMENT_BIN/runBlast.pl -protocol vector -quiet $seq_name`;
-         `$PELEMENT_BIN/alignSeq.pl -quiet $seq_name`;
+         `$PELEMENT_BIN/alignSeq.pl -release 3 -quiet $seq_name`;
+         `$PELEMENT_BIN/alignSeq.pl -release 5 -quiet $seq_name`;
        } else {
          print $cgi->center("No sequence imported. Blasting not done."),
                $cgi->br,"\n";
@@ -193,15 +195,69 @@ sub rebuildSeqAssembly
        `$PELEMENT_BIN/seqImporter.pl -quiet $import_command`;
 
        print $cgi->center("Blasting...");
-       `$PELEMENT_BIN/runBlast.pl -quiet $seq_name`;
+       `$PELEMENT_BIN/runBlast.pl -protocol release3 -quiet $seq_name`;
+       `$PELEMENT_BIN/runBlast.pl -protocol release5 -quiet $seq_name`;
        `$PELEMENT_BIN/runBlast.pl -protocol te -quiet $seq_name`;
        `$PELEMENT_BIN/runBlast.pl -protocol vector -quiet $seq_name`;
        print $cgi->center("Aligning...");
-       `$PELEMENT_BIN/alignSeq.pl -quiet $seq_name`;
+       `$PELEMENT_BIN/alignSeq.pl -release 3 -quiet $seq_name`;
+       `$PELEMENT_BIN/alignSeq.pl -release 5 -quiet $seq_name`;
        print $cgi->center("Processing completed.");
 
      } elsif ($action eq 'build') {
-       print $cgi->center("we would rebuild consensus for $seq_name."),"\n";
+       print $cgi->center("Assembling sequence for $seq_name..."),"\n";
+       my $build_command;
+       my ($strain,$end,$qual) = Seq::parse($seq_name);
+       if ($qual) {
+         # this ought not happen
+         print $cgi->center("This is not set up to deal with qualified sequences yet.");
+         return;
+       }
+       unless ($strain && ($end eq '3' || $end eq '5')) {
+         # this ought not happen
+         print $cgi->center("This is only set up to deal with 3' or 5' sequences still.");
+         return;
+       }
+
+       # be certain there are more than 1 sequence
+       my $laneSet = $session->LaneSet({-seq_name=>$strain,
+                                             -end_sequenced=>$end})->select;
+       if ($laneSet->count < 2 ) {
+         print $cgi->center("This is not set up to deal with strain with single sequences yet.");
+         return;
+       } elsif ($laneSet->count == 0 ) {
+         print $cgi->center("Cannot find data for $seq_name.");
+         return;
+       }
+       $build_command = "-seq $strain -end $end";
+
+       # we're committed now. get rid of the old
+       my $stuff = $session->Seq_AlignmentSet({-seq_name=>$seq_name})->select->delete;
+       print $cgi->center("Deleting ".$stuff->count." alignments for $seq_name...."),
+             $cgi->br,"\n";
+
+       $stuff = $session->Blast_RunSet({-seq_name=>$seq_name})->select->delete;
+       print $cgi->center("Deleting ".$stuff->count." blast runs or $seq_name..."),
+             $cgi->br,"\n";
+
+       $stuff = $session->Seq_AssemblySet({-seq_name=>$seq_name}
+                                        )->select->delete('seq_name');
+       print $cgi->center("Deleting ".$stuff->count.
+                          " sequence assembly records for $seq_name..."),
+             $cgi->br,"\n";
+
+       print $cgi->center("Reassembling..."),$cgi->br,"\n";
+       `$PELEMENT_BIN/buildConsensus.pl -quiet $build_command`;
+
+       print $cgi->center("Blasting..."),$cgi->br,"\n";
+       `$PELEMENT_BIN/runBlast.pl -protocol release3 -quiet $seq_name`;
+       `$PELEMENT_BIN/runBlast.pl -protocol release5 -quiet $seq_name`;
+       `$PELEMENT_BIN/runBlast.pl -protocol te -quiet $seq_name`;
+       `$PELEMENT_BIN/runBlast.pl -protocol vector -quiet $seq_name`;
+       print $cgi->center("Aligning..."),$cgi->br,"\n";
+       `$PELEMENT_BIN/alignSeq.pl -release 3 -quiet $seq_name`;
+       `$PELEMENT_BIN/alignSeq.pl -release 5 -quiet $seq_name`;
+       print $cgi->center("Processing completed.");
 
      } elsif ($action eq 'merge') {
        print $cgi->center("we would remerge end sequence for $seq_name."),"\n";
