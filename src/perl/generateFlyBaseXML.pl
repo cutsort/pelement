@@ -61,11 +61,14 @@ my $stop_without_4 = 1;   # stop if we cannot map alignment forward
 my $phenotype = 1;        # do we require a pheontype record?
 my $outFile;
 my $update = 0;           # mark ALL insertion data as 'is_update=Y'
+my $release = 3;          # which alignment release to work with
 GetOptions('ifaligned!' => \$ifAligned,
            'phenotype!' => \$phenotype,
            'rel4!'      => \$stop_without_4,
            'update!'    => \$update,
-           'out=s'      => \$outFile);
+           'out=s'      => \$outFile,
+           'release=i'  => \$release,
+           );
 
 #if ($outFile) {
 #  unless (open(FIL,"> $outFile") ) {
@@ -125,7 +128,8 @@ foreach my $strain_name (@ARGV) {
    # but will not insure that each sequence has an alignment.
    my @seq_alignments = ();
    map { push @seq_alignments,new Seq_AlignmentSet($session,
-               {-seq_name=>$_->seq_name})->select->as_list } $seqSet->as_list;
+               {-seq_name=>$_->seq_name,
+                -seq_release => $release})->select->as_list } $seqSet->as_list;
    $session->log($Session::Info,"Looking over ".scalar(@seq_alignments).
                                           " alignments.");
 
@@ -429,7 +433,7 @@ foreach my $strain_name (@ARGV) {
                                      strand         => ($strand>0)?'p':'m',
                                      location       => ($r4_coord_lo==$r4_coord_hi)?
                                                         $r4_coord_lo:
-                                                        $r4_coord_lo."..".$r4_coord_lo}));
+                                                        $r4_coord_lo."..".$r4_coord_hi}));
             } elsif ($stop_without_4) {
               $session->die("Cannot map this to release 4.");
             } else {
