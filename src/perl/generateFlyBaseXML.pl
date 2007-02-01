@@ -27,6 +27,7 @@ use Seq_AlignmentSet;
 use Seq_AssemblySet;
 use Gene_AssociationSet;
 use Gene_Association;
+use GeneModelSet;
 use Stock_Record;
 use Stock_RecordSet;
 use Phenotype;
@@ -38,30 +39,22 @@ use Blast_Report;
 use XML::TE_insertion_submission;
 use Gadfly_Syn;
 
+
 use File::Basename;
 
 # gadfly modules
 use lib $ENV{FLYBASE_MODULE_PATH};
 use GeneralUtils::XML::Generator;
-use GxAdapters::ConnectionManager qw(get_handle close_handle
-                             set_handle_readonly);
-use GeneralUtils::Structures qw(rearrange);
-use GxAdapters::GxAnnotatedSeq;
-use GxAdapters::GxGene;
-use BioModel::AnnotatedSeq;
-use BioModel::Annotation;
-use BioModel::Gene;
-use BioModel::SeqAlignment;
 
 my $session = new Session();
 
 # command line options
 my $ifAligned = 1;        # only submit info on the "desired" aligned flanks
-my $stop_without_4 = 1;   # stop if we cannot map alignment forward
+my $stop_without_4;       # stop if we cannot map alignment forward
 my $phenotype = 1;        # do we require a pheontype record?
 my $outFile;
 my $update = 0;           # mark ALL insertion data as 'is_update=Y'
-my $release = 3;          # which alignment release to work with
+my $release = 5;          # which alignment release to work with
 GetOptions('ifaligned!' => \$ifAligned,
            'phenotype!' => \$phenotype,
            'rel4!'      => \$stop_without_4,
@@ -69,6 +62,9 @@ GetOptions('ifaligned!' => \$ifAligned,
            'out=s'      => \$outFile,
            'release=i'  => \$release,
            );
+
+# this default depends on the release.
+$stop_without_4 = ($release==3)?1:0 unless defined($stop_without_4);
 
 #if ($outFile) {
 #  unless (open(FIL,"> $outFile") ) {
@@ -130,8 +126,7 @@ foreach my $strain_name (@ARGV) {
    map { push @seq_alignments,new Seq_AlignmentSet($session,
                {-seq_name=>$_->seq_name,
                 -seq_release => $release})->select->as_list } $seqSet->as_list;
-   $session->log($Session::Info,"Looking over ".scalar(@seq_alignments).
-                                          " alignments.");
+   $session->info("Looking over ".scalar(@seq_alignments)." alignments.");
 
    # alignments are either: 3' end, 5' end, merged ends, or obsolete seq.
    # the obsolete seqs are those in which it was not seen after a crossing
@@ -171,7 +166,7 @@ foreach my $strain_name (@ARGV) {
          my $a5 = $align{5}->[0];
          $multiple = 'Y' if( $a3->{scaffold} ne $a5->{scaffold} ||
                                 abs($a3->{position}-$a5->{position}) > 500);
-      } 
+      }
       if (scalar(@{$align{3}}) && scalar(@{$align{b}})) {
          my $a3 = $align{3}->[0];
          my $ab = $align{b}->[0];
@@ -190,7 +185,7 @@ foreach my $strain_name (@ARGV) {
          my $ao = $align{o}->[0];
          $multiple = 'P' if( $multiple eq 'N' && ( $a3->{scaffold} ne $ao->{scaffold} ||
                                 abs($a3->{position}-$ao->{position}) > 500));
-      } 
+      }
       if (scalar(@{$align{o}}) && scalar(@{$align{b}})) {
          my $ao = $align{o}->[0];
          my $ab = $align{b}->[0];
@@ -206,9 +201,11 @@ foreach my $strain_name (@ARGV) {
    }
 
    # prepare this for later
-   my $stock_record_set = new Stock_RecordSet($session,{-strain_name=>$strain_name})->select;
+   my $stock_record_set = new Stock_RecordSet($session,
+                              {-strain_name=>$strain_name})->select;
 
-   my $pheno = new Phenotype($session,{-strain_name=>$strain_name})->select_if_exists;
+   my $pheno = new Phenotype($session,
+                              {-strain_name=>$strain_name})->select_if_exists;
 
    # see if there is a prepared value for is_multiple
    if ($pheno->is_multiple_insertion && $pheno->is_multiple_insertion ne $multiple) {
@@ -237,6 +234,7 @@ foreach my $strain_name (@ARGV) {
       }
       if ($w) {
          $cyto = new Cytology($session,{scaffold=>$align{$w}->[0]->{scaffold},
+                                       -seq_release=>$release,
                                        less_than=>{start=>$align{$w}->[0]->{position}},
                            greater_than_or_equal=>{stop=>$align{$w}->[0]->{position}}})->select_if_exists;
          if ($cyto) {
@@ -251,7 +249,7 @@ foreach my $strain_name (@ARGV) {
          }
       }
    }
-        
+
    my %stock_numbers = ();
    map { $stock_numbers{$_->stock_number} = 1 if $_->stock_number } $stock_record_set->as_list;
 
@@ -291,7 +289,7 @@ foreach my $strain_name (@ARGV) {
    # the insertion data with the gene annotations and insert everything into the
    # insertion element
    my @insertionData = ();
- 
+
    foreach my $seq ($seqSet->as_list) {
       # we loop through all sequences, trying to bundle together sequences that
       # are part of the same insertion.
@@ -314,7 +312,8 @@ foreach my $strain_name (@ARGV) {
       if ($s->db_exists) {
         $s->select;
         $insert->attribute('fbti',$s->fbti);
-        $insert->attribute('insertion_symbol',$s->insertion) unless $s->insertion eq $s->strain_name;
+        $insert->attribute('insertion_symbol',$s->insertion)
+                                  unless $s->insertion eq $s->strain_name;
       }
 
       # the fallback cytology for the insertion is the annotated cytology;
@@ -336,9 +335,10 @@ foreach my $strain_name (@ARGV) {
       my $flankSeq = new XML::FlankSeq({flanking=>$end,
              position_of_first_base_of_target_sequence =>$seq->insertion_pos});
       # make sure this was submitted
-      my $submitted_seq = new Submitted_Seq($session,{-seq_name=>$seq->seq_name})->select_if_exists;
+      my $submitted_seq = new Submitted_Seq($session,
+                            {-seq_name=>$seq->seq_name})->select_if_exists;
       next unless $submitted_seq->gb_acc;
-    
+
       my $acc = new XML::GBAccno(
                             {accession_version=>$submitted_seq->gb_acc});
       $flankSeq->add($acc);
@@ -359,7 +359,7 @@ foreach my $strain_name (@ARGV) {
       }
 
       my ($arm,$strand,@pos_range) = getAlignmentFromSeqName($seq->seq_name,\%align);
-      
+
       unless ($arm && @pos_range) {
          # sometime the alignment is indirect: the sequence was built from the
          # sequences that had been mapped.
@@ -367,7 +367,7 @@ foreach my $strain_name (@ARGV) {
                                                     -src_seq_src=>'seq'})->select;
          my @baseSeq = ();
          map { push @baseSeq, new SeqSet($session,{-id=>$_->src_seq_id})->select->as_list } $s_aSet->as_list;
-            
+
          foreach my $s (@baseSeq) {
             # we're assuming that the composite seq is built from the seq's from the
             # same strain name; so we don't need to retrieve the seq alignments again
@@ -376,7 +376,7 @@ foreach my $strain_name (@ARGV) {
             $strand ||= $this_strand;
             @pos_range = sort { $a <=> $b } (@pos_range,@this_pos);
             @pos_range = ($pos_range[0],$pos_range[-1]) if @pos_range;
-            
+
          }
       }
 
@@ -421,32 +421,45 @@ foreach my $strain_name (@ARGV) {
 
          (my $chrom = $arm) =~ s/arm_//;
          if ( grep(/$chrom/,qw(X 2L 2R 3L 3R 4)) ) {
-            # let's see if we can map it
-            my $r4_coord_lo =
-                        $session->db->select_value("select r4_map('$chrom',$pos_range[0])");
-            my $r4_coord_hi =
-                        $session->db->select_value("select r4_map('$chrom',$pos_range[1])");
-            if ($r4_coord_lo && $r4_coord_hi) {
+            # let's see if we can map it if this is release 3
+            if ($release == 3) {
+              my $r4_coord_lo =
+                          $session->db->select_value("select r4_map('$chrom',$pos_range[0])");
+              my $r4_coord_hi =
+                          $session->db->select_value("select r4_map('$chrom',$pos_range[1])");
+              if ($r4_coord_lo && $r4_coord_hi) {
+                $insertData->add(new XML::GenomePosition(
+                                     { genome_version => 4,
+                                       arm            => $chrom,
+                                       strand         => ($strand>0)?'p':'m',
+                                       location       => ($r4_coord_lo==$r4_coord_hi)?
+                                                          $r4_coord_lo:
+                                                          $r4_coord_lo."..".$r4_coord_hi
+                                     }));
+              } elsif ($stop_without_4) {
+                $session->die("Cannot map this to release 4.");
+              } else {
+                # go with release 3 insertion
+                $insertData->add(new XML::GenomePosition(
+                                       { genome_version => 3,
+                                         arm            => $chrom,
+                                         strand         => ($strand>0)?'p':'m',
+                                         location       => ($pos_range[0]==$pos_range[1])?
+                                                            $pos_range[0]:
+                                                            $pos_range[0]."..".$pos_range[1]
+                                       }));
+               }
+           } else {
+              # go with release N insertion
               $insertData->add(new XML::GenomePosition(
-                                   { genome_version => 4,
-                                     arm            => $chrom,
-                                     strand         => ($strand>0)?'p':'m',
-                                     location       => ($r4_coord_lo==$r4_coord_hi)?
-                                                        $r4_coord_lo:
-                                                        $r4_coord_lo."..".$r4_coord_hi}));
-            } elsif ($stop_without_4) {
-              $session->die("Cannot map this to release 4.");
-            } else {
-              # go with release 3 insertion
-              $insertData->add(new XML::GenomePosition(
-                                     { genome_version => 3,
+                                     { genome_version => $release,
                                        arm            => $chrom,
                                        strand         => ($strand>0)?'p':'m',
                                        location       => ($pos_range[0]==$pos_range[1])?
                                                           $pos_range[0]:
-                                                          $pos_range[0]."..".$pos_range[1]}));
+                                                          $pos_range[0]."..".$pos_range[1]
+                                      }));
             }
-            
          } elsif ( $arm =~ /^210000222/ ) {
             my $gs = new GenBankScaffold($session,{-arm=>$arm})->select;
             next unless $gs->accession;
@@ -459,7 +472,7 @@ foreach my $strain_name (@ARGV) {
             $insertData->add($sp);
          } elsif ( $arm =~ /(.*)\.wgs3.*extension/ ) {
             my $gs = new GenBankScaffold($session,{-arm=>$arm})->select;
-            my $sp = new XML::ScaffoldPosition( 
+            my $sp = new XML::ScaffoldPosition(
                            { location => ($pos_range[0]==$pos_range[1])?
                                           $pos_range[0]:
                                           $pos_range[0]."..".$pos_range[1],
@@ -478,9 +491,10 @@ foreach my $strain_name (@ARGV) {
          map { $insertData->add($_) } @geneHit;
 
          my $cyto = new Cytology($session,{scaffold=>$arm,
+                                       -seq_release=>$release,
                                        less_than=>{start=>$pos_range[-1]},
                            greater_than_or_equal=>{stop=>$pos_range[0]}})->select_if_exists;
-         
+
          $insertData->attribute(derived_cytology=>$cyto->band) if $cyto->band;
 
          # now add this insertiondata to the list
@@ -510,12 +524,12 @@ foreach my $strain_name (@ARGV) {
                         ", using only possible candidate.");
          $bestInsert = $insertionData[0];
       }
-    
+
       $session->warn("Cannot determine insertion for curated gene ".$annot->{name}.".") and
                   next unless $bestInsert;
 
       my $localGene = new XML::LocalGene({fbgn=>$annot->{fbgn},
-                                          cg_number => $annot->{name}});
+                                          fb_gene_symbol => $annot->{name}});
       $localGene->attribute(fb_transcript_symbol=>$annot->{transcript}) if $annot->{transcript};
 
       my $rel = ($annot->{strand} eq $bestInsert->{strand})?'p':'m';
@@ -579,8 +593,10 @@ sub getAnnotatedHits
                          {-strain_name=>$strain})->select;
 
    my @geneHits = ();
-  
+
    return @geneHits unless $geneSet->as_list;
+
+   $session->die("This part is not converted yet!");
 
    $ENV{GADB_SUPPRESS_RESIDUES} = 1;
    my $gadflyDba = GxAdapters::ConnectionManager->get_adapter("gadfly");
@@ -639,8 +655,7 @@ sub getGeneHit
    my @pos = @_;
 
    my $grabSize = 0;
-   my $gadflyDba;
-  
+
    my $geneXML;
    my $geneName;
    # either WithinGene, WithinTranscript or WithinCDS
@@ -648,30 +663,17 @@ sub getGeneHit
 
    my $geneFbgn;
 
-   $ENV{GADB_SUPPRESS_RESIDUES} = 1;
-
    $session->log($Session::Info,
                       "Looking at hit on $arm at position range @pos.");
-
-   if (grep(/$arm$/,qw(2L 2R 3L 3R 4 X)) ) {
-      # euchromatic release 3 arm
-      $gadflyDba = GxAdapters::ConnectionManager->get_adapter("gadfly");
-   } else {
-      # unmapped heterchromatic or shotgun arm extension
-      $gadflyDba = GxAdapters::ConnectionManager->get_adapter("gadfly");
-      $arm = 'X.wgs3_centromere_extensionB'
-                              if $arm eq 'X.wgs3_centromere_extension';
-   }
 
    my $start = $pos[0] - $grabSize;
    $start = ($start<0)?0:$start;
    my $end =  $pos[-1] + $grabSize;
 
+   my $geneSet = new GeneModelSet($session,$arm.'.rel'.$release,$start,$end)->select;
+
    my @annot;
-   eval {my $seqs = $gadflyDba->get_AnnotatedSeq(
-                {range=>"$arm:$start..$end",type=>'gene'},['-results']);
-   @annot = $seqs->annotation_list()?@{$seqs->annotation_list}:(); };
-   $session->log($Session::Info,"Found ".scalar(@annot)." genes.");
+   $session->log($Session::Info,"Found ".$geneSet->count." genes.");
 
    # look at each annotation and decide if we're inside it.
 
@@ -681,40 +683,27 @@ sub getGeneHit
    my @geneRelList = ();
    my @geneDist5List = ();
    my @geneDist3List = ();
-   foreach my $annot (@annot) {
-       next unless $annot->gene;
-       my $gene = $annot->gene;
-       $session->log($Session::Info,
-                "Nearby gene ".$gene->name()." from ".
-                ($start+$gene->start())." to ".  ($start+$gene->end)); 
-       my ($gStart,$gEnd) = sort {$a <=> $b} ($gene->start,$gene->end);
- 
-       if ( $pos[0] >= $start+$gStart && $pos[1] <= $start+$gEnd ) {
-          # if this isn't a real gene, we gotta skip it
-          next unless $gene->flybase_accession_no;
-          next unless $gene->name =~ /^C[RG]\d+$/;
-          push @geneNameList, $gene->name;
-          push @geneHitList, 'WithinGene';
-          push @geneFbgnList, $gene->flybase_accession_no->acc_no;
-          push @geneRelList, (($strand>0 && $gene->end>$gene->start)||
-                              ($strand<0 && $gene->end<$gene->start))?'p':'m';
+   my %beenThere = (); ## done that
+   foreach my $gene ($geneSet->as_list) {
+       $session->info( "Nearby gene ".$gene->gene_name()." from ".
+                             $gene->gene_start()." to ".$gene->gene_end);
 
-       #  # we need this for the real coordinates
-       #  my $g = $gadflyDba->get_Gene({name=>$gene->name});
-       #  my @pos_to_5 = @pos;
-       #  map { $_ = abs($_ - $g->start) } @pos_to_5;
-       #  push @geneDist5List, (sort {$a <=> $b} @pos_to_5)[0];
-       #  my @pos_to_3 = @pos;
-       #  map { $_ = abs($_ - $g->end) } @pos_to_3;
-       #  push @geneDist3List, (sort {$a <=> $b} @pos_to_3)[0];
-          
-          $session->log($Session::Info, "Hit ".$gene->name." (".$gene->flybase_accession_no->acc_no.").");
+       if ( $pos[0] >= $gene->gene_start && $pos[1] <= $gene->gene_end ) {
+          # if this isn't a real gene, we gotta skip it
+          next unless $gene->gene_uniquename =~ /FBgn/;
+          next if exists $beenThere{$gene->gene_name};
+          $beenThere{$gene->gene_name} = 1;
+          push @geneNameList, $gene->gene_name;
+          push @geneHitList, 'WithinGene';
+          push @geneFbgnList, $gene->gene_uniquename;
+          push @geneRelList, $gene->gene_strand>0?'p':'m';
+
+          $session->info("Hit ".$gene->gene_name." (".$gene->gene_uniquename.").");
           # TODO: now see if we're within a Transcript....within a CDS
        }
    }
-   $gadflyDba->close;
 
-   # combine the results into a list of XML::Within* objects; 
+   # combine the results into a list of XML::Within* objects;
    my @results = ();
    while (@geneHitList) {
       my $which = shift @geneHitList;
@@ -722,7 +711,7 @@ sub getGeneHit
           #        distance_to_transcript_5 => shift @geneDist5List,
           #        distance_to_transcript_3 => shift @geneDist3List
                   };
-                  
+
       my $geneXML;
       if ($which eq 'WithinGene') {
          $geneXML = new XML::WithinGene($args);
@@ -734,12 +723,12 @@ sub getGeneHit
          $session->die("Cannot determine type of hit.");
       }
       my $localGene = new XML::LocalGene({fbgn=>shift @geneFbgnList,
-                                     cg_number=>shift @geneNameList
+                                     fb_gene_symbol=>shift @geneNameList
                                    });
       $geneXML->add($localGene);
       push @results,$geneXML;
    }
 
    return @results;
-  
+
 }
