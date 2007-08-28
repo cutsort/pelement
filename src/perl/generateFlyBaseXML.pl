@@ -278,6 +278,7 @@ foreach my $strain_name (@ARGV) {
 
    # something to record which seq's we've looked at.
    my %handled_seqs = ();
+   my $handled_both = 0;
 
    my $insert;
 
@@ -290,14 +291,17 @@ foreach my $strain_name (@ARGV) {
    # insertion element
    my @insertionData = ();
 
-   foreach my $seq ($seqSet->as_list) {
+   foreach my $seq ( sort {$b->end cmp $a->end} $seqSet->as_list) {
       # we loop through all sequences, trying to bundle together sequences that
       # are part of the same insertion.
 
       # in case we've already dealt with this before, we skip and go on
       next if $handled_seqs{$seq->seq_name};
-
+      next if $handled_both;
       $handled_seqs{$seq->seq_name} = 1;
+      # preempt the 3' and 5' if there is a both end seq. we've sorted so
+      # that is is first
+      $handled_both = 1 if $seq->end eq 'b';
 
       # create the insert record, but defer inserting the insert until
       # we're sure there is data to go there.
@@ -323,6 +327,7 @@ foreach my $strain_name (@ARGV) {
              is_homozygous_fertile=>uc($pheno->is_homozygous_fertile),
              associated_aberration=>$pheno->associated_aberration,
                   derived_cytology=>$pheno->derived_cytology,
+                         phenotype=>$pheno->phenotype,
                            comment=>$pheno->phenotype_comment,
               ($update?(is_update=>'Y'):())});
 
@@ -381,9 +386,10 @@ foreach my $strain_name (@ARGV) {
       }
 
       # if this seq is mapped, look for others that are nearby
-      if ($arm && $strand && @pos_range) {
+      if ($arm && $strand && @pos_range ) {
          # now look through all the other sequences for things that map nearby
          foreach my $end qw(3 5 b) {
+            next if $handled_both;
             foreach my $alignHR (@{$align{$end}}) {
                my $this_seq_name = $alignHR->{seq_name};
 
@@ -482,6 +488,17 @@ foreach my $strain_name (@ARGV) {
             $acc =~ s/.seg$//;
             $sp->add(new XML::GBAccno({accession_version => $acc}));
             $insertData->add($sp);
+         } elsif ( $arm =~ /Het$/ ) {
+            # go with release N insertion
+            $insertData->add(new XML::GenomePosition(
+                                   { genome_version => $release,
+                                     arm            => $chrom,
+                                     strand         => ($strand>0)?'p':'m',
+                                     location       => ($pos_range[0]==$pos_range[1])?
+                                                        $pos_range[0]:
+                                                          $pos_range[0]."..".$pos_range[1],
+                                     comment        => 'Mapped heterochromatin'
+                                      }));
          }
 
 
@@ -596,6 +613,7 @@ sub getAnnotatedHits
 
    return @geneHits unless $geneSet->as_list;
 
+   return @geneHits;
    $session->die("This part is not converted yet!");
 
    $ENV{GADB_SUPPRESS_RESIDUES} = 1;
