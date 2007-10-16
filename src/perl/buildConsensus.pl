@@ -46,6 +46,7 @@ my $session = new Session();
 #         -seq Name         process a seq by name
 #         -end [35]         restrict to one end only
 #         -force            replace an existing sequence record.
+#         -forceQual        force our quality threshold
 #         -test             do not update db records.
 #         -verbose          yakkiness
 #         -insert           can we insert a new seq? normally we only update
@@ -55,6 +56,7 @@ my ($gel_name,$gel_id,$lane_name,$lane_id,$process_seq,$force);
 my $minSeqSize = 12;
 my $maxSeqSize = 0;
 my $test = 0;      # test mode only. No inserts or updates.
+my $forceQual;
 my $verbose;
 my $canInsert;
 my $scoreOpt = '';    # min match when running phrap. Should be set separately in
@@ -115,7 +117,7 @@ if ($gel_name || $gel_id) {
    my $laneSet = new LaneSet($session,{-seq_name=>$process_seq})->select;
    my %gotEnd = ();
    foreach my $l ($laneSet->as_list) {
-      $l->end_sequence('unknown') unless $l->end_sequenced;
+      $l->end_sequenced('unknown') unless $l->end_sequenced;
       push @lanes, $l unless $gotEnd{$l->end_sequenced};
       $gotEnd{$l->end_sequenced} = 1;
    }
@@ -204,6 +206,12 @@ foreach my $lane (@lanes) {
       push @rawLength, length($trimSeq);
 
       my $trimQual = $qual->trimmed_qual($p);
+
+      if ($forceQual) {
+        my @qs = split(/\s+/,$trimQual);
+        map { $_ = 20 if $_ < 20 } @qs;
+        $trimQual = join(' ',@qs);
+      }
 
       $foundVec = 1 if $start_flag eq 'v';
       $pidH{$p->id} = 1;
