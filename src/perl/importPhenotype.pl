@@ -53,19 +53,19 @@ while(<FIL>) {
       # a header line. Let's scan it to be sure we're still happy
       my @fields = split(/\t/,$_);
       foreach my $i (0..$#fields) {
-         if ( $fields[$i] =~ /^strain$/i ) {
+         if ( $fields[$i] =~ /^strain/i ) {
            $xref{strain} = $i;
-         } elsif ( $fields[$i] =~ /^is_multi$/i ) {
+         } elsif ( $fields[$i] =~ /^is[_ ]multi.?$/i ) {
            $xref{is_multi} = $i;
-         } elsif ( $fields[$i] =~ /^is_multi_comment$/i ) {
+         } elsif ( $fields[$i] =~ /^is[_ ]multi[_ ]comment$/i ) {
            $xref{is_multi_comment} = $i;
-         } elsif ( $fields[$i] =~ /^is_homo_viable$/i ) {
+         } elsif ( $fields[$i] =~ /^is[_ ]homo[_ ]viable$/i ) {
            $xref{is_homozygous_viable} = $i;
-         } elsif ( $fields[$i] =~ /^is_homo_fertile$/i ) {
+         } elsif ( $fields[$i] =~ /^is[_ ]homo[_ ]fertile$/i ) {
            $xref{is_homozygous_fertile} = $i;
          } elsif ( $fields[$i] =~ /^phenotype$/i ) {
            $xref{phenotype} = $i;
-         } elsif ( $fields[$i] =~ /^genome_position_comment$/i ) {
+         } elsif ( $fields[$i] =~ /^gen.*pos.*comm.*/i ) {
            $xref{genome_position_comment} = $i;
          } elsif ( $fields[$i] =~ /^insertion$/i ) {
            $xref{insertion} = $i;
