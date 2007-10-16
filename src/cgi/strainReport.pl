@@ -31,7 +31,9 @@ my $cgi = new PelementCGI;
 my $strain = $cgi->param('strain');
 
 print $cgi->header;
-print $cgi->init_page({-title=>"$strain Strain Report"});
+print $cgi->init_page({-title=>"$strain Strain Report",
+                       -script=>{-src=>'/pelement/sorttable.js'},
+                       -style=>{-src=>'/pelement/pelement.css'}});
 print $cgi->banner;
 
 $cgi->param('max_hits',10) unless $cgi->param('max_hits');
@@ -59,10 +61,10 @@ sub selectStrain
    my $cgi = shift;
   
    print $cgi->center(
-       $cgi->h3("Enter the Strain Name:"),"\n",
+       $cgi->b("Enter the Strain Name:"),"\n",
        $cgi->br,
        $cgi->start_form(-method=>"get",-action=>"strainReport.pl"),"\n",
-          $cgi->table( {-bordercolor=>$HTML_TABLE_BORDERCOLOR},
+          $cgi->table( {-class=>'unboxed'},
              $cgi->Tr( [
                 $cgi->td({-align=>"right",-align=>"left"},
                                     ["Strain",$cgi->textfield(-name=>"strain")]),
@@ -106,11 +108,11 @@ sub reportStrain
          print $cgi->center($cgi->em(Seq::strain($strain)." is an alias for ".$s->strain_name.".")); 	
          $cgi->param('strain',$al->strain_name);
          if (!$s->db_exists ) {
-            print $cgi->center($cgi->h2("No record of strain ".Seq::strain($strain).".")),"\n";
+            print $cgi->center($cgi->b("No record of strain ".Seq::strain($strain).".")),"\n";
             return;
          }
       } else {
-         print $cgi->center($cgi->h2("No record of strain ".Seq::strain($strain)." or aliases.")),"\n";
+         print $cgi->center($cgi->b("No record of strain ".Seq::strain($strain)." or aliases.")),"\n";
       }
    }
 
@@ -136,16 +138,14 @@ sub reportStrain
 
    if (@tableRows) {
 
-      print $cgi->center($cgi->h3("Production Records"),$cgi->br),"\n",
-            $cgi->center($cgi->table({-border=>2,
-                                -width=>"80%",
-                                -bordercolor=>$HTML_TABLE_BORDERCOLOR},
+      print $cgi->center($cgi->div({-class=>'SectionTitle'},"Production Records"),$cgi->br),"\n",
+            $cgi->center($cgi->table({ -width=>"80%"},
          $cgi->Tr( [
-            $cgi->th({-bgcolor=>$HTML_TABLE_HEADER_BGCOLOR,-width=>'10%'},
+            $cgi->th({-width=>'10%'},
                    ["Strain".$cgi->br."Name"]).
-            $cgi->th({-bgcolor=>$HTML_TABLE_HEADER_BGCOLOR,-width=>'5%'},
+            $cgi->th({-width=>'5%'},
                    ["Well"]).
-            $cgi->th({-bgcolor=>$HTML_TABLE_HEADER_BGCOLOR,-width=>'15%'},
+            $cgi->th({-width=>'15%'},
                    ["Batch","Date"]),
                    (map { $cgi->td({-align=>"center"}, $_ ) } @tableRows),
                     ] )
@@ -153,14 +153,15 @@ sub reportStrain
 
    } else {
        # do we need to print this?
-       #print $cgi->h3("No batches were found for ".$cgi->param('strain')),"\n";
+       #print $cgi->div({-class=>'SectionTitle'},"No batches were found for ".$cgi->param('strain')),"\n";
    }
   
    my $seqSet = new SeqSet($session,{-strain_name=>$s->strain_name})->select;
 
    my %db_name = ( "release3_genomic" => "Release 3 Genomic",
-                  "vector"           => "Vector Contaminates",
-                  "na_te.dros"       => "Transposable Elements",
+                   "release5_genomic" => "Release 5 Genomic",
+                   "vector"           => "Vector Contaminates",
+                   "na_te.dros"       => "Transposable Elements",
                 );
    my %subject_name = ( arm_2L => "2L",
                        arm_2R => "2R",
@@ -192,8 +193,14 @@ sub reportStrain
      }
      $insertLookup{$s} = $i;
      my $len = length($r);
-     $r =~ s/(.{50})/$1<br>/g;
-     $r = "<tt>".$r."</tt>";
+     $r =~ s/(.{50})/$1\n/g;
+     $r .= "\n";
+     $r =~ s/\n\n/\n/;
+     ##$r = $cgi->a({-class=>'bare',-href=>'seqDownload.pl?seq_name='.$seq->seq_name},
+     ##                  $cgi->pre({-class=>'fasta',-style=>'margin-left:5%;'},$r));
+     ##$r = $cgi->pre({-class=>'fasta',-style=>'margin-left:5%;'},$r).
+     $r = $cgi->pre({-class=>'fasta',-style=>'align:center;'},$r).
+          $cgi->a({-href=>'seqDownload.pl?seq_name='.$seq->seq_name},'Save');
 
      my $acc = new Submitted_Seq($session,{-seq_name=>$seq->seq_name})->select_if_exists;
      my $accNo = $acc->gb_acc || $cgi->nbsp;
@@ -207,12 +214,11 @@ sub reportStrain
 
 
    if (@tableRows) {
-      print $cgi->center($cgi->h3("Flanking Sequencs"),$cgi->br),"\n";
+      print $cgi->center($cgi->div({-class=>'SectionTitle'},"Flanking Sequence"),$cgi->br),"\n";
 
-      print $cgi->center($cgi->table({-border=>2,-width=>"80%",-bordercolor=>$HTML_TABLE_BORDERCOLOR},
+      print $cgi->center($cgi->table({-width=>"80%"},
               $cgi->Tr( [
-                 $cgi->th({-bgcolor=>$HTML_TABLE_HEADER_BGCOLOR},
-                         ["Sequence<br>Name","Length","Insert<br>Position","Sequence","Status","Accession"] ),
+                 $cgi->th(["Sequence<br>Name","Length","Insert<br>Position","Sequence","Status","Accession"] ),
                               @tableRows,
                           ] )
                         )),"\n";
@@ -221,7 +227,7 @@ sub reportStrain
    } else {
       # no flanking sequence (yet), but we won't return until after we put up
       # the edit genotype/phenotype link
-      print $cgi->center($cgi->h3("No flanking sequence in the database for $strain"),$cgi->br),"\n";
+      print $cgi->center($cgi->div({-class=>'SectionTitle'},"No flanking sequence in the database for $strain"),$cgi->br),"\n";
    }
 
 
@@ -282,67 +288,71 @@ sub reportStrain
       }
    }
 
-   # I gotta get these table joins to work.
-   my @tableRows = ();
+
    my %alignedHSP = ();
    my $ctr = 1;
 
-   foreach my $seq ($seqSet->as_list) {
-     my $seqAlignmentSet = new Seq_AlignmentSet($session,{-seq_name=>$seq->seq_name})->select;
-     foreach my $seq_a ($seqAlignmentSet->as_list ) {
+   foreach my $release qw( 3 5 ) {
+     # I gotta get these table joins to work.
+     my @tableRows = ();
+     foreach my $seq ($seqSet->as_list) {
+       my $seqAlignmentSet = new Seq_AlignmentSet($session,{-seq_name=>$seq->seq_name,
+                                                            -seq_release=>$release})->select;
+       foreach my $seq_a ($seqAlignmentSet->as_list ) {
 
+          $alignedHSP{$seq_a->hsp_id} = $ctr++;
+          # s_end is always > s_start. p_start > p_end is a sign of - string
+          my $strand = ($seq_a->p_end>$seq_a->p_start)?"+":"-";
 
-        $alignedHSP{$seq_a->hsp_id} = $ctr++;
-        # s_end is always > s_start. p_start > p_end is a sign of - string
-        my $strand = ($seq_a->p_end>$seq_a->p_start)?"+":"-";
+          # always show the hit on the pelement coordinates as (small) - (big)
+          my $p_range = ($strand eq '+')? $seq_a->p_start .'-'. $seq_a->p_end:
+                                          $seq_a->p_end .'-'. $seq_a->p_start;
 
-        # always show the hit on the pelement coordinates as (small) - (big)
-        my $p_range = ($strand eq '+')? $seq_a->p_start .'-'. $seq_a->p_end:
-                                        $seq_a->p_end .'-'. $seq_a->p_start;
+          my $scaffold_name = exists($subject_name{$seq_a->scaffold})?
+                                     $subject_name{$seq_a->scaffold}:
+                                     $seq_a->scaffold;
 
-        my $scaffold_name = exists($subject_name{$seq_a->scaffold})?
-                                   $subject_name{$seq_a->scaffold}:
-                                   $seq_a->scaffold;
+          # we need to delete the id parameter to get the hidden id to work.
+          $cgi->delete('id');
+          $cgi->delete('status');
+          my $link = $cgi->start_form( -method => 'get',
+                                       -action => 'strainReport.pl').
+                        $cgi->hidden(-name=>'strain',-value=>$strain).
+                        $cgi->hidden(-name=>'id',-value=>$seq_a->id).
+                        $cgi->popup_menu(-name => 'status',
+                                      -default => $seq_a->status eq 'multiple'?'curated':$seq_a->status,
+                                       -values => ['curated','deselected','unwanted']).
+                        $cgi->submit(-name => 'Curate').
+                     $cgi->end_form;
 
-        # we need to delete the id parameter to get the hidden id to work.
-        $cgi->delete('id');
-        $cgi->delete('status');
-        my $link = $cgi->start_form( -method => 'get',
-                                     -action => 'strainReport.pl').
-                      $cgi->hidden(-name=>'strain',-value=>$strain).
-                      $cgi->hidden(-name=>'id',-value=>$seq_a->id).
-                      $cgi->popup_menu(-name => 'status',
-                                    -default => $seq_a->status eq 'multiple'?'curated':$seq_a->status,
-                                     -values => ['curated','deselected','unwanted']).
-                      $cgi->submit(-name => 'Curate').
-                   $cgi->end_form;
-
-        push @tableRows, [$seq_a->seq_name,$p_range,$scaffold_name,$strand,
-                          $seq_a->s_start."-".$seq_a->s_end,$seq_a->s_insert,
-                          $seq_a->status,$link];
+          push @tableRows, [$seq_a->seq_name,$p_range,$scaffold_name,$strand,
+                            $seq_a->s_start."-".$seq_a->s_end,
+                            $cgi->a({-href=>'regionReport.pl?scaffold='.$scaffold_name.'&center='.$seq_a->s_insert.'&release='.$release},
+                                    $seq_a->s_insert),
+                            $seq_a->status,$link];
+       }
      }
-   }
-   if (@tableRows) {
-      @tableRows = sort { $a->[2] cmp $b->[2] ||
-                          $a->[5] <=> $b->[5] ||
-                          $a->[0] cmp $b->[0] } @tableRows;
+     if (@tableRows) {
+        @tableRows = sort { $a->[2] cmp $b->[2] ||
+                            $a->[5] <=> $b->[5] ||
+                            $a->[0] cmp $b->[0] } @tableRows;
 
-      print $cgi->center($cgi->h3("Sequence Alignments"),$cgi->br),"\n",
-            $cgi->center($cgi->table({-border=>2,-width=>"80%",-bordercolor=>$HTML_TABLE_BORDERCOLOR},
-              $cgi->Tr( [
-                 $cgi->th({-bgcolor=>$HTML_TABLE_HEADER_BGCOLOR},
-                         ["Sequence<br>Name","Flanking<br>Range","Subject","Strand",
+        print $cgi->center($cgi->div({-class=>'SectionTitle'},"Sequence Alignments to Release $release"),$cgi->br),"\n",
+              $cgi->center($cgi->table({-width=>"80%"},
+                $cgi->Tr( [
+                   $cgi->th(["Sequence<br>Name","Flanking<br>Range","Subject","Strand",
                               "Subject<br>Range","Insertion<br>Position","Status",
                               "Alignment<br>Curation"] ),
                               (map { $cgi->td({-align=>"center"}, $_ ) } @tableRows),
                           ] )
                         )),$cgi->br,$cgi->hr({-width=>'70%'}),"\n";
-   } else {
-      print $cgi->center($cgi->h3("No Sequence Alignments"),$cgi->br),$cgi->hr({-width=>'70%'}),"\n",
+     } else {
+        print $cgi->center($cgi->div({-class=>'SectionTitle'},"No Sequence Alignments to Release $release"),$cgi->br),$cgi->hr({-width=>'70%'}),"\n",
+     }
+
    }
 
-
-   print $cgi->center($cgi->br,$cgi->h3("Blast Hits")),"\n";
+   print $cgi->center($cgi->br,$cgi->div({-class=>'SectionTitle'},"Blast Hits")),"\n";
 
    foreach my $db (sort keys %db_name) {
 
@@ -355,7 +365,7 @@ sub reportStrain
      my %mini_table;
 
      # we'll use the absence of a hit to indicated that we need to add a link
-     map {$mini_table{$_} = [] } @seq_names if $db eq 'release3_genomic';
+     map {$mini_table{$_} = [] } @seq_names if $db eq 'release5_genomic';
 
      map { push @blast_runs,
             new Blast_RunSet($session,{-seq_name=>$_,-db=>$db})->select->as_list } @seq_names;
@@ -368,17 +378,12 @@ sub reportStrain
         print $cgi->em(($b->program || 'blastn')." of ".$b->seq_name." to ".$b->db." performed ".$b->date."."),$cgi->br;
      }
 
-     #my $sql = qq(select seq_name,query_begin,query_end,name,subject_begin,subject_end,score,match,
-     #             length,percent,id from blast_report where
-     #             seq_name in ).$seq_names.qq(and db=').$db.
-     #             qq(' order by seq_name desc,score desc);
-
      my @tableRows = ();
 
-     if (@blast_hits) {
+     if (@blast_hits || $db eq 'release5_genomic' ) {
 
-        print $cgi->h3("Hits to $db_name{$db}"),
-              $cgi->a({-href=>"strainReport.pl?strain=$strain&max_hits=all"},
+        print $cgi->div({-class=>'SectionTitle'},"Hits to $db_name{$db}");
+        print $cgi->a({-href=>"strainReport.pl?strain=$strain&max_hits=all"},
                        'Show all blast hits'),$cgi->br,"\n"
                        if $cgi->param('max_hits') =~ /^\d+$/ && scalar(@blast_hits) > $cgi->param('max_hits');
 
@@ -410,17 +415,8 @@ sub reportStrain
            }
 
            if ($db eq "release3_genomic") {
-              my $gb = new GenBankScaffold($session)->mapped_from_arm($bH->name,$bH->subject_begin);
-              my $gb_info;
-              if ($gb && $gb->accession) {
-                 my $gb_start = $bH->subject_begin - $gb->start + 1;
-                 my $gb_stop = $bH->subject_end - $gb->start + 1;
-                 $gb_info = $gb->accession.' '.$gb_start.'-'.$gb_stop;
-              } else {
-                 $gb_info = '&nbsp';
-              }
               push @{$mini_table{$bH->seq_name}},
-                   [$bH->score,$flank_range,$b2,$bH->subject_begin."-".$bH->subject_end,$gb_info,$detailLink,$alignLink]
+                   [$bH->score,$flank_range,$b2,$bH->subject_begin."-".$bH->subject_end,$detailLink,$alignLink]
                      ;# unless ($cgi->param('max_hits') =~ /^\d+$/ &&
                      #         scalar(@{$mini_table{$bH->seq_name}}) > $cgi->param('max_hits'));
            } else {
@@ -433,18 +429,20 @@ sub reportStrain
         }
 
    
-        print $cgi->center($cgi->table({-bordercolor=>$HTML_TABLE_BORDERCOLOR,
-                                                      -border=>4,-width=>"95%"},
+        print $cgi->center($cgi->table({-width=>"95%",
+                                        -class=>'sortable',
+                                        -id=>$db.':blast_hit'},
                  $cgi->Tr( [
-                    $cgi->th({-bgcolor=>$HTML_TABLE_HEADER_BGCOLOR},
-                             ["Sequence<br>Name","Blast Hits"] ),
+                    $cgi->th(["Sequence<br>Name","Blast Hits"] ),
                               (map { $cgi->td({-align=>"center"}, $_ ) }
-                                  (map { [$_.linkit($db,$_),format_minitable($cgi,$db,$mini_table{$_})] }
+                                  (map { [$_.linkit($db,$_),format_minitable($cgi,$db,$_,$mini_table{$_})] }
                                                sort { $b cmp $a } keys %mini_table)) ])));
                         
                  sub linkit { my ($db,$seq) = @_;
-                    return $cgi->br.$cgi->a({-href=>"hitMaker.pl?seq=".$seq,-target=>'_hit'},'Manual Alignment')
-                           if ($db eq 'release3_genomic');
+                    return $cgi->br.$cgi->a({-href=>"hitMaker.pl?rel=3&seq=".$seq,-target=>'_hit'},'Manual Alignment')
+                           if ($db =~ /release3_genomic/);
+                    return $cgi->br.$cgi->a({-href=>"hitMaker.pl?rel=5&seq=".$seq,-target=>'_hit'},'Manual Alignment')
+                           if ($db =~ /release5_genomic/);
                  }
      } else {
         print $cgi->center($cgi->em("No recorded blast hits to $db_name{$db}.")),$cgi->br,"\n";
@@ -464,9 +462,9 @@ sub reportStrain
 
 sub format_minitable
 {
-   my ($cgi,$db,$listRef) = @_;
+   my ($cgi,$db,$seq_name,$listRef) = @_;
 
-   return 'No hits found' if $db eq 'release4_genomic' && !scalar(@$listRef);
+   return 'No hits found' if $db eq 'release5_genomic' && !scalar(@$listRef);
    return unless scalar @$listRef;
 
    # sort by score. We will not be showing the score in the output, though.
@@ -483,11 +481,10 @@ sub format_minitable
       @$listRef = splice(@$listRef,0,$cgi->param('max_hits')-1);
    }
  
+   my $tab_id = $db.":".$seq_name;
    return 
-   $cgi->table({-border=>2,-width=>"100%"},$cgi->Tr( [ 
-         $cgi->th({-bgcolor=>$HTML_TABLE_HEADER_BGCOLOR2},
-                     ["Flank Range","Subject","Range",
-                   (($db eq "release3_genomic")?"GenBank":()),
+   $cgi->table({-width=>"100%",-class=>'sortable',-id=>$tab_id},$cgi->Tr( [ 
+         $cgi->th( ["Flank Range","Subject","Range",
                  "Alignment","Generate<br>Alignment"] ),
                  (map { $cgi->td({-align=>"center"}, $_ ) } @$listRef)
                              ] ))."\n";
