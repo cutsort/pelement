@@ -22,7 +22,7 @@ CGI::Session->name("PELEMENTSID");
 my $cgiSession = new CGI::Session("driver:PostgreSQL", $cgi, {Handle=>$s->db});
 
 my $form = new CGI::FormBuilder(
-           fields => [qw(Name)],
+           fields => [qw(name)],
            header => 0,
            method => 'GET',
            );
@@ -33,7 +33,7 @@ if (my $id = $cgiSession->param('user_id')) {
         $cgi->hr,"\n";
 }
 
-if ($form->submitted && $form->validate && (my $id = $form->fields->{Name}) ) {
+if ($form->submitted && $form->validate && (my $id = $form->param('name') ) ) {
 
   # see if this is a real person
   # we should have checked at $id is not null at
