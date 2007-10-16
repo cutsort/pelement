@@ -29,7 +29,7 @@ my $blastOptions = "";
 my $protocol = '';
 # delete previous?
 my $delete;
-GetOptions( "db=s"       => \$db,
+GetOptions( "blastdb=s"  => \$db,
             "parser=s"   => \$parser,
             "blastopt=s" => \$blastOptions,
             "protocol=s" => \$protocol,
@@ -69,11 +69,11 @@ my $seq = new Seq($session,{-seq_name=>$ARGV[0]})->select;
 my $blast_score;
 
 # if not specified, give score cutoff for both hit and hsp
-$blast_score = length($seq->sequence)>500?500:length($seq->sequence);
+$blast_score = length($seq->sequence)>500?1000:2*length($seq->sequence);
 $session->verbose("Minimum blast score S is $blast_score.");
 $blastArg->{-options} = "S=$blast_score ".$blastArg->{-options} unless $blastArg->{-options} =~ /S\s*=/;
 
-$blast_score = length($seq->sequence)>250?125:int(length($seq->sequence)/2+.51);
+$blast_score = length($seq->sequence)>250?250:int(length($seq->sequence)+.51);
 $session->verbose("Minimum blast score S is $blast_score.");
 $blastArg->{-options} = "S2=$blast_score ".$blastArg->{-options} unless $blastArg->{-options} =~ /S2\s*=/;
 
