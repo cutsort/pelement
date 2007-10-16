@@ -119,7 +119,7 @@ if( $path =~ /^\// ) {
    @dirs = glob("$PELEMENT_TRACE/$path/".$gel->name.".[0-9]*");
 }
  
-unless ($dir) {
+unless ($dir && -e $dir ) {
    @dirs = sort { ($a=~/\.(\d+)$/)[0] <=> ($b=~/\.(\d+)$/)[0] } @dirs;
    $dir = $dirs[-1];
 }
@@ -205,9 +205,9 @@ foreach my $file (@files) {
   # does not exists in the db, we'll label it with the primer name; this
   # will need to be cleared up manually.
   my $primer = new Primer($session,
-        {-seq_primer=>$comments{$comment_db{primer}->[0]}})->select_if_exists;
-  if ($primer->end_sequenced) {
-     if ($primer->end_sequenced eq 'b') {
+        {-name=>$comments{$comment_db{primer}->[0]}})->select_if_exists;
+  if ($primer->end_type) {
+     if ($primer->end_type eq 'b') {
         # if we cannot determine the end from the sequencing primer, 
         # we need to chase the ipcr
         $session->info("Chasing the primer to the ipcr.");
@@ -220,20 +220,20 @@ foreach my $file (@files) {
           $end = $ipcr->end_type;
         } elsif ($ipcr->primer1) {
            my $primer = new Primer($session,
-                          {-seq_primer=>$ipcr->primer1})->select_if_exists;
-           $end = $primer->end_sequenced
-                                  if $primer->id && $primer->end_sequenced;
+                          {-name=>$ipcr->primer1})->select_if_exists;
+           $end = $primer->end_type
+                                  if $primer->db_exists && $primer->end_type;
         } elsif (ipcr->primer2) {
            # doubtful that we'll find it here...
            my $primer = new Primer($session,
-                          {-seq_primer=>$ipcr->primer2})->select_if_exists;
+                          {-name=>$ipcr->primer2})->select_if_exists;
            $end = $primer->end_sequenced
-                                  if $primer->id && $primer->end_sequenced;
+                                  if $primer->db_exists && $primer->end_type;
         }
         $session->die("Cannot determine end type.") unless $end;
         $lane->end_sequenced($end);
      } else {
-        $lane->end_sequenced($primer->end_sequenced);
+        $lane->end_sequenced($primer->end_type);
      }
   } else {
      $lane->end_sequenced($comments{$comment_db{primer}->[0]});
