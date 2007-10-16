@@ -1,4 +1,4 @@
-#!/usr/local/bin/perl -I../modules
+#!/usr/local/bin/perl5.8.0 -I../modules
 
 =head1 NAME
 
@@ -39,8 +39,12 @@ my $cgi = new PelementCGI;
 my $batch = $cgi->param('batch');
 
 print $cgi->header();
-print $cgi->init_page({-title=>"Batch $batch Report"});
+print $cgi->init_page({-title=>"Batch $batch Report",                                                                   
+                       -script=>{-src=>'/pelement/sorttable.js'},
+                       -style=>{-src=>'/pelement/pelement.css'}});
+
 print $cgi->banner();
+
 
 
 if ($batch) {
@@ -107,20 +111,19 @@ sub selectBatch
       if (@tableRows) {
                           
          print $cgi->center($cgi->table({-border=>2,
-                                   -width=>"80%",
-                                   -bordercolor=>$HTML_TABLE_BORDERCOLOR},
+                                         -class=>'sortable',
+                                         -id=>'batches',
+                                         -width=>"80%"},
             $cgi->Tr( [
-               $cgi->th({-bgcolor=>$HTML_TABLE_HEADER_BGCOLOR,-width=>'10%'},
-                      ["Strain".$cgi->br."Name"]).
-               $cgi->th({-bgcolor=>$HTML_TABLE_HEADER_BGCOLOR,-width=>'5%'},
-                      ["Well"]).
-               $cgi->th({-bgcolor=>$HTML_TABLE_HEADER_BGCOLOR,-width=>'15%'},
-                      ["Batch","Date"]),
+               $cgi->th({-width=>'10%'}, ["Strain Name"]).
+               $cgi->th({-width=>'5%'},  ["Well"]).
+               $cgi->th({-width=>'15%'}, ["Batch","Date"]),
                       (map { $cgi->td({-align=>"center"}, $_ ) } @tableRows),
                        ] )
                      )),"\n";
       } else {
-          print $cgi->h3("No batches were found for strain ".$cgi->param('strain')),"\n";
+          print $cgi->div({-class=>'SectionTitle'},
+                   "No batches were found for strain ".$cgi->param('strain')),"\n";
       }
       $session->exit;
             
@@ -132,7 +135,7 @@ sub selectBatch
           $cgi->h3("Enter the Batch Number or Strain Id:"),"\n",
           $cgi->br,
           $cgi->start_form(-method=>"get",-action=>"batchReport.pl"),"\n",
-             $cgi->table( {-bordercolor=>$HTML_TABLE_BORDERCOLOR},
+             $cgi->table({-class=>'unboxed'},
                 $cgi->Tr( [
                  $cgi->td({-align=>"right",-align=>"left"},
                        ["Batch",$cgi->textfield(-name=>"batch")]),
@@ -154,6 +157,10 @@ sub reportBatch
    my ($cgi,$batch) = @_;
 
    my $session = new Session({-log_level=>0});
+
+
+   # which to report?
+   my $release = $cgi->param('release') || 5;
 
    # are we going to show ALL alignments for these strains?
    my $allAlign = ($cgi->param('align') eq 'all')?1:0;
@@ -262,8 +269,7 @@ sub reportBatch
    print $cgi->center($cgi->h3("Production records for batch $batch"),
                                    $cgi->br),"\n",
          $cgi->center($cgi->table({-border=>2,
-                                   -width=>"80%",
-                                   -bordercolor=>$HTML_TABLE_BORDERCOLOR},
+                                   -width=>"80%"},
          $cgi->Tr( [
                $cgi->th({-bgcolor=>$HTML_TABLE_HEADER_BGCOLOR},
                       ["Production".$cgi->br."Step",
@@ -300,6 +306,10 @@ sub reportBatch
          my $hitVector;
 
          my %seqs = ( '5'=>[], '3'=>[], 'other'=>[] );
+         # as we loop through the gels, we may encounter consensus
+         # sequence built from the same data. Let's not double-count the
+         # sequence alignments
+         my %alignmentDoneSeq;
 
          # process every gel
          foreach my $gel (@gelList) {
@@ -343,11 +353,15 @@ sub reportBatch
 
                         $hitVector = 1 if $vecReport->count;
                                
-                        my $al = new Seq_AlignmentSet($session,
-                                      {-seq_name=>$sa->seq_name})->select;
-                        map
-                         { push @{$seqs{$lane->end_sequenced}},$_
-                                      unless $_->status =~ /deselected/} $al->as_list;
+                        unless ($alignmentDoneSeq{$sa->seq_name}) {
+                          $alignmentDoneSeq{$sa->seq_name} = 1;
+                          my $al = new Seq_AlignmentSet($session,
+                                        {-seq_name=>$sa->seq_name,
+                                         -seq_release=>$release})->select;
+                          map
+                           { push @{$seqs{$lane->end_sequenced}},$_
+                                        unless $_->status =~ /deselected/} $al->as_list;
+                        }
                      }
                   }
                }
@@ -361,7 +375,8 @@ sub reportBatch
             my $seqSet = new SeqSet($session,{-strain_name=>$s})->select;
             foreach my $nS ($seqSet->as_list) {
                next if $foundSeq{$nS->seq_name};
-               my $naS = new Seq_AlignmentSet($session,{-seq_name=>$nS->seq_name})->select;
+               my $naS = new Seq_AlignmentSet($session,{-seq_name=>$nS->seq_name,
+                                                        -seq_release=>$release})->select;
                map { push @{$seqs{other}},$_
                        unless $_->status =~ /deselected/ || $_->status =~ /multiple/}
                                                 $naS->as_list;
@@ -422,7 +437,6 @@ sub reportBatch
          $alignSeqH{$align}++;
 
 
-         my $place = $cgi->nbsp;
          my $cyto = $cgi->nbsp;
          my $coord = $cgi->nbsp;
          my $strand = $cgi->nbsp;
@@ -432,16 +446,11 @@ sub reportBatch
             my $mean = int(($seqs{5}->[0]->s_insert+$seqs{3}->[0]->s_insert)/2);
             my $scaff = new GenBankScaffold($session)->mapped_from_arm(
                                                $seqs{5}->[0]->scaffold,$mean);
-            if ($scaff && $scaff->accession) {
-               $place = $cgi->a({-href=>"retrieveXML.pl?name=".$scaff->accession},
-                                           $scaff->accession);
-            } else {
-               $place = $cgi->em('No Acc');
-            }
             $cyto = $scaff->cytology;
             $arm = $scaff->arm;
             # see if we can be more specific about the cytology
             my $cyt = new Cytology($session,{-scaffold=>$seqs{5}->[0]->scaffold,
+                                -seq_release=>$release,
                                 -less_than_or_equal=>{start=>$mean},
                                 -greater_than_or_equal=>{stop=>$mean}}
                                                        )->select_if_exists;
@@ -453,15 +462,10 @@ sub reportBatch
             my $scaff = new GenBankScaffold($session)->mapped_from_arm(
                                               $seqs{$align}->[0]->scaffold,
                                               $seqs{$align}->[0]->s_insert);
-            if ($scaff && $scaff->accession) {
-               $place = $cgi->a({-href=>"retrieveXML.pl?name=".$scaff->accession},
-                                           $scaff->accession);
-            } else {
-               $place = $cgi->em('No Acc');
-            }
             $cyto = $scaff->cytology;
             $arm = $scaff->arm;
             my $cyt = new Cytology($session,{-scaffold=>$seqs{$align}->[0]->scaffold,
+                                -seq_release=>$release,
                             -less_than=>{start=>$seqs{$align}->[0]->s_insert},
                             -greater_than_or_equal=>{stop=>$seqs{$align}->[0]->s_insert}}
                                                                        )->select_if_exists;
@@ -471,22 +475,17 @@ sub reportBatch
          } elsif ($align =~ /^c/ ) {
             # ooooh. scary. conflicting data
             # first, clear out the space data
-            map { $_ = '' } ($place,$coord,$cyto,$arm,$strand);
+            map { $_ = '' } ($coord,$cyto,$arm,$strand);
             foreach my $e qw(3 5) {
                my $scaff = new GenBankScaffold($session)->mapped_from_arm(
                                                  $seqs{$e}->[0]->scaffold,
                                                  $seqs{$e}->[0]->s_insert);
 
-               map { $_ .= $cgi->br if $e eq '5' } ($place,$coord,$cyto,$arm,$strand);
+               map { $_ .= $cgi->br if $e eq '5' } ($coord,$cyto,$arm,$strand);
 
-               if ($scaff && $scaff->accession) {
-                  $place .= $cgi->a({-href=>"retrieveXML.pl?name=".$scaff->accession},
-                                              $scaff->accession);
-               } else {
-                  $place .= $cgi->em('No Acc');
-               }
                $arm .= $scaff->arm;
                my $cyt = new Cytology($session,{-scaffold=>$seqs{$e}->[0]->scaffold,
+                                -seq_release=>$release,
                                -less_than=>{start=>$seqs{$e}->[0]->s_insert},
                                -greater_than_or_equal=>{stop=>$seqs{$e}->[0]->s_insert}}
                                                                       )->select_if_exists;
@@ -495,7 +494,7 @@ sub reportBatch
                $strand .= ($seqs{$e}->[0]->p_end > $seqs{$e}->[0]->p_start)?'+':'-';
             }
             # this should not be needed, but put spaces back in
-            map { $_ = $cgi->nbsp unless $_ } ($place,$coord,$cyto,$arm,$strand);
+            map { $_ = $cgi->nbsp unless $_ } ($coord,$cyto,$arm,$strand);
          }
 
          $arm =~ s/arm_//g;
@@ -519,6 +518,7 @@ sub reportBatch
                $a =~ s/arm_//;
                $otherArm .= $a;
                my $cyt = new Cytology($session,{-scaffold=>$osA->scaffold,
+                                -seq_release=>$release,
                                -less_than=>{start=>$osA->s_insert},
                                -greater_than_or_equal=>{stop=>$osA->s_insert}}
                                     )->select_if_exists;
@@ -538,83 +538,145 @@ sub reportBatch
         
          if ($allAlign) {
             push @tableRows,
-              [$batch,$sampleLinks{$r.':'.$c},$r.$c,$seqs,$cons,$align,$place,$arm,
+              [$batch,$sampleLinks{$r.':'.$c},$r.$c,$seqs,$cons,$align,$arm,
                          $coord,$cyto,$strand,$otherPlace,$otherArm,$otherCoord,
                          $otherCyto,$otherStrand,$statusLinks{$r.':'.$c}];
          } else {
             push @tableRows,
-              [$batch,$sampleLinks{$r.':'.$c},$r.$c,$seqs,$cons,$align,$place,$arm,
+              [$batch,$sampleLinks{$r.':'.$c},$r.$c,$seqs,$cons,$align,$arm,
                          $coord,$cyto,$strand,$statusLinks{$r.':'.$c}];
          }
       }
    }
-   print $cgi->center($cgi->h3("Sequence status for strains in batch $batch"),
+   print $cgi->center($cgi->h2("Sequence status for strains in batch $batch"),
+                      $cgi->div("Release $release Alignments",
+                      $cgi->a({-href=>'batchReport.pl?batch='.$batch.'&release='.
+                               (8-$release)},'Show Release '.(8-$release))),
                        $cgi->br),"\n",
          $cgi->center($cgi->table({-border=>2,
                                    -width=>"80%",
-                                   -bordercolor=>$HTML_TABLE_BORDERCOLOR},
+                                   -class=>'sortable',
+                                   -id=>'strain'},
             $cgi->Tr( [
       ## header
                $cgi->th({-bgcolor=>$HTML_TABLE_HEADER_BGCOLOR,-width=>'10%'},
                       ["Batch"]).
                $cgi->th({-bgcolor=>$HTML_TABLE_HEADER_BGCOLOR,-width=>'15%'},
-                      ["Strain".$cgi->br."Name"]).
+                      ["Strain Name"]).
                $cgi->th({-bgcolor=>$HTML_TABLE_HEADER_BGCOLOR,-width=>'8%'},
                       ["Well"]).
                $cgi->th({-bgcolor=>$HTML_TABLE_HEADER_BGCOLOR,-width=>'12%'},
-                      ["Phred".$cgi->br."Seq",
-                       "Consensus".$cgi->br."Seq","Alignment",
-                      "Scaffold","Arm","Location","Cytology"]).
+                      ["Phred Seq",
+                       "Consensus Seq","Alignment",
+                      "Arm","Location","Cytology"]).
                $cgi->th({-bgcolor=>$HTML_TABLE_HEADER_BGCOLOR,-width=>'5%'},
                       ["Strand"]).
                ($allAlign?
                       ($cgi->th({-bgcolor=>$HTML_TABLE_HEADER_BGCOLOR,-width=>'12%'},
                       ["Other".$cgi->br."Scaffolds","Other".$cgi->br."Arms",
-                       "Other".$cgi->br."Locations","Other".$cgi->br."Cytologys"]).
+                       "Other".$cgi->br."Locations","Other".$cgi->br."Cytology"]).
                $cgi->th({-bgcolor=>$HTML_TABLE_HEADER_BGCOLOR,-width=>'5%'},
                       ["Other".$cgi->br."Strands"])):'').
                $cgi->th({-bgcolor=>$HTML_TABLE_HEADER_BGCOLOR,-width=>'5%'},
                       ["Status"]),
       ## contents
                         (map { $cgi->td({-align=>"center"}, $_ ) } @tableRows),
+                       ] )),"\n",
       ## totals
-               $cgi->th('Totals').
-               $cgi->th(scalar(keys %strainSumH)).
-               $cgi->th(scalar(keys %wellSumH)).
-               $cgi->th('b: '.$phredSeqH{b}.$cgi->br.
-                        '5: '.$phredSeqH{5}.$cgi->br.
-                        '3: '.$phredSeqH{3}.$cgi->br.
-                        'n: '.$phredSeqH{n}.$cgi->br).
-               $cgi->th('b: '.$conSeqH{b}.$cgi->br.
-                        '5: '.$conSeqH{5}.$cgi->br.
-                        '3: '.$conSeqH{3}.$cgi->br.
-                        'n: '.$conSeqH{n}.$cgi->br).
-               $cgi->th('1: '.$alignSeqH{1}.$cgi->br.
-                        '5: '.$alignSeqH{5}.$cgi->br.
-                        '3: '.$alignSeqH{3}.$cgi->br.
-                        'm: '.$alignSeqH{m}.$cgi->br.
-                        'c: '.$alignSeqH{c}.$cgi->br.
-                        'u: '.$alignSeqH{u}.$cgi->br).
-               $cgi->th($cgi->nbsp).
-               $cgi->th($cgi->nbsp).
-               $cgi->th($cgi->nbsp).
-               $cgi->th($cgi->nbsp).
-               $cgi->th($cgi->nbsp).
-               ($allAlign?($cgi->th($cgi->nbsp).$cgi->th($cgi->nbsp).
-                           $cgi->th($cgi->nbsp).$cgi->th($cgi->nbsp).
-                           $cgi->th($cgi->nbsp).$cgi->th($cgi->nbsp)):'').
-               $cgi->th($cgi->nbsp),
-                       ] ))),"\n",
+                     $cgi->table({-border=>2,
+                                  -width=>"80%"},
+            $cgi->Tr( [
+      ## header
+               $cgi->th({-bgcolor=>$HTML_TABLE_HEADER_BGCOLOR,-width=>'10%'},
+                      ["Total"]).
+               $cgi->th({-bgcolor=>$HTML_TABLE_HEADER_BGCOLOR,-width=>'15%'},
+                      ["Strain Name"]).
+               $cgi->th({-bgcolor=>$HTML_TABLE_HEADER_BGCOLOR,-width=>'8%'},
+                      ["Well"]).
+               $cgi->th({-bgcolor=>$HTML_TABLE_HEADER_BGCOLOR,-width=>'12%'},
+                      ["Phred Seq",
+                       "Consensus Seq","Alignment",
+                      "Scaffold","Arm","Location","Cytology"]).
+               $cgi->th({-bgcolor=>$HTML_TABLE_HEADER_BGCOLOR,-width=>'5%'},
+                      ["Strand"]).
+               ($allAlign?
+                      ($cgi->th({-bgcolor=>$HTML_TABLE_HEADER_BGCOLOR,-width=>'12%'},
+                      ["Other".$cgi->br."Scaffolds","Other".$cgi->br."Arms",
+                       "Other".$cgi->br."Locations","Other".$cgi->br."Cytology"]).
+               $cgi->th({-bgcolor=>$HTML_TABLE_HEADER_BGCOLOR,-width=>'5%'},
+                      ["Other".$cgi->br."Strands"])):'').
+               $cgi->th({-bgcolor=>$HTML_TABLE_HEADER_BGCOLOR,-width=>'5%'},
+                      ["Status"]),
+               $cgi->td({-bgcolor=>$HTML_TABLE_HEADER_BGCOLOR,-width=>'10%'},
+                      [$cgi->nbsp]).
+               $cgi->td({-bgcolor=>$HTML_TABLE_HEADER_BGCOLOR,-width=>'15%'},
+                      [scalar(keys %strainSumH)]).
+               $cgi->td({-bgcolor=>$HTML_TABLE_HEADER_BGCOLOR,-width=>'8%'},
+                      [scalar(keys %wellSumH)]).
+               $cgi->td({-bgcolor=>$HTML_TABLE_HEADER_BGCOLOR,-width=>'12%'},
+                      ['b: '.$phredSeqH{b}.$cgi->br.'5: '.$phredSeqH{5}.$cgi->br.
+                       '3: '.$phredSeqH{3}.$cgi->br.'n: '.$phredSeqH{n}.$cgi->br,
+                       'b: '.$conSeqH{b}.$cgi->br. '5: '.$conSeqH{5}.$cgi->br.
+                       '3: '.$conSeqH{3}.$cgi->br. 'n: '.$conSeqH{n}.$cgi->br,
+                       '1: '.$alignSeqH{1}.$cgi->br. '5: '.$alignSeqH{5}.$cgi->br.
+                       '3: '.$alignSeqH{3}.$cgi->br. 'm: '.$alignSeqH{m}.$cgi->br.
+                       'c: '.$alignSeqH{c}.$cgi->br. 'u: '.$alignSeqH{u}.$cgi->br,
+                       $cgi->nbsp,$cgi->nbsp,$cgi->nbsp,$cgi->nbsp]).
+               $cgi->td({-bgcolor=>$HTML_TABLE_HEADER_BGCOLOR,-width=>'5%'},
+                      [$cgi->nbsp]).
+               $cgi->td({-bgcolor=>$HTML_TABLE_HEADER_BGCOLOR,-width=>'5%'},
+                      [$cgi->nbsp])
+                       ]) )),"\n",
+               #$cgi->th('Totals').
+               #$cgi->th(scalar(keys %strainSumH)).
+               #$cgi->th(scalar(keys %wellSumH)).
+               #$cgi->th('b: '.$phredSeqH{b}.$cgi->br.
+                        #'5: '.$phredSeqH{5}.$cgi->br.
+                        #'3: '.$phredSeqH{3}.$cgi->br.
+                        #'n: '.$phredSeqH{n}.$cgi->br).
+               #$cgi->th('b: '.$conSeqH{b}.$cgi->br.
+                        #'5: '.$conSeqH{5}.$cgi->br.
+                        #'3: '.$conSeqH{3}.$cgi->br.
+                        #'n: '.$conSeqH{n}.$cgi->br).
+               #$cgi->th('1: '.$alignSeqH{1}.$cgi->br.
+                        #'5: '.$alignSeqH{5}.$cgi->br.
+                        #'3: '.$alignSeqH{3}.$cgi->br.
+                        #'m: '.$alignSeqH{m}.$cgi->br.
+                        #'c: '.$alignSeqH{c}.$cgi->br.
+                        #'u: '.$alignSeqH{u}.$cgi->br).
+               #$cgi->th($cgi->nbsp).
+               #$cgi->th($cgi->nbsp).
+               #$cgi->th($cgi->nbsp).
+               #$cgi->th($cgi->nbsp).
+               #$cgi->th($cgi->nbsp).
+               #($allAlign?($cgi->th($cgi->nbsp).$cgi->th($cgi->nbsp).
+                           #$cgi->th($cgi->nbsp).$cgi->th($cgi->nbsp).
+                           #$cgi->th($cgi->nbsp).$cgi->th($cgi->nbsp)):'').
+               #$cgi->th($cgi->nbsp),
+                       #] ))),"\n",
          $cgi->br,
-         $cgi->html_only($cgi->a(
-                  {-href=>"batchReport.pl?batch=$batch&table=align&align=all"},
-                  "View Alignments of these strains from all batches"),$cgi->br,"\n"),
-         $cgi->html_only($cgi->a(
-                  {-href=>"batchReport.pl?batch=$batch&table=align&format=text"},
-                  "View Alignments from this batch as Tab delimited list"),$cgi->br,"\n"),
-         $cgi->html_only($cgi->a(
-                   {-href=>"batchReport.pl?batch=$batch&table=align&align=all&format=text"},
-                  "View Alignments of these strains from all batches as Tab delimited list"),
+         $cgi->html_only(
+           "View Alignments of these strains from all batches",$cgi->nbsp,
+           $cgi->a({-href=>"batchReport.pl?batch=$batch&table=align&align=all&release=3"},
+                    "Release 3"),
+           $cgi->nbsp,
+           $cgi->a(
+                  {-href=>"batchReport.pl?batch=$batch&table=align&align=all&release=5"},
+                  "Release 5"),
+           $cgi->br,
+           "View Alignments from this batch as Tab delimited list",$cgi->nbsp,
+           $cgi->a({-href=>"batchReport.pl?batch=$batch&table=align&format=text&release=3"},
+                  "Release 3"),
+           $cgi->nbsp,
+           $cgi->a({-href=>"batchReport.pl?batch=$batch&table=align&format=text&release=5"},
+                  "Release 5"),
+           $cgi->br,
+           "View Alignments of these strains from all batches as Tab delimited list",$cgi->nbsp,
+           $cgi->a({-href=>"batchReport.pl?batch=$batch&table=align&align=all&format=text&release=3"},
+                  "Release 3"),
+           $cgi->nbsp,
+           $cgi->a({-href=>"batchReport.pl?batch=$batch&table=align&align=all&format=text&release=5"},
+                  "Release 5"),
                   $cgi->br,"\n"),$cgi->br,"\n"
                         if (!$cgi->param('table') ||
                              $cgi->param('table') eq 'align');
