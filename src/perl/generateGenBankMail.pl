@@ -46,6 +46,8 @@ my $session = new Session();
 my $outFile;
 my $appendFile;
 my $minLength = 25;
+my $update = 1;
+my $release = 5;
 
 # only submit aligned strains?
 my $ifAligned = 1;
@@ -59,7 +61,9 @@ GetOptions('out=s'      => \$outFile,
            'min=i'      => \$minLength,
            'ifaligned!' => \$ifAligned,
            'subseq!'    => \$subseq,
-           'test!'      => \$test
+           'test!'      => \$test,
+           'update!'    => \$update,
+           'release=i'  => \$release,
           );
 
 if ($appendFile && -e $appendFile) {
@@ -119,8 +123,12 @@ foreach my $arg (@ARGV) {
       $seq->select;
       if ($ifAligned) {
          # see if there is an alignment
-         my $sA_curated = new Seq_Alignment($session,{-seq_name=>$seq->seq_name,status=>'curated'});
-         my $sA_unique = new Seq_Alignment($session,{-seq_name=>$seq->seq_name,status=>'unique'});
+         my $sA_curated = new Seq_Alignment($session,{-seq_name=>$seq->seq_name,
+                                                      -status=>'curated',
+                                                      -seq_release=>$release});
+         my $sA_unique = new Seq_Alignment($session,{-seq_name=>$seq->seq_name,
+                                                     -status=>'unique',
+                                                     -seq_release=>$release});
          ($session->warn("No alignments for $arg. Skipping.") and next ARG) unless 
                           $sA_curated->db_exists || $sA_unique->db_exists;
       }
@@ -161,8 +169,12 @@ foreach my $arg (@ARGV) {
          }
          if ($ifAligned && ($this_end eq '3' || $this_end eq '5')) {
             # see if there is an alignment. We only check that 3' or 5' flanks are aligned.
-            my $sA_curated = new Seq_Alignment($session,{-seq_name=>$seq->seq_name,status=>'curated'});
-            my $sA_unique = new Seq_Alignment($session,{-seq_name=>$seq->seq_name,status=>'unique'});
+            my $sA_curated = new Seq_Alignment($session,{-seq_name=>$seq->seq_name,
+                                                         -status=>'curated',
+                                                         -seq_release=>$release});
+            my $sA_unique = new Seq_Alignment($session,{-seq_name=>$seq->seq_name,
+                                                        -status=>'unique',
+                                                         -seq_release=>$release});
            ($session->warn("No alignments for ".$seq->seq_name.". Skipping.") and next SEQ) unless 
                             $sA_curated->db_exists || $sA_unique->db_exists;
          }
@@ -172,9 +184,11 @@ foreach my $arg (@ARGV) {
       }
    }
 
-
    # we've prepared a hash of %insertions; this has the info
    # needed for our submission
+
+   # see if there are FBti's for this (yet?)
+   my $stock = $session->Stock_Record({-strain_name=>$strain})->select_if_exists;
 
    foreach my $insert (keys %insertions) {
 
@@ -195,12 +209,26 @@ foreach my $arg (@ARGV) {
          my $gb = new GenBank_Submission_Info($session,{-collection=>$st->collection})->select;
          $gb->gss($insert);
          # was this submitted before?
-         $gb->status('Update') if (new Submitted_Seq($session,{-seq_name=>$insert.'-'.$end})->db_exists);
+         if (new Submitted_Seq($session,{-seq_name=>$insert.'-'.$end})->db_exists) {
+           next unless $update;
+           $gb->status('Update');
+         }
 
-         $gb->dbxref($insert);
+         if ($stock && $stock->fbti) {
+           $gb->add_xref('FlyBase',$stock->fbti);
+         } else {
+           $gb->add_xref('BDGP_INS',$insert);
+         }
+
+         if( $stock && $stock->stock_name) {
+           $gb->comment($gb->comment.
+                ' The Bloomington Drosophila Stock Center identifier is '.
+                $stock->stock_name.'.');
+         }
+
          $gb->add_seq('b',$ends{b},$pos{b});
          my $p_end = $gb->p_end;
-         $p_end =~ s/<ENDDESCR>/Both 5' and 3' ends/;
+         $p_end =~ s/<ENDDESCR>/both 5' and 3' ends/;
          $gb->p_end($p_end);
          print FIL $gb->print ,"\n";
       } else {
@@ -211,9 +239,23 @@ foreach my $arg (@ARGV) {
                $gb->gss($insert.'-'.$end.'prime');
 
                # was this submitted before?
-               $gb->status('Update') if (new Submitted_Seq($session,{-seq_name=>$insert.'-'.$end})->db_exists);
+               if (new Submitted_Seq($session,{-seq_name=>$insert.'-'.$end})->db_exists) {
+                 next unless $update;
+                 $gb->status('Update');
+               }
 
-               $gb->dbxref($insert);
+               if ($stock && $stock->fbti) {
+                 $gb->add_xref('FlyBase',$stock->fbti);
+               } else {
+                 $gb->add_xref('BDGP_INS',$insert);
+               }
+
+               if( $stock && $stock->stock_name) {
+                 $gb->comment($gb->comment.
+                      ' The Bloomington Drosophila Stock Center identifier is '.
+                      $stock->stock_name.'.');
+               }
+
                $gb->add_seq($end,$ends{$end},$pos{$end});
                my $end_txt = $end."' end";
                my $p_end = $gb->p_end;

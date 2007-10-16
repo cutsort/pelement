@@ -68,12 +68,14 @@ my @batch = ();
 my %strainH;
 my @ignore = ();
 my $out = '';
+my $release = 3;
 
 GetOptions("recheck!" => \$recheck,
            "all!"     => \$all,
            "batch=s@" => \@batch,
            "skip=s@"  => \@ignore,
            "out=s"    => \$out,
+           "release=i"=> \$release,
            );
 
 
@@ -119,7 +121,7 @@ foreach my $strain (sort keys %strainH) {
    $pass = verifyLaneInBatch($session,$laneSet,@batch) if @batch;
 
    if ($all || ($recheck && $pass)  || (!$recheck && !$pass) ) {
-      my @insertList = getCytoAndGene($session,$strain);
+      my @insertList = getCytoAndGene($session,$strain,$release);
       if (scalar(@insertList) > 1) {
          map {print FIL "$strain,",$_->{arm},",",$_->{range},",",$_->{band},",",join(" ",@{$_->{gene}}),"\n" } @insertList;
       } elsif (scalar(@insertList)) {
@@ -188,13 +190,15 @@ sub getCytoAndGene
 {
    my $session = shift;
    my $strain = shift;
+   my $release = shift;
 
 
    # we need to look at the alignments for the unqualified sequences.
    # and look for if we have the mappable insertions.
    my @insertList = ();
    foreach my $end qw(3 5) {
-      my $saS = new Seq_AlignmentSet($session,{-seq_name=>$strain.'-'.$end})->select;
+      my $saS = new Seq_AlignmentSet($session,{-seq_name=>$strain.'-'.$end,
+                                               -seq_release=>$release})->select;
       foreach my $sa ($saS->as_list) {
          next unless $sa->status eq 'unique' || $sa->status eq 'curated';
 
@@ -222,6 +226,7 @@ sub getCytoAndGene
       my $cyto;
       if ($arm =~ s/arm_// ) {
          $cyto = new Cytology($session,{scaffold=>$in->{arm},
+                                    -seq_release=>$release,
                                     less_than=>{start=>$end},
                         greater_than_or_equal=>{stop=>$start}})->select_if_exists;
          $in->{band} = $cyto->band;
@@ -229,6 +234,7 @@ sub getCytoAndGene
       } else {
          $cyto = new Cytology($session,{scaffold=>$in->{arm},
                                     less_than=>{start=>$end},
+                                    -seq_release=>$release,
                         greater_than_or_equal=>{stop=>$start}})->select_if_exists;
          $in->{band} = ($cyto && $cyto->band)?$cyto->band:'Het';
       }

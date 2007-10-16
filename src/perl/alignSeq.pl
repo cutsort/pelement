@@ -28,6 +28,7 @@ my $percent_threshold = 95;
 my $length_threshold = 25;
 my $test = 0;
 my $verbose = 0;
+my $release = 5;
 
 # a configurable parameter of whether to extrapolate the insertion
 # position beyond the HSP. If false, the last position of the HSP
@@ -45,6 +46,7 @@ GetOptions( 'percent=i'    => \$percent_threshold,
             'test!'        => \$test,
             'extrapolate!' => \$extrapolate,
             'delete!'      => \$deleteOld,
+            'release=i'    => \$release,
            );
 
 my $seq_name = $ARGV[0];
@@ -62,7 +64,7 @@ $session->die("Sequence does not have an insertion position.")
 
 
 my $bRS = new Blast_ReportSet($session,{-seq_name=>$seq->seq_name,
-                                          -db=>'release3_genomic'})->select;
+                                          -db=>'release'.$release.'_genomic'})->select;
 
 # lets be careful and make sure that we are only dealing with the
 # most recent blast run.
@@ -84,7 +86,8 @@ $session->info("Aligning blast run id $alignId.");
 
 # we want to see if we've already analyzed this blast set. We'll stop
 # if we see that we have alignments based on this set.
-my $saSet = new Seq_AlignmentSet($session,{-seq_name=>$seq->seq_name})->select;
+my $saSet = new Seq_AlignmentSet($session,{-seq_name=>$seq->seq_name,
+                                           -seq_release=>$release})->select;
 
 # have we already done this? Only check if we're not deleting them anyway
 unless ($deleteOld) {
@@ -184,6 +187,7 @@ foreach my $bH ($bRS->as_list) {
                                     -s_end    => $subject_end,
                                     -s_insert => $s_insert,
                                     -status   => 'multiple',
+                                    -seq_release => $release,
                                     -hsp_id   => $id});
       $nsaSet->add($seqA);
    }
