@@ -54,6 +54,7 @@ foreach my $dir (glob("$PELEMENT_INBOX/*")) {
    foreach my $file (@file_list) {
       $session->debug("Looking at file $file.");
       my $gel_from_file = gel_from_file($file);
+      next unless $gel_from_file;
       next if ($gel_name && $gel_name ne $gel_from_file);
       my $target = Gel::default_dir($gel_from_file,$version);
       $session->info("Looking for directory $target");
@@ -107,4 +108,5 @@ sub gel_from_file
   my $file = File::Basename::basename(shift,'.ab1');
   my @fields = split(/_/,$file);
   return $fields[2] if $fields[1] eq 'RD';
+  return $fields[0] if $fields[0] =~ /PT\d+/;
 }
