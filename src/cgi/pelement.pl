@@ -74,6 +74,8 @@ print $cgi->center( $cgi->table({-width=>'70%',
                                          $cgi->td({-class=>'unboxed'},[
                                            $cgi->a({-href=>'setReport.pl'},'Set Report')]),
                                          $cgi->td({-class=>'unboxed'},[
+                                           $cgi->a({-href=>'recentBatches.pl'},'Recently Registed Batches')]),
+                                         $cgi->td({-class=>'unboxed'},[
                                            $cgi->a({-href=>'todoList.pl'},'Production To-Do List')]),
                                          ] ) )
                                  ]  )
