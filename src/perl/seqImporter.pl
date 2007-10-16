@@ -61,6 +61,7 @@ my $session = new Session();
 #         -seq seq_name     process a lane by a seq name (with optional end)
 #                           this will only import the earliest sequence if there
 #                           is more than 1.
+#         -insert Number    override db record for insertion offset number
 # These options are possible only if we're importing sequence from
 # a single lane record
 #         -start            starting coordinate of first imported base
@@ -81,6 +82,7 @@ my $minSeqSize = 12;
 my $maxSeqSize = 0;
 my $start = 0;
 my $length = 0;
+my $insertion_offset;
 my @attributes;
 my $test = 0;      # test mode only. No inserts or updates.
 
@@ -97,6 +99,7 @@ GetOptions('gel=s'      => \$gel_name,
            'length=i'   => \$length,
            'attr=s@'    => \@attributes,
            'test!'      => \$test,
+           'insert=i'   => \$insertion_offset,
           );
 
 
@@ -236,28 +239,31 @@ foreach my $lane (@lanes) {
       }
 
 
-      my $c_p = new Collection_Protocol($session,
-                          {-collection=>$strain->collection,
-                           -like=>{end_sequenced=>'%'.$lane->end_sequenced.'%'}}
-                                                        )->select;
-      unless ($c_p->protocol_id) {
-         $session->die("Cannot determine trimming protocol for ".
-                                                    $strain->collection);
-      }
+      if ($insertion_offset eq '') {
+        my $c_p = new Collection_Protocol($session,
+                            {-collection=>$strain->collection,
+                             -like=>{end_sequenced=>'%'.$lane->end_sequenced.'%'}}
+                                                          )->select;
+        unless ($c_p->protocol_id) {
+           $session->die("Cannot determine trimming protocol for ".
+                                                      $strain->collection);
+        }
 
-      my $t_p = new Trimming_Protocol($session,{-id=>$c_p->protocol_id}
+        my $t_p = new Trimming_Protocol($session,{-id=>$c_p->protocol_id}
                                                                )->select;
-      if ($t_p->id) {
-         $session->log($Session::Info,"Using trimming protocol ".
-                                 $t_p->protocol_name) if $t_p->protocol_name;
-      } else {
-         $session->die("Cannot determine trimming protocol for ".
-                                                          $strain->collection);
+        if ($t_p->id) {
+           $session->log($Session::Info,"Using trimming protocol ".
+                                   $t_p->protocol_name) if $t_p->protocol_name;
+        } else {
+           $session->die("Cannot determine trimming protocol for ".
+                                                            $strain->collection);
+        }
+        $insertion_offset = $t_p->insertion_offset;
       }
 
       # this references the insertion position in an interbase coordinate.
       # if we have not found the junction, then this is -1. (before the seq)
-      $insert_pos = $found_junction?$t_p->insertion_offset:-1;
+      $insert_pos = $found_junction?$insertion_offset:-1;
 
       if ($extent <= $phred_seq->v_trim_start) {
          $session->warn("No sequence after trimming.");
