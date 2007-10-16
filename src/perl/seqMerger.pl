@@ -15,7 +15,7 @@
 
   Generate a consensus if and only if there is a common insertion point for
   a sequence alignment of the 3' and 5' flank for at least one pair of
-  alignments. This test is in addition to the consistenct of the overlap
+  alignments. This test is in addition to the consistency of the overlap
 
 =item  -force
 
@@ -55,10 +55,12 @@ my $force = 0;
 my $use = 3;
 my $ifAligned = 1;
 my $test = 0;
+my $release = 5;
 GetOptions('use=i'     => \$use,
            'force!'    => \$force,
-           'ifaligned' => \$ifAligned,
+           'ifaligned!'=> \$ifAligned,
            'test!'     => \$test,
+           "release=i" => \$release,
           );
 
 # processing hierarchy. In case multiple things are specified, we have to
@@ -136,8 +138,10 @@ foreach my $strain (@ARGV) {
 
       # make sure there is a consistent alignment.
       if ($ifAligned) {
-         my $seqAs5 = new Seq_AlignmentSet($session,{-seq_name=>$names{5}})->select;
-         my $seqAs3 = new Seq_AlignmentSet($session,{-seq_name=>$names{3}})->select;
+         my $seqAs5 = new Seq_AlignmentSet($session,{-seq_name=>$names{5},
+                                                     -seq_release=>$release})->select;
+         my $seqAs3 = new Seq_AlignmentSet($session,{-seq_name=>$names{3},
+                                                     -seq_release=>$release})->select;
          my $foundCommon = 0;
 
          LOOKFORCOMMON:

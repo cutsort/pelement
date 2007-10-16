@@ -25,6 +25,7 @@ my $seq_name = $cgi->param('seq');
 my $arm = $cgi->param('arm');
 my $center = $cgi->param('center');
 my $region = $cgi->param('region');
+my $rel = $cgi->param('rel') || 5;
 
 print $cgi->header;
 print $cgi->init_page({-title=>"$seq_name Hit Maker"});
@@ -111,6 +112,10 @@ sub selectArm
                                                   '3L'=>'3L','3R'=>'3R','4'=>'4'},
                                         -onClick=>'displayArm()',
                                                    })),
+                     $cgi->radio_group({ -name=>'rel',
+                                         -values=>['3','5'],
+                                         -labels=>{'3'=>'Release 3','5'=>'Release 5'},
+                                         -default=>'5'}),
                  $cgi->td({-align=>'right'},'Centered at:').$cgi->td({-align=>'left',-colspan=>4},
                               $cgi->input({-name=>'center',-value=>1,-size=>12,onChange=>'resetJmp()'})),
 
@@ -325,14 +330,14 @@ sub alignSeq
    my $start = int($center - $region/2);
    my $end = int($center + $region/2 + .5);
    my $arm = $cgi->param('arm');
-   # particular to release3 genomic
+   # particular to genomic
    $arm = 'arm_'.$arm if ($arm eq '2L' || $arm eq '2R' || $arm eq '3L' ||
                                   $arm eq '3R' || $arm eq 'X' || $arm eq '4');
 
    my $strand = $cgi->param('strand');
    $strand = 0 unless $strand eq '1' || $strand eq '-1';
 
-   my $armSeq = seq_extract("/data/pelement/blast/release3_genomic",$arm,$start,$end);
+   my $armSeq = seq_extract('/data/pelement/blast/release'.$rel.'_genomic',$arm,$start,$end);
    #print "arm sequence is $armSeq.<br>";
    #print "<BR>\n";
    #print "flank is ",$seq->sequence,"<BR>\n";
@@ -365,7 +370,7 @@ sub alignSeq
          my $bR = new Blast_Report($session);
          my $exon = $r->{exons}[$i];
 
-         $bR->db('release3_genomic');
+         $bR->db('release'.$rel.'_genomic');
          $bR->seq_name($seq->seq_name);
          $bR->name($arm);
 
@@ -415,6 +420,7 @@ sub alignSeq
               $cgi->hidden(-name=>'center',-value=>$cgi->param('center')),"\n",
               $cgi->hidden(-name=>'region',-value=>$cgi->param('region')),"\n",
               $cgi->hidden(-name=>'strand',-value=>$cgi->param('strand')),"\n",
+              $cgi->hidden(-name=>'rel',-value=>($cgi->param('rel')||'5')),"\n",
               $cgi->submit(-name=>'Align',-value=>'Save'),"\n",
               " button to record the results."),
               $cgi->end_form(),"\n";
