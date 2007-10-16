@@ -15,6 +15,8 @@ use LaneSet;
 use PelementCGI;
 use PelementDBI;
 
+use GH::Sim4;
+
 $cgi = new PelementCGI;
 
 print $cgi->header();
@@ -160,13 +162,12 @@ sub trimSeq
 
       # toss in a <cr> every now and then
       $bases =~ s/(.{50})/$1\n/g;
-      print $cgi->center($cgi->start_form(-method=>'post',
-                                          -action=>'seqTrimmer.pl'),"\n",
-                   $cgi->textarea(-name=>"seq",-cols=>50,-rows=>$rowsNeeded,
-                                  -wrap=>'virtual',-value=>$bases),$cgi->br,
-                   $cgi->hidden(-name=>'id',-value=>$seq->lane_id),
-                   $cgi->submit(-name=>'Submit'),
-                   $cgi->end_form(),"\n"),"\n";
+      print $cgi->center($cgi->start_form(-method=>'post',-action=>'seqTrimmer.pl'),"\n",
+                  $cgi->textarea(-name=>"seq",-cols=>54,-rows=>$rowsNeeded, -style=>'font-family: fixed-width, monospace',
+                                 -wrap=>'virtual',-value=>$bases),$cgi->br,
+                  $cgi->hidden(-name=>'id',-value=>$seq->lane_id),
+                  $cgi->submit(-name=>'Submit'),
+                  $cgi->end_form(),"\n"),"\n";
       #print $bases;
 
    }
@@ -177,7 +178,6 @@ sub processTrimmedSeq
 {
    my $cgi = shift;
 
-   print $cgi->h3("This page is still in development. Successful updates <em>can</em> happen.");
 
    # be absolutely sure the id and seq matchup.
 
@@ -202,9 +202,9 @@ sub processTrimmedSeq
      $workSeq =~ s/[^A-Z]//ig;
      
      $v_trim_start = length($workSeq);
-     #print $cgi->h3("Vector trimming start found at $v_trim_start."),$cgi->br;
+     #print $cgi->h3("DBG: Vector trimming start found at $v_trim_start."),$cgi->br;
    } else {
-     #print $cgi->h3("No vector trimming start found."),$cgi->br;
+     #print $cgi->h3("DBG: No vector trimming start found."),$cgi->br;
    }
 
    # look for the first < delimiter.
@@ -246,13 +246,79 @@ sub processTrimmedSeq
    $oldSeq =~ tr/acgtn/ACGTN/;
    $workSeq =~ tr/acgtn/ACGTN/;
 
-   unless ($oldSeq eq $workSeq) {
-      print $cgi->h3("There is no change in the sequence $oldSeq and $workSeq. Not updating.");
-      return;
-   }
-
    my $update = 0;
 
+   unless ($oldSeq eq $workSeq) {
+      print $cgi->h3("Processing sequence update data...");
+      # we need to see how new new and old compares
+      my $sim = GH::Sim4::sim4($oldSeq,$workSeq,{A=>1});
+
+      # we need to have a pretty decent hit
+      if( !$sim ) {
+        print $cgi->em("Cannot compare old sequence to edited sequence. Returning...");
+        return;
+      }
+
+      if ($sim->{exon_count} != 1 ||
+          $sim->{exons}->[0]->{from1} != 1 ||
+          $sim->{exons}->[0]->{from2} != 1 ||
+          $sim->{exons}->[0]->{to1} != length($oldSeq) ||
+          $sim->{exons}->[0]->{to2} != length($workSeq) ) {
+        print $cgi->em("Old sequence and edited sequence are too disimilar. Returning...");
+        return;
+      }
+
+      # we need to 1) replace old with work, and 2) adjust the quality string
+      my ($q_match,$a_match,$s_match) = split(/\n/,$sim->{exon_alignment_strings}->[0]);
+
+      print $cgi->pre("DBG: comparison string:\n",$q_match,"\n",$a_match,"\n",$s_match,"\n");
+
+      my $qual = $session->Phred_Qual({-phred_seq_id=>$phred->id});
+      unless ($qual->db_exists) {
+        print $cgi->em("There is no quality record associated with this phred seq.");
+      } else {
+        $qual->select;
+        my @q = split(/\s+/,$qual->qual);
+        my @new_q;
+        foreach my $i (1..length($q_match)) {
+          if (substr($q_match,$i-1,1) eq ' ') {
+            # is this an insertion?
+            push @new_q, '99';
+            print $cgi->pre("DBG: new sequence has insertion at postion $i\n");
+          } elsif (substr($s_match,$i-1,1) eq ' ') {
+            # or a deletion?
+            print $cgi->pre("DBG: new sequence has deletion at postion $i\n");
+            shift @q;
+          } elsif (substr($a_match,$i-1,1) ne '|') {
+            # or a base change?
+            shift @q,
+            push @new_q, '99';
+            print $cgi->pre("DBG: new sequence has replacement at postion $i\n");
+          } else {
+            # or a match
+            push @new_q, (shift @q);
+          }
+        }
+
+        print $cgi->pre("DBG: quality length and new sequence length agree.\n") if scalar(@new_q) == length($workSeq);
+        unless(scalar(@new_q) == length($workSeq) ) {
+          print $cgi->em("There is some trouble generating alignment. Cannot process these.");
+          return;
+        }
+
+        print $cgi->pre("DBG: old quality: ",$qual->qual,"\n");
+        print $cgi->pre("DBG: new quality: ",join(' ',@new_q),"\n");
+        # process this...
+        $qual->qual(join(' ',@new_q));
+        $qual->update;
+        $phred->seq($workSeq);
+        $phred->last_update('now');
+        $phred->update;
+        print $cgi->b("Sequence updated.");
+      }
+   }
+
+   print $cgi->h3("Processing trimming data...");
    # gonna need an api for this
    my $tunneled_sql;
 
@@ -296,7 +362,11 @@ sub processTrimmedSeq
    $phred->update if $update;
    $session->db->do($tunneled_sql) if $tunneled_sql;
 
-   print $cgi->b("No updates given."),$cgi->br unless $update;
+   if ($update) {
+     print $cgi->b("Sequence records updated."),$cgi->br,"\n";
+   } else {
+     print $cgi->b("No trimming updates given."),$cgi->br,"\n";
+   }
    
    return;
 }

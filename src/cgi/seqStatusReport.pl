@@ -105,7 +105,7 @@ sub performAction
       
       map { $_->delete } $sAlS->as_list;
       map { $_->delete } $bRS->as_list;
-      map { $_->unique_identifier } $sAsS->as_list;
+      map { $_->unique_identifier; $_->delete; } $sAsS->as_list;
       map { $_->delete } $sAsS->as_list;
       $seq->delete;
 
@@ -156,14 +156,15 @@ sub performAction
    } elsif (lc($cgi->param('action')) eq 'transitory') {
 
       # find the highest numbered seq_name
-      my $sS = new SeqSet($session,{-like=>{seq_name=>$seq->seq_name.'.%'}})->select;
+      my $unqualified_seq = $seq->strain.'-'.$seq->end;
+      my $sS = new SeqSet($session,{-like=>{seq_name=>$unqualified_seq.'.%'}})->select;
       my $newNumber = 1;
       foreach my $s ($sS->as_list) {
         next unless $s->seq_name =~ /\.(\d+)$/;
         $newNumber = $1 + 1 if $1 >= $newNumber;
       }
        
-      updateSeqRecords($session,$seq,$seq->seq_name.'.'.$newNumber);
+      updateSeqRecords($session,$seq,$unqualified_seq.'.'.$newNumber);
       $cgi->param('seq',$seq->seq_name);
 
    } else {

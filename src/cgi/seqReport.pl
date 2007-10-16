@@ -195,10 +195,10 @@ sub reportSeq
 
    # print trimming info if this is a phred seq.
    if ($table eq 'lane' || $table eq 'phred_seq' ) {
-      print $cgi->ul($cgi->li(["Quality trimming start: ".($seq->q_trim_start || 'Not set'),
-                               "Quality trimming end: ".($seq->q_trim_end || 'Not set'),
-                               "Vector trimming start: ".($seq->v_trim_start || 'Not set'),
-                               "Vector trimming end: ".($seq->v_trim_end || 'Not set')])),$cgi->br,"\n"; 
+      print $cgi->ul($cgi->li(["Quality trimming start: ".(defined($seq->q_trim_start)?$seq->q_trim_start:'Not set'),
+                               "Quality trimming end: ".(defined($seq->q_trim_end)?$seq->q_trim_end:'Not set'),
+                               "Vector trimming start: ".(defined($seq->v_trim_start)?$seq->v_trim_start:'Not set'),
+                               "Vector trimming end: ".(defined($seq->v_trim_end)?$seq->v_trim_end:'Not set')])),$cgi->br,"\n"; 
       print $cgi->p('Phred sequence record last updated '.$seq->last_update),$cgi->br,"\n";
 
    }
@@ -207,7 +207,12 @@ sub reportSeq
                             "<font color='blue'>Flank</font>",
                             "UPPER CASE: HIGH QUALITY",
                             "lower case: low quality",])),$cgi->br,"\n";
-   print $cgi->a({-href=>'seqTrimmer.pl?id='.$lane->id},'Manually Trim Sequence'),$cgi->br,"\n" if $lane && $lane->id;
+   if ( $lane && $lane->id ) {
+     print $cgi->a({-href=>'seqTrimmer.pl?id='.$lane->id},'Manually Trim Sequence'),
+           $cgi->br,"\n",
+           $cgi->a({-href=>'chromatReport.pl?id='.$lane->id,-target=>'_chromat'},
+                         'View Chromat'),"\n";
+   }
 
    # we need to unescape the action setting to keep the 'http://'in the URL
    print $cgi->center(
@@ -275,13 +280,13 @@ sub new_mode
   # either we have a vector trimming start point and we're
   # larger than that, or we don't and we're larger than the
   # quality trimming point.
-  if ( ( ($seq->v_trim_start && $i >= $seq->v_trim_start ) ||
-         (!$seq->v_trim_start && $seq->q_trim_start && $i >= $seq->q_trim_start )
+  if ( ( (defined($seq->v_trim_start) && $i >= $seq->v_trim_start ) ||
+         (!defined($seq->v_trim_start) && defined($seq->q_trim_start) && $i >= $seq->q_trim_start )
         ) &&
   # AND, if we have an end vector trimming point and we're less than that and
   # if we have a quality trimming point were less than that.
-        ( (!$seq->v_trim_end  || ($seq->v_trim_end  && $i < $seq->v_trim_end ) )  &&
-          ($seq->q_trim_end  && $i < $seq->q_trim_end )
+        ( (!defined($seq->v_trim_end)  || (defined($seq->v_trim_end) && $i < $seq->v_trim_end ) )  &&
+          (defined($seq->q_trim_end)  && $i < $seq->q_trim_end )
                                                          ) ) {
         return 'flank';
      } else {
