@@ -199,7 +199,7 @@ sub selectSet
                                      -values => ['3','5'],
                                      -labels => {3=>'Use Release 3 Alignments',
                                                  5=>'Use Release 5 Alignments'},
-                                     -default =>'3')]),
+                                     -default =>'5')]),
               $cgi->td({-align=>'center'},
                   [$cgi->submit(-name=>'action',
                                        -value=>'Report'),
@@ -451,7 +451,7 @@ sub reportSet
    if ($reports{'stock'} ) {
       # replace null strings with nbsp's
       map { map { $_ = $_?$_:$cgi->nbsp } @$_ } @stockList;
-      print $cgi->center($cgi->div({-class=>'SectionTitle'},"Stock List (R$release Coords, R4 Genes)"),$cgi->br),"\n",
+      print $cgi->center($cgi->div({-class=>'SectionTitle'},"Stock List (R$release Coords, R5.3 Genes)"),$cgi->br),"\n",
          $cgi->center(
            $cgi->table({-border=>2,-width=>"80%",
                                       -class=>'sortable',
@@ -532,6 +532,7 @@ sub getCytoAndGene
          if ($isNewInsertion) {
             push @insertList, {arm   => $sa->scaffold,
                                range => $sa->s_insert.":".$sa->s_insert,
+                               strand => ($sa->p_start > $sa->p_end)?-1:1,
                                band  => '',
                                gene  => [] };
          }
@@ -559,17 +560,23 @@ sub getCytoAndGene
 
       my @annot = ();
 
-      my $geneSet = new GeneModelSet($session,$arm.'.rel'.$release,$start,$end)->select;
+      my $down = $in->{strand}==1?0:500;
+      my $up = $in->{strand}==1?500:0;
+      my $geneSet = new GeneModelSet($session,$arm.'.rel'.$release,$start-$down,$end+$up)->select;
 
       # look at each annotation and decide if we're inside it.
 
       my %gene_name_hash;
       foreach my $annot ($geneSet->as_list) {
-        # dummy time waste only. Do we need to check something?
-        # we need to 
-        $gene_name_hash{$annot->gene_name.'('.$annot->gene_uniquename.')'} = 1;
+        # we need to see if we're really within the gene or nearby
+        if( $start <= $annot->gene_end && $end >= $annot->gene_start) {
+           $gene_name_hash{$annot->gene_name.'('.$annot->gene_uniquename.')'} = 1;
+        } elsif ( !exists( $gene_name_hash{$annot->gene_name.'('.$annot->gene_uniquename.')'}) ) {
+           $gene_name_hash{$annot->gene_name.'('.$annot->gene_uniquename.')'} = 'near';
+        }
+           
       }
-      map { push @{$in->{gene}}, $_ } sort keys %gene_name_hash;
+      map { push @{$in->{gene}}, $_.(($gene_name_hash{$_} eq 'near')?'[near]':'') } sort keys %gene_name_hash;
    }
 
    # if possible, we'll update the phenotype/genotype list
