@@ -6,6 +6,8 @@
 
 =cut
 
+use strict;
+
 use Pelement;
 use Session;
 use Strain;
@@ -23,9 +25,10 @@ use Processing;
 use PelementCGI;
 use PelementDBI;
 
+
 use GH::Sim4;
 
-$cgi = new PelementCGI;
+my $cgi = new PelementCGI;
 my $strain = $cgi->param('strain');
 my $seq_name = $cgi->param('seq_name');
 
@@ -183,14 +186,20 @@ sub rebuildSeqAssembly
        # be certain there is only 1 sequence
        my $laneSet = $session->LaneSet({-seq_name=>$strain,
                                              -end_sequenced=>$end})->select;
+       my $thelane_id;
        if ($laneSet->count > 1 ) {
-         print $cgi->center("This is not set up to deal with strain with multiple sequences yet.");
-         return;
+         # find the earliest
+         my $earliest = ($laneSet->as_list)[0];
+         map { $earliest = $_ if ($_->run_date cmp $earliest->run_date < 0) } $laneSet->as_list;
+         $thelane_id = $earliest->id;
+         print $cgi->center("Using earliest lane from ".$earliest->run_date." as reference data.");
        } elsif ($laneSet->count == 0 ) {
          print $cgi->center("Cannot find data for $seq_name.");
          return;
+       } else {
+         $thelane_id = ($laneSet->as_list)[0]->id;
        }
-       $import_command = '-lane_id '.($laneSet->as_list)[0]->id;
+       $import_command = '-lane_id '.$thelane_id;
 
        `$PELEMENT_BIN/seqImporter.pl -quiet $import_command`;
 
@@ -360,7 +369,7 @@ sub reportSeqAssemblyAlignment
    $bR->match_align($aStr[1]);
    $bR->query_align($aStr[2]);
 
-   $orient = $cgi->param('orient') || 1;
+   my $orient = $cgi->param('orient') || 1;
    print $bR->to_html($cgi,$orient);
    $orient = -1*$orient;
    print $cgi->center($cgi->a({-href=>'assemblyReport.pl?seq_name='.
@@ -379,7 +388,7 @@ sub reportStrain
   # try to make sense of the strain name. It may have embedded spaces
   $strain =~ s/\s+//g;
   # or a strange terminating periods from cutting-n-pasting
-  $strain =~ s/\.$//g;
+  $strain =~ s/\..*$//g;
   my $s = new Strain($session,{-strain_name=>Seq::strain($strain)});
 
   if ( !$s->db_exists ) {
@@ -485,7 +494,7 @@ sub reportStrain
    }
     
     
-  $seq_names =~ s/,$/)/;
+  $seq_name =~ s/,$/)/;
 
 
   print $cgi->center($cgi->h3("Sequence Data Source Tracking For ".
