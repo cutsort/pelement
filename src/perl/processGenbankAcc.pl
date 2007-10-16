@@ -56,7 +56,7 @@ while(<FIL>) {
 
    # eventually, we'll make this more sophisitcated. For now, we're only
    # going to put in new records only.
-   $session->die("Already have a db entry for $name.") if $sseq->db_exists;
+   ($session->warn("Already have a db entry for $name.") and next) if $sseq->db_exists;
 
    # this is irrelevant for now
    if ($sseq->dbgss_id  || $sseq->gb_acc) {
