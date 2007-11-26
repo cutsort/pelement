@@ -292,8 +292,8 @@ sub reportSet
          if ($seq->end eq 'b') {
             # this is a merged sequence only if it is a result of a
             # assembly from other seqs;
-            my $sa = $session->Seq_AssemblySet({-seq_name=>$seq->seq_name,src_seq_src=>'seq'});
-            if ($sa->db_exists) {
+            my $sa = $session->Seq_AssemblySet({-seq_name=>$seq->seq_name,src_seq_src=>'seq'})->select;
+            if ($sa->count) {
               push @mergedStrains, [$strainLink];
               $ok_if_unaligned = 1;
             }
