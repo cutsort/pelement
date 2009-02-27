@@ -235,10 +235,12 @@ sub exit
             # we try this multiple times, but then just say the hell with it
             # if we are waiting too long.
             my $nTries = 0;
-            while( time() - Files::file_timestamp($bigLogFile) < 3  &&
-                    $nTries < 20 )   {
+
+            # this is not working well. Our filesystem clock is just too messed up
+            while( 0 && (time() - Files::file_timestamp($bigLogFile) < 3  &&
+                    $nTries < 20) )   {
                $nTries++;
-               sleep(2);
+               sleep(1);
             }
          } else {
             Files::touch($bigLogFile) or warn "Cannot create log file: $!";
