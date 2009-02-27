@@ -24,7 +24,7 @@ BEGIN {
    @XML::Line::AttributeRequiredList = qw(line_id);
    @XML::Line::ElementRequiredList = qw(XML::Insertion);
    %XML::Line::AttributeOptionHash = (is_multiple_insertion_line => [qw(Y P N)]);
-   @XML::Line::AttributeOptionalList = qw(is_multiple_insertion_line comment);
+   @XML::Line::AttributeOptionalList = qw(is_multiple_insertion_line comment line_id_synonym);
    @XML::Line::ElementList = qw();
    @XML::Line::ElementListList = qw(XML::Insertion);
 }
