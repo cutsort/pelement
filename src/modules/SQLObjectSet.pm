@@ -173,7 +173,7 @@ sub unshift
 sub count
 {
   my $self = shift;
-  return scalar(@{$self->{_objects}});
+  return scalar(@{$self->{_objects}})||0;
 }
 
 1;
