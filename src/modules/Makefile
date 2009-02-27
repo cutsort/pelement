@@ -1,4 +1,4 @@
-SRC =	Alignment.pm AlignmentSet.pm Association.pm Batch.pm \
+SRC =	Alignment.pm AlignmentSet.pm Association.pm Batch.pm BatchSet.pm \
 	BlastInterface.pm Blast_HSP.pm Blast_HSPSet.pm Blast_Hit.pm \
 	Blast_HitSet.pm Blast_Option.pm Blast_OptionSet.pm \
 	Blast_Report.pm Blast_ReportSet.pm Blast_Run.pm \
@@ -15,7 +15,8 @@ SRC =	Alignment.pm AlignmentSet.pm Association.pm Batch.pm \
 	Seq_AssemblySet.pm Sequence.pm Session.pm Stock_Record.pm \
 	Stock_RecordSet.pm Strain.pm Strain_Alias.pm Submitted_Seq.pm \
 	Trimming_Protocol.pm Vector.pm WebCache.pm WebSession.pm \
-	fasta_extract.pm
+        SQLObject.pm SQLObjectSet.pm ChadoGeneModelSet.pm GeneModelSet.pm \
+ 	RegionImage.pm fasta_extract.pm
 
 install: check
 	for I in $(SRC); do ( cp $$I $(INSTALLDIR)/modules/$$I ); done
