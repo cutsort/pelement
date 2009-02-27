@@ -45,7 +45,7 @@ my $session = new Session();
 
 my $outFile;
 my $appendFile;
-my $minLength = 25;
+my $minLength = 15;
 my $update = 1;
 my $release = 5;
 
@@ -129,8 +129,11 @@ foreach my $arg (@ARGV) {
          my $sA_unique = new Seq_Alignment($session,{-seq_name=>$seq->seq_name,
                                                      -status=>'unique',
                                                      -seq_release=>$release});
+         my $sA_unwanted = new Seq_Alignment($session,{-seq_name=>$seq->seq_name,
+                                                     -status=>'unwanted',
+                                                     -seq_release=>$release});
          ($session->warn("No alignments for $arg. Skipping.") and next ARG) unless 
-                          $sA_curated->db_exists || $sA_unique->db_exists;
+                          $sA_curated->db_exists || $sA_unique->db_exists || $sA_unwanted->db_exists;
       }
 
       $insertions{$strain} = {ends=>{},pos=>{}} unless exists $insertions{$strain};
@@ -175,8 +178,11 @@ foreach my $arg (@ARGV) {
             my $sA_unique = new Seq_Alignment($session,{-seq_name=>$seq->seq_name,
                                                         -status=>'unique',
                                                          -seq_release=>$release});
+            my $sA_unwanted = new Seq_Alignment($session,{-seq_name=>$seq->seq_name,
+                                                        -status=>'unwanted',
+                                                        -seq_release=>$release});
            ($session->warn("No alignments for ".$seq->seq_name.". Skipping.") and next SEQ) unless 
-                            $sA_curated->db_exists || $sA_unique->db_exists;
+                            $sA_curated->db_exists || $sA_unique->db_exists || $sA_unwanted->db_exists;
          }
          $insertions{$this_strain} = {ends=>{},pos=>{}} unless exists $insertions{$this_strain};
          $insertions{$this_strain}->{ends}{$this_end} = $seq->sequence;
