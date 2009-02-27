@@ -36,12 +36,11 @@ sub new
    my $self = DbObject::new($class,@_);
    $self->{type} = 'GSS';
    $self->{status} = 'New';
-   $self->{dbname} = 'BDGP_INS';
-   $self->{dbxref} = '';
    $self->{gss} = '';
    $self->{sequence} = '';
    $self->{end} = '';
    $self->{insertion_pos} = 'unknown';
+   $self->{dbxref} = {};
    return $self;
 }
 
@@ -56,6 +55,20 @@ sub add_seq
 
    return $self;
 
+}
+
+=head1 add_xref
+
+  add an external db xref to the submission
+
+=cut
+
+sub add_xref
+{
+  my $self = shift;
+  my $key = shift;
+  my $val = shift;
+  $self->{dbxref}{$key} = $val;
 }
 
 =head1 print
@@ -74,7 +87,12 @@ sub print
   $output .= 'GSS#: '.$self->gss."\n";
   $output .= "PUBLIC: \n";
 
-  map {$output .= uc($_).": ".$self->$_."\n"} qw(class p_end dbname dbxref);
+  map {$output .= uc($_).": ".$self->$_."\n"} qw(class p_end);
+
+  foreach my $xref ( sort keys %{$self->{dbxref}} ) {
+    $output .= "DBNAME: $xref\n";
+    $output .= "DBXREF: ".$self->{dbxref}{$xref}."\n";
+  }
 
   # the comment needs special handling.
   my $comment .= $self->comment;
@@ -88,6 +106,15 @@ sub print
   } else {
     $comment =~ s/<SEQINSERT>/$in/sg;
   }
+
+  # another special rule; put in a mention of the Bloomington stock
+  # name if it exists.
+  if ( exists($self->{dbxref}{'BDSC'}) ) {
+    $comment =~ s/\s+$//s;
+    $comment .= ' The Bloomington Drosophila Stock Center identifier is '.
+                       $self->{dbxref}{'BDSC'}.'.';
+  }
+
   $comment =~ s/(.+)/~$1~/g;
   $output .= "COMMENT:\n$comment\n";
   my $seq = $self->sequence;
