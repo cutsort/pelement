@@ -185,7 +185,7 @@ foreach my $file (@files) {
       $session->log($Session::Info,"This chromat has been processed before.");
       if ( $force ) {
          $session->log($Session::Info,"Replacing old sequence.");
-         $lane->delete;
+         $lane->delete('id');
       } else {
          $session->log($Session::Info,"Retaining old sequence.");
          next;
