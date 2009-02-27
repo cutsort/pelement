@@ -312,7 +312,7 @@ foreach my $strain_name (@ARGV) {
       # locate the stock record info by either the seq name or the strain name
       my $s = new Stock_Record($session,{-insertion=>$seq->seq_name});
       # fallback is the strain name
-      $s->insertion($seq->strain_name) unless $s->db_exists;
+      $s = new Stock_Record($session,{-strain_name=>$seq->strain_name}) unless $s->db_exists;
       if ($s->db_exists) {
         $s->select;
         $insert->attribute('fbti',$s->fbti);
