@@ -105,6 +105,7 @@ LANE:
 foreach my $lane (@lanes) {
 
    $session->info("Processing lane ".$lane->seq_name);
+   next if $lane->failure;
 
    # be certain there is enough info for processing the lane
    $session->die("End_sequenced not specified for lane ".$lane->id)
@@ -157,6 +158,7 @@ foreach my $lane (@lanes) {
    }
   
      
+ print $phred_seq->id,"\n";
    my $phred_qual = new Phred_Qual($session,
                          {-phred_seq_id=>$phred_seq->id})->select_if_exists;
 
