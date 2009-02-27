@@ -7,10 +7,13 @@ use strict;
 use ChadoGeneModelSet;
 
 # graphics
+
+use lib '/usr/local/bdgp/labtrack';
 use Bio::Graphics;
 use Bio::SeqFeature::Generic;
 use Bio::SeqFeature::Gene::Transcript;
 use Bio::SeqFeature::Gene::Exon;
+use Bio::SeqFeature::Gene::UTR;
 
 sub makePanel
 {
@@ -54,10 +57,11 @@ sub makePanel
                          -double => 1,
                           -label => 1);
 
-  my $plus_genes = $panel->unshift_track(-glyph => 'transcript',
+  my $plus_genes = $panel->unshift_track(-glyph => 'processed_transcript',
                                    -bump  => -1,
                                    -fgcolor => '#332277',
                                    -bgcolor => '#332277',
+                                   -adjust_exons => 1,
                                    -label => 1);
 
   my $plus_inserts = $panel->unshift_track(-glyph => 'pinsertion',
@@ -65,10 +69,11 @@ sub makePanel
                                       -label => 1,
                                       -bgcolor => \&colorCallback);
 
-  my $minus_genes = $panel->add_track(-glyph => 'transcript',
+  my $minus_genes = $panel->add_track(-glyph => 'processed_transcript',
                                    -bump  => +1,
                                    -fgcolor => '#332277',
                                    -bgcolor => '#332277',
+                                   -adjust_exons => 1,
                                    -label => 1);
 
   my $minus_inserts = $panel->add_track(-glyph => 'pinsertion',
@@ -98,7 +103,7 @@ sub makePanel
       }
     }
 
-    next unless $status eq 'permanent' || $status eq 'new' || $showall;
+    next unless $status eq 'permanent' || $status eq 'new' || $status =~ /exel/i || $showall;
      
     my $strand = (($s->p_start < $s->p_end) eq ($s->s_start < $s->s_end))?+1:-1;
     my $feature = new Bio::SeqFeature::Generic(
@@ -162,22 +167,31 @@ sub makePanel
   }
   
   # get the genes
-  #my $chado_session = new Session({-log_level=>0,
-  #                -dbistr=>'dbi:Pg:dbname=chacrm_4_2;host=mastermind.lbl.gov'});
-  #my $chado = new ChadoGeneModelSet($chado_session,
-  #                $scaffold,$start_pos,$end_pos)->select;
-  #$chado_session->exit;
-
-  my $chado = $session->GeneModelSet($scaffold.'.rel'.$rel,
+  my $chado;
+  if (my $grab_from_real_chado = 0 ) {
+    my $chado_session = new Session({-log_level=>0,
+                  -dbistr=>'dbi:Pg:dbname=chacrm_4_2;host=mastermind.lbl.gov'});
+    $chado = new ChadoGeneModelSet($chado_session,
+                   $scaffold,$start_pos,$end_pos)->select;
+    $chado_session->exit;
+  } else {
+    $chado = $session->GeneModelSet($scaffold.'.rel'.$rel,
                                   $start_pos,$end_pos)->select;
+  }
 
   # repackage these to group the exons into transcripts.
   my %models;
+  my $scaffold_id; # we need this later
   foreach my $exon ($chado->as_list) {
+    # why is chado messed up?
+    $exon->transcript_name($exon->transcript_uniquename)
+                                     if $exon->transcript_name =~ /^-/;
     unless ( exists($models{$exon->transcript_name}) ) {
       $models{$exon->transcript_name} = {start=>$exon->exon_start,
                                            end=>$exon->exon_end,
                                         strand=>$exon->exon_strand,
+                                   start_codon=>'',
+                                    stop_codon=>'',
                      exons=>[[$exon->exon_start,$exon->exon_end]] };
     } else {
       $models{$exon->transcript_name}->{start} = $exon->exon_start
@@ -186,19 +200,97 @@ sub makePanel
                if $exon->exon_end > $models{$exon->transcript_name}->{end};
       push @{$models{$exon->transcript_name}->{exons}},
                               [$exon->exon_start,$exon->exon_end];
+
     }
+    # save it (again)
+    $scaffold_id = $exon->scaffold_id;
   }
-      
 
   foreach my $g ( keys %models ) {
+    # and the start and stop codons?
+    # this is anathema to the whole chado spirit
+    # since we're using names to identify things.
+    foreach my $end qw(start stop) {
+      my $f = $session->Feature({-name=>$g.'_'.$end})->select_if_exists;
+      if ($f && $f->feature_id) {
+        my $fs = $session->FeatureLoc({-feature_id=>$f->feature_id,-srcfeature_id=>$scaffold_id})->select_if_exists;
+        $models{$g}->{$end.'_codon'} = $fs->fmin if $fs && $fs->fmin ne '';
+      }
+    }
+      
     my $gene = new Bio::SeqFeature::Gene::Transcript(
                                        -start=>$models{$g}->{start},
                                        -end=>$models{$g}->{end});
-    foreach my $e ( @{$models{$g}->{exons}} ) {
-      $gene->add_sub_SeqFeature(
-           new Bio::SeqFeature::Gene::Exon(-start=>$e->[0],
-                                           -end=>$e->[1]),'EXPAND');
+    if (my $this_is_the_old_style = 0) {
+      foreach my $e ( @{$models{$g}->{exons}} ) {
+        my $exon = new Bio::SeqFeature::Gene::Exon(-start=>$e->[0],
+                                                   -end=>$e->[1]);
+        $gene->add_sub_SeqFeature($exon,'EXPAND');
+      }
+    } else {
+
+    # the sort manages things in transcription order
+    my $this_strand = $models{$g}->{strand}>0?1:-1;
+    my $this_start = $models{$g}->{start_codon};
+    my $this_stop = $models{$g}->{stop_codon};
+    foreach my $e ( sort { $a->[0]*$this_strand <=> $b->[0]*$this_strand }
+                                                   @{$models{$g}->{exons}} ) {
+      # as far as I can tell, building the models means splitting
+      # the exons into coding and non-coding explictly.
+
+      my $exon = new Bio::SeqFeature::Gene::Exon(-start=>$e->[0],
+                                                 -end=>$e->[1]);
+      $exon->strand($this_strand);
+
+      if ( ($this_strand > 0 && ($e->[1] < $this_start) ) ||
+           ($this_strand < 0 && ($e->[0] > $this_start) ) ) {
+        $exon->primary_tag('utr5prime');
+      } elsif ( ($this_strand > 0 && ($e->[0] > $this_stop) ) ||
+                ($this_strand < 0 && ($e->[1] < $this_stop) ) ) {
+        $exon->primary_tag('utr3prime');
+      } else {
+        if ( $this_strand > 0 && ($e->[0] <= $this_start) ) {
+          $exon->start($this_start);
+          my $nexon = new Bio::SeqFeature::Gene::Exon(
+                            -start=>$e->[0],
+                            -end=>$this_start);
+          $nexon->primary_tag('utr5prime');
+          $nexon->strand($this_strand);
+          $gene->add_exon($nexon);
+        }
+        if ( $this_strand < 0 && ($e->[1] >= $this_start) ) {
+          $exon->end($this_start);
+          my $nexon = new Bio::SeqFeature::Gene::Exon(
+                             -start=>$this_start,
+                             -end=>$e->[1]);
+          $nexon->primary_tag('utr5prime');
+          $nexon->strand($this_strand);
+          $gene->add_exon($nexon);
+        }
+        if ( $this_strand > 0 && ($e->[1] >= $this_stop) ) {
+          $exon->end($this_stop);
+          my $nexon = new Bio::SeqFeature::Gene::Exon(
+                          -start=>$this_stop,
+                          -end=>$e->[1]);
+          $nexon->primary_tag('utr3prime');
+          $nexon->strand($this_strand);
+          $gene->add_exon($nexon);
+        }
+        if ( $this_strand < 0 && ($e->[0] <= $this_stop) )  {
+          $exon->start($this_stop);
+          my $nexon = new Bio::SeqFeature::Gene::Exon(
+                          -start=>$e->[0],
+                          -end=>$this_stop);
+          $nexon->primary_tag('utr3prime');
+          $nexon->strand($this_strand);
+          $gene->add_exon($nexon);
+        }
+      }
+      $gene->add_exon($exon);
     }
+    }
+
+
     $gene->display_name($g);
     if ($models{$g}->{strand} > 0 ) {
       $gene->strand(+1);
@@ -219,9 +311,14 @@ sub colorCallback {
   my $f = $_[0];
   return 'green' unless $f;
   my @s = $f->each_tag_value('status');
-  my %color=(new=>'red','permanent'=>'cyan',other=>'green');
-  return 'green' unless exists $color{$s[0]};
-  return $color{$s[0]};
+  my %color=(new=>'red',
+             permanent=>'cyan',
+             exelbloom=>'green',
+             exelixis=>'blue',
+             yale => 'blue',
+             );
+  return 'grey' unless exists $color{lc($s[0])};
+  return $color{lc($s[0])};
 }
 
 1;
