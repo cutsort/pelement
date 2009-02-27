@@ -37,7 +37,7 @@ while(<FIL>) {
 
    # skip headers and blank lines
    next unless $_;
-   next if /^Strain/;
+   next if /^Strain/i;
 
    my ($name,$status) = split(/\s+/,$_);
 
