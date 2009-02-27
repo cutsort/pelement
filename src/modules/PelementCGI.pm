@@ -15,7 +15,7 @@
 package PelementCGI;
 
 use Exporter;
-use CGI;
+use CGI qw(:html4 :imagemap);
 
 @ISA = qw(Exporter CGI);
 
@@ -24,6 +24,7 @@ use CGI;
               $HTML_TABLE_HEADER_BGCOLOR2
               $HTML_TABLE_BORDERCOLOR
             );
+
 
 # constants used in colors, borders, widths, ...
 
@@ -122,7 +123,9 @@ sub close_page
 sub banner
 {
   my $self = shift;
-  return $self->center($self->h3('BDGP Pelement Insertion Data Tracking DB')),
+  return $self->center($self->div({-class=>'PageTitle'},
+                        'BDGP ',$self->a({-href=>'pelement.pl',-class=>'banner'},'Pelement'),
+                                 ' Insertion Data Tracking DB')),
                        $self->p({-align=>'right'},localtime(time).""),"\n",
                        $self->hr."\n";
 
@@ -137,10 +140,10 @@ sub footer
   map { push @$formattedLinks, $self->a({-href=>$_->{link}},$_->{name}) } @$links;
 
   my $table;
-  $table = $self->table($self->Tr([$self->td($formattedLinks)]))."\n" if @$formattedLinks;
+  $table = $self->table({-class=>'unboxed'},$self->Tr([$self->td($formattedLinks)]))."\n" if @$formattedLinks;
 
   return $self->html_only($self->hr."\n".
-         $self->center($self->h3('BDGP Pelement Insertion Data Tracking DB'),
+         $self->center($self->div({-class=>'PageTitle'},'BDGP Pelement Insertion Data Tracking DB'),
                        $self->br,"\n",$table));
 }
 
