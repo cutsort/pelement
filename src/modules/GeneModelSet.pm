@@ -28,10 +28,26 @@ use SQLObjectSet;
 
 BEGIN {
   # these change between shapshots only; it may speed up queries to code these.
-  $GeneModelSet::part_of = 59639;
-  $GeneModelSet::exon_type_id = 59812;
-  $GeneModelSet::transcript_type_id = 59899;
-  $GeneModelSet::gene_type_id = 60369;
+  # release 4.3 values
+  # $GeneModelSet::part_of = 59639;
+  # $GeneModelSet::derives_from = 59647;
+  # $GeneModelSet::exon_type_id = 59812;
+  # $GeneModelSet::transcript_type_id = '(59899,59917,59918,59939,59940,59941,60320)';
+  # $GeneModelSet::gene_type_id = 60369;
+  # $GeneModelSet::polypeptide_type_id = 59769;
+  # $GeneModelSet::start_codon_type_id = 59983;
+  # $GeneModelSet::stop_codon_type_id = 59984;
+  # release 5.1
+  $GeneModelSet::part_of = 26;
+  $GeneModelSet::derives_from = 27;
+  $GeneModelSet::exon_type_id = 257;
+  $GeneModelSet::transcript_type_id = '(475,438,368,450,456,461,426)';
+  $GeneModelSet::polypeptide_type_id = 61282;
+  $GeneModelSet::gene_type_id = 219;
+  $GeneModelSet::start_codon_type_id = 260;
+  $GeneModelSet::stop_codon_type_id = 264;
+  $GeneModelSet::max_feature_id = 26413779;
+  $GeneModelSet::organism_id = 1;
 }
 
 =head1 new
@@ -78,12 +94,14 @@ sub new
                       feature_relationship gt, feature_relationship te,
                       featureloc i, featureloc j, featureloc l
                where e.type_id=$GeneModelSet::exon_type_id and
-                     t.type_id=$GeneModelSet::transcript_type_id and
+                     t.type_id in $GeneModelSet::transcript_type_id and
                      g.type_id=$GeneModelSet::gene_type_id and
                      i.feature_id=g.feature_id and
                      j.feature_id=t.feature_id and
                      l.feature_id=e.feature_id and
                      a.feature_id=l.srcfeature_id and
+                     a.feature_id=j.srcfeature_id and
+                     a.feature_id=i.srcfeature_id and
                      te.subject_id=e.feature_id and
                      te.object_id=t.feature_id and
                      te.type_id=$GeneModelSet::part_of and
