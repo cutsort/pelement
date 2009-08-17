@@ -83,7 +83,7 @@ sub reportStrain
    my $session = new Session({-log_level=>0});
 
    # try to make sense of the strain name. It may have an end identifier or other characters
-   $strain =~ s/\s+//g;
+   $strain =~ s/^\s+(\S+)\s+$/$1/;
    # and get rid of strange periods from cutting-n-pasting
    $strain =~ s/\.$//g;
 
@@ -186,6 +186,8 @@ sub reportStrain
         $q = 'Transitory';
      } elsif ($q =~ /^r\d+$/ ) {
         $q = 'Unconfirmed Recheck';
+     } elsif ($q =~ /^i\d+$/ ) {
+        $q = 'Reference Imported';
      } elsif ($q =~ /^[a-z]+$/ ) {
         $q = 'Curated';
      } else {
