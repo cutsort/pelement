@@ -277,7 +277,7 @@ foreach my $lane (@lanes) {
 
    # a second try at determining restriction site. Look for the restriction
    # site in the high quality region. This is what will be exported.
-   unless ($vStart) {
+   if (!$vStart && $qStart < length($phred_seq->seq) ) {
       $vEnd = siteTrim(substr($phred_seq->seq,$qStart),$cutSeq);
       if ($vEnd) {
          $vEnd += $qStart;
