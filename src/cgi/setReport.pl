@@ -23,7 +23,7 @@ use Cytology;
 use PelementCGI;
 use PelementDBI;
 
-use GeneModelSet;
+#use GeneModelSet;
 
 use strict;
 
@@ -225,7 +225,7 @@ sub reportSet
    my @mergedStrains = ();
    my @stockList = ();
    my $fastaSeq;
-   my $release = $cgi->param('release') || '3';
+   my $release = $cgi->param('release') || '5';
 
    my %reports;
    my @reports = $cgi->param('view');
@@ -562,17 +562,37 @@ sub getCytoAndGene
 
       my $down = $in->{strand}==1?0:500;
       my $up = $in->{strand}==1?500:0;
-      my $geneSet = new GeneModelSet($session,$arm.'.rel'.$release,$start-$down,$end+$up)->select;
+ 
+      my $down = $in->{strand}==1?0:0;
+      my $up = $in->{strand}==1?0:0;
+
+      #my $geneSet = new GeneModelSet($session,$arm.'.rel'.$release,$start-$down,$end+$up)->select;
+      # explicit SQL
+      my @geneSet;
+      $session->db->select(qq(select g.name,g.uniquename,fmin,fmax from feature g, featureloc l, feature a
+                              where l.feature_id=g.feature_id and a.feature_id=l.srcfeature_id
+                              and a.uniquename='$arm.rel$release' and
+                              fmin <= $end+$up and fmax >= $start-$down),\@geneSet);
+      
 
       # look at each annotation and decide if we're inside it.
 
       my %gene_name_hash;
-      foreach my $annot ($geneSet->as_list) {
+      #foreach my $annot ($geneSet->as_list) {
+      while (@geneSet) {
+        my $gene_name = shift @geneSet;
+        my $gene_uniquename = shift @geneSet;
+        my $gene_start = shift @geneSet;
+        my $gene_end = shift @geneSet;
         # we need to see if we're really within the gene or nearby
-        if( $start <= $annot->gene_end && $end >= $annot->gene_start) {
-           $gene_name_hash{$annot->gene_name.'('.$annot->gene_uniquename.')'} = 1;
-        } elsif ( !exists( $gene_name_hash{$annot->gene_name.'('.$annot->gene_uniquename.')'}) ) {
-           $gene_name_hash{$annot->gene_name.'('.$annot->gene_uniquename.')'} = 'near';
+        #if( $start <= $annot->gene_end && $end >= $annot->gene_start) {
+        if( $start <= $gene_end && $end >= $gene_start) {
+           #$gene_name_hash{$annot->gene_name.'('.$annot->gene_uniquename.')'} = 1;
+           $gene_name_hash{$gene_name.'('.$gene_uniquename.')'} = 1;
+        #} elsif ( !exists( $gene_name_hash{$annot->gene_name.'('.$annot->gene_uniquename.')'}) ) {
+        } elsif ( !exists( $gene_name_hash{$gene_name.'('.$gene_uniquename.')'}) ) {
+           #$gene_name_hash{$annot->gene_name.'('.$annot->gene_uniquename.')'} = 'near';
+           $gene_name_hash{$gene_name.'('.$gene_uniquename.')'} = 'near';
         }
            
       }
