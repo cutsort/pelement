@@ -209,9 +209,9 @@ sub reportSeq
                             "lower case: low quality",])),$cgi->br,"\n";
    if ( $lane && $lane->id ) {
      print $cgi->a({-href=>'seqTrimmer.pl?id='.$lane->id},'Manually Trim Sequence'),
-           $cgi->br,"\n",
-           $cgi->a({-href=>'chromatReport.pl?id='.$lane->id,-target=>'_chromat'},
-                         'View Chromat'),"\n";
+           $cgi->br,"\n";
+     print $cgi->a({-href=>'chromatReport.pl?id='.$lane->id,-target=>'_chromat'},
+                         'View Chromat'),"\n" unless $lane->file =~ /fasta/;
    }
 
    # we need to unescape the action setting to keep the 'http://'in the URL

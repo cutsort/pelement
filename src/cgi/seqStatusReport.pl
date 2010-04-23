@@ -227,6 +227,8 @@ sub reportSeq
       $q = 'transitory';
    } elsif ($q =~ /^r\d+$/ ) {
       $q = 'unconfirmed recheck';
+   } elsif ($q =~ /^i\d+$/ ) {
+      $q = 'reference imported'; # can't touch this
    } elsif ($q = /^[a-z]$/ ) {
       $q = 'curated';
    } else {
@@ -235,21 +237,24 @@ sub reportSeq
 
    my @tableRows = ();
 
-   push @tableRows, [qq(The sequence may be marked ).$cgi->em('current').
-                     qq( and remove the qualifiers. This may only be done
-                     if there is not now a sequence of this strain
-                     and this end marked current),
-                    $cgi->submit(-name=>'action',-value=>'Current')]
-                                                      unless $q eq 'current';
-   push @tableRows, [qq(The sequence may be marked ).$cgi->em('transitory').
-                     qq( if we think it may have been removed geneticly.),
-                    $cgi->submit(-name=>'action',-value=>'Transitory')]
-                                                     unless $q eq 'transitory';
-   push @tableRows, [qq(The sequence may be marked as a ).$cgi->em('curated').
-                     qq( sequence of a multiple insertion. Use this designation
-                     if the strain has multiple, distinguishable insertions.),
-                    $cgi->submit(-name=>'action',-value=>'Curated')]
-                                                     unless $q eq 'curated';
+   unless ($q eq 'reference imported') {
+
+     push @tableRows, [qq(The sequence may be marked ).$cgi->em('current').
+                       qq( and remove the qualifiers. This may only be done
+                       if there is not now a sequence of this strain
+                       and this end marked current),
+                      $cgi->submit(-name=>'action',-value=>'Current')]
+                                                        unless $q eq 'current';
+     push @tableRows, [qq(The sequence may be marked ).$cgi->em('transitory').
+                       qq( if we think it may have been removed geneticly.),
+                      $cgi->submit(-name=>'action',-value=>'Transitory')]
+                                                       unless $q eq 'transitory';
+     push @tableRows, [qq(The sequence may be marked as a ).$cgi->em('curated').
+                       qq( sequence of a multiple insertion. Use this designation
+                       if the strain has multiple, distinguishable insertions.),
+                      $cgi->submit(-name=>'action',-value=>'Curated')]
+                                                       unless $q eq 'curated';
+   }
    push @tableRows, [qq(The sequence may be removed from the database. ).
                      $cgi->em(qq(Removing the sequence destroys 
                                  all records of the consensus sequence, blast

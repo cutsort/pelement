@@ -54,6 +54,18 @@ sub MakeHTML
   if ($form->param('scaffold') && $form->param('center') &&
                                                   $form->param('release') ) {
     $html .= reportRegion($cgi,$form);
+
+    if( $form->param('showall') ) {
+      $html .= $cgi->center($cgi->a({-href=>'regionReport.pl?scaffold='.$form->param('scaffold').
+                                                '&center='.$form->param('center').
+                                               '&release='.$form->param('release').
+                                               '&showall=0'},'Do Not Show All'));
+    } else {
+      $html .= $cgi->center($cgi->a({-href=>'regionReport.pl?scaffold='.$form->param('scaffold').
+                                                '&center='.$form->param('center').
+                                               '&release='.$form->param('release').
+                                               '&showall=1'},'Show All'));
+    }
   } else {
     $html.= $cgi->center($form->render(submit=>['Enter']));
   }
@@ -83,7 +95,7 @@ sub reportRegion
   my $scaffold = $form->param('scaffold');
   my $center = $form->param('center');
   my $range = $form->param('range') || 10000;
-  my $rel = $form->param('release') || 3;
+  my $rel = $form->param('release') || 5;
   my $showall = $form->param('showall') || 0;
 
   my $panel = RegionImage::makePanel($scaffold,$center,$range,$rel,$showall);
