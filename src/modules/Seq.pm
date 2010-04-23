@@ -170,6 +170,8 @@ sub qualifier
 
   if ( $name =~ /[^-]*-[35]\.?(.*)/ ) {
     return $1;
+  } elsif ( $name =~ /[^-]*\.(.*)/ ) {
+    return $1;
   } else {
     return '';
   }
