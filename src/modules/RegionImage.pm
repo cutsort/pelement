@@ -316,6 +316,7 @@ sub colorCallback {
              exelbloom=>'green',
              exelixis=>'blue',
              yale => 'blue',
+             carnegie => 'purple',
              );
   return 'grey' unless exists $color{lc($s[0])};
   return $color{lc($s[0])};
