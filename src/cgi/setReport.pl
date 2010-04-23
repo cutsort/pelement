@@ -572,7 +572,7 @@ sub getCytoAndGene
       $session->db->select(qq(select g.name,g.uniquename,fmin,fmax from feature g, featureloc l, feature a
                               where l.feature_id=g.feature_id and a.feature_id=l.srcfeature_id
                               and a.uniquename='$arm.rel$release' and
-                              fmin <= $end+$up and fmax >= $start-$down),\@geneSet);
+                              fmin <= $end+$up and fmax >= $start-$down and g.type_id=219),\@geneSet);
       
 
       # look at each annotation and decide if we're inside it.
