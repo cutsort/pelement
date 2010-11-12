@@ -24,11 +24,13 @@ use Getopt::Long;
 
 my $file;
 my $test = 0;
+my $header = 0; # test the header only
 
 my $session = new Session;
 
 GetOptions("file=s"   => \$file,
            "test!"    => \$test,
+           "header!"  => \$header,
            );
 
 $session->die("Need to supply a -file argument.") unless $file;
@@ -59,9 +61,9 @@ while(<FIL>) {
            $xref{is_multi} = $i;
          } elsif ( $fields[$i] =~ /^is[_ ]multi[_ ]comment$/i ) {
            $xref{is_multi_comment} = $i;
-         } elsif ( $fields[$i] =~ /^is[_ ]homo[_ ]viable$/i ) {
+         } elsif ( $fields[$i] =~ /^is[_ ]homo[_ ]viable/i ) {
            $xref{is_homozygous_viable} = $i;
-         } elsif ( $fields[$i] =~ /^is[_ ]homo[_ ]fertile$/i ) {
+         } elsif ( $fields[$i] =~ /^is[_ ]homo[_ ]fertile/i ) {
            $xref{is_homozygous_fertile} = $i;
          } elsif ( $fields[$i] =~ /^phenotype$/i ) {
            $xref{phenotype} = $i;
@@ -74,6 +76,10 @@ while(<FIL>) {
          } else {
            $session->warn("Unprocessed field: $fields[$i].");
          }
+      }
+      if ($header) {
+        $session->info("Processed headers for ".join(" ",keys %xref));
+        last;
       }
       next;
    }
