@@ -45,7 +45,8 @@ while(<FIL>) {
 
    my $strain = new Strain($session,{-strain_name=>$name});
    unless ( $strain->db_exists ) {
-      $session->die("There is no strain named $name.");
+      $session->warn("There is no strain named $name.");
+      next LINE;
    }
    $strain->select;
    $strain->status($status);
