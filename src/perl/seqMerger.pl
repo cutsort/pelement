@@ -52,7 +52,7 @@ use strict;
 my $session = new Session();
 
 my $force = 0;
-my $use = 3;
+my $use = 0;
 my $ifAligned = 1;
 my $test = 0;
 my $release = 5;
