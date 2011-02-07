@@ -458,7 +458,7 @@ sub reportSet
                                       -id=>'stock'},
            $cgi->Tr( [
               $cgi->th(
-                      ["Strain","Arm","Range","Cytology","Gene(s)"] ),
+                      ["Strain","Arm","Range","Strand","Cytology","Gene(s)"] ),
                        (map { $cgi->td({-align=>"center"}, $_ ) } @stockList),
                       ] )
                      )),$cgi->br,$cgi->hr({-width=>'50%'}),"\n";
@@ -490,7 +490,7 @@ sub generateStockList
 
    my @insertList = getCytoAndGene($session,$strain,$release);
    if (scalar(@insertList) ) {
-      map {push @returnList, [$strain,$_->{arm},$_->{range},$_->{band},
+      map {push @returnList, [$strain,$_->{arm},$_->{range},$_->{strand},$_->{band},
                                   join(" ",@{$_->{gene}})] } @insertList;
    } else {
       push @returnList, [$strain,,,,];
