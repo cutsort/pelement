@@ -39,12 +39,12 @@ print $cgi->banner;
 
 if ($strain) {
    reportStrain($cgi,$strain);
-   print $cgi->center($cgi->a({-href=>'strainReport.pl?strain='.$strain},
-                               'Return to Report for '.$strain).$cgi->br);
+   print $cgi->center($cgi->a({-href=>'strainReport.pl?strain='.Seq::strain($strain)},
+                               'Return to Report for '.Seq::strain($strain)).$cgi->br);
 } elsif ($seq_name && $cgi->param('action') ) {
    rebuildSeqAssembly($cgi,$seq_name);
-   print $cgi->center($cgi->a({-href=>'strainReport.pl?strain='.$seq_name},
-                               'Return to Report for '.$seq_name).$cgi->br);
+   print $cgi->center($cgi->a({-href=>'strainReport.pl?strain='.Seq::strain($seq_name)},
+                               'Return to Report for '.Seq::strain($seq_name)).$cgi->br);
 } elsif ($seq_name) {
    reportSeqAssemblyAlignment($cgi,$seq_name);
 } else {
