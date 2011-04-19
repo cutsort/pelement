@@ -158,7 +158,7 @@ sub reportStrain
   
    my $seqSet = new SeqSet($session,{-strain_name=>$s->strain_name})->select;
 
-   my %db_name = ( "release3_genomic" => "Release 3 Genomic",
+   my %db_name = (## "release3_genomic" => "Release 3 Genomic",
                    "release5_genomic" => "Release 5 Genomic",
                    "vector"           => "Vector Contaminates",
                    "na_te.dros"       => "Transposable Elements",
@@ -294,7 +294,8 @@ sub reportStrain
    my %alignedHSP = ();
    my $ctr = 1;
 
-   foreach my $release qw( 3 5 ) {
+   #foreach my $release qw( 3 5 ) {
+   foreach my $release qw( 5 ) {
      # I gotta get these table joins to work.
      my @tableRows = ();
      foreach my $seq ($seqSet->as_list) {
