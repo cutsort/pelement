@@ -193,6 +193,13 @@ sub reportSeq
 
    print $cgi->br,"\n";
 
+   if ( $lane && $lane->id ) {
+     print $cgi->a({-href=>'seqTrimmer.pl?id='.$lane->id},'Manually Trim Sequence'),
+           $cgi->br,"\n";
+     print $cgi->a({-href=>'chromatReport.pl?id='.$lane->id,-target=>'_chromat'},
+                         'View Chromat'),"\n" unless $lane->file =~ /fasta/;
+   }
+
    # print trimming info if this is a phred seq.
    if ($table eq 'lane' || $table eq 'phred_seq' ) {
       print $cgi->ul($cgi->li(["Quality trimming start: ".(defined($seq->q_trim_start)?$seq->q_trim_start:'Not set'),
@@ -207,12 +214,6 @@ sub reportSeq
                             "<font color='blue'>Flank</font>",
                             "UPPER CASE: HIGH QUALITY",
                             "lower case: low quality",])),$cgi->br,"\n";
-   if ( $lane && $lane->id ) {
-     print $cgi->a({-href=>'seqTrimmer.pl?id='.$lane->id},'Manually Trim Sequence'),
-           $cgi->br,"\n";
-     print $cgi->a({-href=>'chromatReport.pl?id='.$lane->id,-target=>'_chromat'},
-                         'View Chromat'),"\n" unless $lane->file =~ /fasta/;
-   }
 
    # we need to unescape the action setting to keep the 'http://'in the URL
    print $cgi->center(
