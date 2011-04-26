@@ -285,6 +285,12 @@ sub reportStrain
             } elsif ( $cgi->param('status') eq 'unwanted') {
                $seq_a->status('unwanted');
                $seq_a->update;
+            } elsif ( $cgi->param('status') eq 'suspicious') {
+               $seq_a->status('suspicious');
+               $seq_a->update;
+            } elsif ( $cgi->param('status') eq 'start_site') {
+               $seq_a->status('start_site');
+               $seq_a->update;
             }
          }
       }
@@ -324,7 +330,7 @@ sub reportStrain
                         $cgi->hidden(-name=>'id',-value=>$seq_a->id).
                         $cgi->popup_menu(-name => 'status',
                                       -default => $seq_a->status eq 'multiple'?'curated':$seq_a->status,
-                                       -values => ['curated','deselected','unwanted']).
+                                       -values => ['curated','deselected','unwanted','suspicious','start_site']).
                         $cgi->submit(-name => 'Curate').
                      $cgi->end_form;
 
