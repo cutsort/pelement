@@ -138,7 +138,7 @@ foreach my $strain_name (@ARGV) {
       my $end = Seq::end($align->seq_name);
       my $qual = Seq::qualifier($align->seq_name);
       # do not look at unconfirmed recheck seq.
-      next if $qual =~ /^r/;
+      next if $qual =~ /^[ri]/;
       # we deduce the strand from p_start and p_end
       my $strand = ($align->p_end > $align->p_start)?1:-1;
       $end = 'o' if $qual =~ /^\d+$/;
@@ -294,6 +294,8 @@ foreach my $strain_name (@ARGV) {
    foreach my $seq ( sort {$b->end cmp $a->end} $seqSet->as_list) {
       # we loop through all sequences, trying to bundle together sequences that
       # are part of the same insertion.
+
+      next if Seq::qualifier($seq->seq_name) =~ /^[ri]/;
 
       # in case we've already dealt with this before, we skip and go on
       next if $handled_seqs{$seq->seq_name};
@@ -688,7 +690,7 @@ sub getGeneHit
    $start = ($start<0)?0:$start;
    my $end =  $pos[-1] + $grabSize;
 
-   my $geneSet = new GeneModelSet($session,$arm.'.rel'.$release,$start,$end)->select;
+   my $geneSet = new GeneModelSet($session,$arm,$start,$end)->select;
 
    my @annot;
    $session->log($Session::Info,"Found ".$geneSet->count." genes.");
