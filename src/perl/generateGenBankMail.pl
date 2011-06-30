@@ -45,7 +45,7 @@ my $session = new Session();
 
 my $outFile;
 my $appendFile;
-my $minLength = 15;
+my $minLength = 10;
 my $update = 1;
 my $release = 5;
 
