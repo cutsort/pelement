@@ -32,7 +32,9 @@ my $cgi = new PelementCGI;
 my $batch = $cgi->param('batch');
 
 print $cgi->header();
-print $cgi->init_page({-title=>"$batch Recheck Report"});
+print $cgi->init_page({-title=>"$batch Recheck Report",
+                       -script=>{-src=>'/pelement/sorttable.js'},
+                       -style=>{-src=>'/pelement/pelement.css'}});
 print $cgi->banner();
 
 

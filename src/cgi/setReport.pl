@@ -566,12 +566,12 @@ sub getCytoAndGene
       my $down = $in->{strand}==1?0:0;
       my $up = $in->{strand}==1?0:0;
 
-      #my $geneSet = new GeneModelSet($session,$arm.'.rel'.$release,$start-$down,$end+$up)->select;
+      #my $geneSet = new GeneModelSet($session,$arm,$start-$down,$end+$up)->select;
       # explicit SQL
       my @geneSet;
       $session->db->select(qq(select g.name,g.uniquename,fmin,fmax from feature g, featureloc l, feature a
                               where l.feature_id=g.feature_id and a.feature_id=l.srcfeature_id
-                              and a.uniquename='$arm.rel$release' and
+                              and a.uniquename='$arm' and
                               fmin <= $end+$up and fmax >= $start-$down and g.type_id=219),\@geneSet);
       
 

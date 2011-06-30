@@ -33,7 +33,9 @@ if (!$cgiSession->param('user_id')) {
 }
 
 print $cgi->header( -cookie => $cookie );
-print $cgi->init_page({-title=>"Batch Registration"});
+print $cgi->init_page({-title=>"Batch Registration",
+                       -script=>{-src=>'/pelement/sorttable.js'},
+                       -style=>{-src=>'/pelement/pelement.css'}});
 print $cgi->banner();
 
 my $form = new CGI::FormBuilder(
@@ -126,7 +128,7 @@ if (!$form->submitted || $form->submitted eq 'Format' ||
 
     print $cgi->p($cgi->em("You are currently logged in as ",
                                     $cgi->b($cgiSession->param('user_id'))));
-    print $cgi->center($cgi->table({-border=>1,-align=>'center'},
+    print $cgi->center($cgi->table({-border=>1,-align=>'center',-class=>'unboxed'},
                                     $cgi->Tr({-align=>'center'}, [
                                      $cgi->th({-width=>9},['',(1..12)]),
                                              @samples]))),"\n";

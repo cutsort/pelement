@@ -33,7 +33,9 @@ if (!($id =$cgiSession->param('user_id')) ) {
 }
 
 print $cgi->header( -cookie => $cookie );
-print $cgi->init_page({-title=>"iPCR Registration"});
+print $cgi->init_page({-title=>"iPCR Registration",
+                       -script=>{-src=>'/pelement/sorttable.js'},
+                       -style=>{-src=>'/pelement/pelement.css'}});
 print $cgi->banner();
 
 my $form = new CGI::FormBuilder(

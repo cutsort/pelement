@@ -33,7 +33,9 @@ my $strain = $cgi->param('strain');
 my $seq_name = $cgi->param('seq_name');
 
 print $cgi->header;
-print $cgi->init_page({-title=>"$strain Assembly Report"});
+print $cgi->init_page({-title=>"$strain Assembly Report",
+                       -script=>{-src=>'/pelement/sorttable.js'},
+                       -style=>{-src=>'/pelement/pelement.css'}});
 print $cgi->banner;
 
 

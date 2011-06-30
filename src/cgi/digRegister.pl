@@ -33,7 +33,9 @@ if (!($user_id=$cgiSession->param('user_id')) ) {
 }
 
 print $cgi->header( -cookie => $cookie );
-print $cgi->init_page({-title=>"Digestion Registration"});
+print $cgi->init_page({-title=>"Digestion Registration",
+                       -script=>{-src=>'/pelement/sorttable.js'},
+                       -style=>{-src=>'/pelement/pelement.css'}});
 print $cgi->banner();
 
 my $form = new CGI::FormBuilder(

@@ -49,7 +49,7 @@ print $cgi->center( $cgi->table({-width=>'70%',
                                       -class=>'unboxed'},['Registration','Report']),
                               $cgi->Tr( [
                                       $cgi->td({-class=>'unboxed'},[
-                                        $cgi->table({-width=>'80%'},
+                                        $cgi->table({-width=>'80%',-class=>'unboxed'},
                                          $cgi->Tr( [
                                          $cgi->td({-class=>'unboxed'},[
                                            $cgi->a({-href=>'batchRegister.pl'},'Batch Registration')]),

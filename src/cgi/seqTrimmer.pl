@@ -20,7 +20,9 @@ use GH::Sim4;
 $cgi = new PelementCGI;
 
 print $cgi->header();
-print $cgi->init_page({-title=>"Manual Sequence Trimming"});
+print $cgi->init_page({-title=>"Manual Sequence Trimming",
+                       -script=>{-src=>'/pelement/sorttable.js'},
+                       -style=>{-src=>'/pelement/pelement.css'}});
 print $cgi->banner();
 
 

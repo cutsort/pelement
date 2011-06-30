@@ -15,7 +15,9 @@ use PelementDBI;
 $cgi = new PelementCGI;
 
 print $cgi->header();
-print $cgi->init_page({-title=>$cgi->param('strain')." Strain Status Report"});
+print $cgi->init_page({-title=>$cgi->param('strain')." Strain Status Report",
+                       -script=>{-src=>'/pelement/sorttable.js'},
+                       -style=>{-src=>'/pelement/pelement.css'}});
 print $cgi->banner();
 
 

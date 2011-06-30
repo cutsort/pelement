@@ -28,7 +28,9 @@ my $region = $cgi->param('region');
 my $rel = $cgi->param('rel') || 5;
 
 print $cgi->header;
-print $cgi->init_page({-title=>"$seq_name Hit Maker"});
+print $cgi->init_page({-title=>"$seq_name Hit Maker",
+                       -script=>{-src=>'/pelement/sorttable.js'},
+                       -style=>{-src=>'/pelement/pelement.css'}});
 print $cgi->banner;
 
 if ($seq_name && $arm && $center && $region ) {

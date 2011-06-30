@@ -26,7 +26,9 @@ if ($cgi->param('img')) {
 } else {
 
    print $cgi->header();
-   print $cgi->init_page({-title=>"Chromat Report"});
+   print $cgi->init_page({-title=>"Chromat Report",
+                       -script=>{-src=>'/pelement/sorttable.js'},
+                       -style=>{-src=>'/pelement/pelement.css'}});
    print $cgi->banner();
 
    if ($cgi->param('id')) {

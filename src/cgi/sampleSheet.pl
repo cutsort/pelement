@@ -51,7 +51,9 @@ if ($form->submitted && $form->validate) {
 } else {
 
     print $cgi->header;
-    print $cgi->init_page({-title=>"Sequencing Sample Sheets"});
+    print $cgi->init_page({-title=>"Sequencing Sample Sheets",
+                       -script=>{-src=>'/pelement/sorttable.js'},
+                       -style=>{-src=>'/pelement/pelement.css'}});
     print $cgi->banner();
     print $cgi->center($cgi->hr,
                        $form->render(submit=>['Enter']));

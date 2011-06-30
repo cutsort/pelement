@@ -28,6 +28,7 @@ if (my $id = $cgiSession->param('user_id')) {
   print $cgi->header();
   unless ($msg) {
     print $cgi->init_page({-title=>'Logout Successful',
+                       -style=>{-src=>'/pelement/pelement.css'},
          -head=>["<META HTTP-EQUIV=\"refresh\" content=\"2; URL=pelement.pl\"/>"]});
     print $cgi->banner();
     print $cgi->p($cgi->em("You were logged in as ",$cgi->b($id))),
@@ -37,6 +38,7 @@ if (my $id = $cgiSession->param('user_id')) {
                     $cgi->a({-href=>'pelement.pl'},'click'),' to continue.');
   } else {
     print $cgi->init_page({-title=>'Logout Unsuccessful',
+                       -style=>{-src=>'/pelement/pelement.css'},
          -head=>["<META HTTP-EQUIV=\"refresh\" content=\"2; URL=pelement.pl\"/>"]});
     print $cgi->banner();
     print $cgi->p($cgi->em("You were logged in as ",$cgi->b($id))),
@@ -49,6 +51,7 @@ if (my $id = $cgiSession->param('user_id')) {
 
   print $cgi->header();
   print $cgi->init_page({-title=>'Logout Unsuccessful',
+                       -style=>{-src=>'/pelement/pelement.css'},
       -head=>
            ["<META HTTP-EQUIV=\"refresh\" content=\"2; URL=pelement.pl\"/>"]});
   print $cgi->banner();

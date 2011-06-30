@@ -18,7 +18,9 @@ use Processing;
 $cgi = new PelementCGI;
 
 print $cgi->header();
-print $cgi->init_page({-title=>"Gel Report"});
+print $cgi->init_page({-title=>"Gel Report",
+                       -script=>{-src=>'/pelement/sorttable.js'},
+                       -style=>{-src=>'/pelement/pelement.css'}});
 print $cgi->banner();
 
 
@@ -48,7 +50,7 @@ sub selectGel
        $cgi->h3("Enter the Gel Name:"),"\n",
        $cgi->br,
        $cgi->start_form(-method=>"get",-action=>"gelReport.pl"),"\n",
-          $cgi->table( {-bordercolor=>$HTML_TABLE_BORDERCOLOR},
+          $cgi->table( {-class=>'unboxed'},
              $cgi->Tr( [
                 $cgi->td({-align=>"right",-align=>"left"},
                                   ["Gel Name",$cgi->textfield(-name=>"name")]),

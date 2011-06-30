@@ -46,6 +46,8 @@ if ($form->submitted && $form->validate && (my $id = $form->param('name') ) ) {
     if ($back_url) {
       print $cgi->header();
       print $cgi->init_page({-title=>'Login Successful',
+                       -script=>{-src=>'/pelement/sorttable.js'},
+                       -style=>{-src=>'/pelement/pelement.css'},
           -head=>
            ["<META HTTP-EQUIV=\"refresh\" content=\"2; URL=$back_url\"/>"]});
       print $cgi->banner();
@@ -54,14 +56,18 @@ if ($form->submitted && $form->validate && (my $id = $form->param('name') ) ) {
                     $cgi->a({-href=>$back_url},'click'),' to continue.');
     } else {
       print $cgi->header();
-      print $cgi->init_page({-title=>"Login Successful"});
+      print $cgi->init_page({-title=>"Login Successful",
+                       -script=>{-src=>'/pelement/sorttable.js'},
+                       -style=>{-src=>'/pelement/pelement.css'}});
       print $cgi->banner();
       print $cgi->p("Hello, $id\n",$cgi->br,
         "Your login was successful, but there is no referring URL for return.");
     }
   } else {
     print $cgi->header;
-    print $cgi->init_page({-title=>"Login Unsuccessful"});
+    print $cgi->init_page({-title=>"Login Unsuccessful",
+                       -script=>{-src=>'/pelement/sorttable.js'},
+                       -style=>{-src=>'/pelement/pelement.css'}});
     print $cgi->banner;
     print $cgi->p("Your login name could not be found in the db.");
     print $cgi->center($form->render);
@@ -70,7 +76,9 @@ if ($form->submitted && $form->validate && (my $id = $form->param('name') ) ) {
 } else {
 
   print $cgi->header();
-  print $cgi->init_page({-title=>"Login"});
+  print $cgi->init_page({-title=>"Login",
+                         -script=>{-src=>'/pelement/sorttable.js'},
+                         -style=>{-src=>'/pelement/pelement.css'}});
   print $cgi->banner();
   print $cgi->center(
         $cgi->h3("Authentification Required."),
