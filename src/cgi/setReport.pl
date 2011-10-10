@@ -15,6 +15,8 @@ use SampleSet;
 use Strain;
 use Seq_AlignmentSet;
 use Seq_Alignment;
+use PhaseSet;
+use Phase;
 use Phenotype;
 use Submitted_Seq;
 use Lane;
@@ -26,6 +28,7 @@ use PelementDBI;
 #use GeneModelSet;
 
 use strict;
+no strict 'refs';
 
 my $cgi = new PelementCGI;
 
@@ -192,8 +195,15 @@ sub selectSet
                                        -label=>'Stock Center Submission',
                                        -value=>'stock')]),
               $cgi->td([$cgi->checkbox(-name=>'view',
+                                       -label=>'Position Classifications',
+                                       -value=>'class'),
+                        $cgi->checkbox(-name=>'view',
+                                       -label=>'Intron Phase',
+                                       -value=>'intron')]),
+              $cgi->td([$cgi->checkbox(-name=>'view',
                                        -label=>'Fasta Sequences',
-                                       -value=>'fasta')]),
+                                       -value=>'fasta'),
+                        ]),
               $cgi->td({-align=>'left'},
                   [$cgi->radio_group(-name => 'release',
                                      -values => ['3','5'],
@@ -429,6 +439,44 @@ sub reportSet
       }
    }
 
+   if ($reports{'intron'}) {
+         my @phases;
+         map {push @phases ,[$_,intronPhase($session,$_,$release)] } map {split /\s+/,$_} @set;
+         print $cgi->center($cgi->div({-class=>'SectionTitle'},"Intron Phase"),$cgi->br),"\n",
+            $cgi->center(
+              $cgi->table({-border=>2,-width=>"30%",
+                                      -class=>'sortable',
+                                      -id=>'merged'},
+              $cgi->Tr( [
+                 $cgi->th(
+                         ["Strain","Phase"] ),
+                          (map { $cgi->td({-align=>"center"}, $_ ) }
+                                                 @phases),
+                         ] )
+                        )),$cgi->br,$cgi->hr({-width=>'70%'}),"\n";
+
+   }
+
+   if ($reports{'class'}) {
+       my @classes;
+       map { push @classes, [$_,classifyInsert($cgi,$session,$_,$release)] }  map {split /\s+/,$_} @set;
+         print $cgi->center($cgi->div({-class=>'SectionTitle'},"Position Classification"),$cgi->br),"\n",
+            $cgi->center(
+              $cgi->table({-border=>2,-width=>"80%",
+                                      -class=>'sortable',
+                                      -id=>'merged'},
+              $cgi->Tr( [
+                 $cgi->th(
+                         ["Strain","Coding Exon","5' UTR Exon","3' UTR Exon","Coding Intron",
+                          "5' UTR Intron","3' UTR Intron","5' Upstream","3' Downstream"] ),
+                          (map { scalar(@$_)>2?$cgi->td({-align=>"center"}, $_ ):
+                            $cgi->td({-align=>"center"},[$_->[0]]).$cgi->td({-align=>"center",-colspan=>"8"},[$_->[1]]) } @classes),
+                         ] )
+                        )),$cgi->br,$cgi->hr({-width=>'70%'}),"\n";
+
+   }
+     
+
    if ( $reports{'bad'} && @badStrains ) {
       @badStrains = sort { $a->[0] cmp $b->[0] } @badStrains;
       print $cgi->center($cgi->div({-class=>'SectionTitle'},"Strains not in the DB"),$cgi->br),"\n",
@@ -617,6 +665,295 @@ sub getCytoAndGene
 
 }
 
+sub classifyInsert
+{
+  my $cgi = shift;
+  my $session = shift;
+  my $strain = shift;
+  my $release = shift;
+
+  my $seqS = new SeqSet($session,{-strain_name=>$strain})->select;
+
+  return ('No Sequence Records') unless $seqS->count;
+
+  my $pos;
+  my $arm;
+  my %byPosition;
+  foreach my $seq ($seqS->as_list) {
+    next if $seq->qualifier;
+    my $aS = new Seq_AlignmentSet($session,{-seq_name=>$seq->seq_name,
+                                            -seq_release=>$release});
+    $aS->select;
+    foreach my $alignment ($aS->as_list) {
+      if ($alignment->status eq 'unique' || $alignment->status eq 'curated') {
+        $pos = $alignment->s_insert;
+        $arm = $alignment->scaffold;
+        $byPosition{$arm.':'.$pos} = 1;
+      }
+    }
+  }
+  return ('No Unique or Curated Alignments') unless keys %byPosition;
+
+  return classifyPosition($cgi,$session,keys %byPosition);
+
+}
+
+sub classifyPosition
+{
+  my $cgi = shift;
+  my $session = shift;
+  my @locs = @_;
+
+  my %return;
+
+  my $upstream = 500;
+  my @coding_class;
+  my @utr_5exon_class;
+  my @utr_3exon_class;
+  my @coding_intron_class;
+  my @utr_5intron_class;
+  my @utr_3intron_class;
+  my @upstream5_class;
+  my @downstream3_class;
+  my %resultsHash;
+  
+  foreach my $location (@locs) {
+
+    my ($arm,$pos) = split(/:/,$location);
+    $arm =~ s/arm_//;
+    my @vals;
+
+    $session->db->select(
+                      qq(select distinct t.name from
+                         feature e,feature a,feature t, feature p,
+                         featureloc le, featureloc lp,
+                         feature_relationship te, feature_relationship tp
+                         where
+                         e.feature_id=le.feature_id and
+                         a.feature_id=le.srcfeature_id and
+                         a.uniquename='$arm' and
+                         le.fmin <= $pos and
+                         le.fmax >= $pos and
+                         e.type_id=257 and
+                         t.type_id=368 and
+                         p.type_id=1179 and
+                         te.subject_id=e.feature_id and
+                         te.object_id=t.feature_id and
+                         tp.subject_id=p.feature_id and
+                         tp.object_id=t.feature_id and
+                         lp.feature_id=p.feature_id and
+                         lp.srcfeature_id=a.feature_id and
+                         lp.fmin <= $pos and
+                         lp.fmax >= $pos ),\@{$resultsHash{coding_class}});
+                         #lp.fmax >= $pos ),\@coding_class);
+    $session->db->select(
+                      qq(select distinct t.name from
+                         feature e,feature a,feature t, feature p,
+                         featureloc le, featureloc lp,
+                         feature_relationship te, feature_relationship tp
+                         where
+                         e.feature_id=le.feature_id and
+                         a.feature_id=le.srcfeature_id and
+                         a.uniquename='$arm' and
+                         le.fmin <= $pos and
+                         le.fmax >= $pos and
+                         e.type_id=257 and
+                         t.type_id=368 and
+                         p.type_id=1179 and
+                         te.subject_id=e.feature_id and
+                         te.object_id=t.feature_id and
+                         tp.subject_id=p.feature_id and
+                         tp.object_id=t.feature_id and
+                         lp.feature_id=p.feature_id and
+                         lp.srcfeature_id=a.feature_id and
+                         ((lp.fmin > $pos and le.strand > 0) or
+                          (lp.fmax < $pos and le.strand < 0)) ),\@{$resultsHash{utr_5exon_class}});
+                          #(lp.fmax < $pos and le.strand < 0)) ),\@utr_5exon_class);
+    $session->db->select(
+                      qq(select distinct t.name from
+                         feature e,feature a,feature p,feature t,
+                         featureloc le, featureloc lp,
+                         feature_relationship te, feature_relationship tp
+                         where
+                         e.feature_id=le.feature_id and
+                         a.feature_id=le.srcfeature_id and
+                         a.uniquename='$arm' and
+                         le.fmin <= $pos and
+                         le.fmax >= $pos and
+                         e.type_id=257 and
+                         t.type_id=368 and
+                         p.type_id=1179 and
+                         te.subject_id=e.feature_id and
+                         te.object_id=t.feature_id and
+                         tp.subject_id=p.feature_id and
+                         tp.object_id=t.feature_id and
+                         lp.feature_id=p.feature_id and
+                         lp.srcfeature_id=a.feature_id and
+                         ((lp.fmin > $pos and le.strand < 0) or
+                          (lp.fmax < $pos and le.strand > 0)) ),\@{$resultsHash{utr_3exon_class}});
+                          #(lp.fmax < $pos and le.strand > 0)) ),\@utr_3exon_class);
+    $session->db->select(
+                      qq(select distinct t.name from feature a, feature p, featureloc lp,
+                         feature_relationship tp, feature t
+                         where
+                         p.feature_id=lp.feature_id and
+                         a.feature_id=lp.srcfeature_id and
+                         tp.subject_id=p.feature_id and
+                         tp.object_id=t.feature_id and
+                         a.uniquename='$arm' and
+                         lp.fmin <= $pos and
+                         lp.fmax >= $pos and
+                         t.type_id=368 and
+                         p.type_id=1179 ),\@{$resultsHash{coding_intron_class}});
+                         #p.type_id=1179 ),\@coding_intron_class);
+    $session->db->select(
+                      qq(select distinct t.name from feature a, feature t, featureloc lt,
+                         feature p, featureloc lp, feature_relationship tp
+                         where
+                         t.feature_id=lt.feature_id and
+                         a.feature_id=lt.srcfeature_id and
+                         p.feature_id=lp.feature_id and
+                         a.feature_id=lp.srcfeature_id and
+                         a.uniquename='$arm' and
+                         lt.fmin <= $pos and
+                         lt.fmax >= $pos and
+                         t.type_id=368 and
+                         p.type_id=1179 and
+                         tp.subject_id=p.feature_id and
+                         tp.object_id=t.feature_id and
+                         ((lp.fmin > $pos and lt.strand > 0) or
+                          (lp.fmax < $pos and lp.strand < 0)) 
+                         ),\@{$resultsHash{utr_5intron_class}});
+                         #),\@utr_5intron_class);
+    $session->db->select(
+                      qq(select distinct t.name from feature a, feature t, featureloc lt,
+                         feature p, featureloc lp, feature_relationship tp
+                         where
+                         t.feature_id=lt.feature_id and
+                         a.feature_id=lt.srcfeature_id and
+                         p.feature_id=lp.feature_id and
+                         a.feature_id=lp.srcfeature_id and
+                         a.uniquename='$arm' and
+                         lt.fmin <= $pos and
+                         lt.fmax >= $pos and
+                         t.type_id=368 and
+                         p.type_id=1179 and
+                         tp.subject_id=p.feature_id and
+                         tp.object_id=t.feature_id and
+                         ((lp.fmin > $pos and lt.strand<0) or
+                          (lp.fmax < $pos and lp.strand>0)) 
+                         ),\@{$resultsHash{utr_3intron_class}});
+                         #),\@utr_3intron_class);
+    $session->db->select(
+                      qq(select distinct t.name from feature a, feature t, featureloc lt
+                         where
+                         t.feature_id=lt.feature_id and
+                         a.feature_id=lt.srcfeature_id and
+                         a.uniquename='$arm' and
+                         ((lt.fmin between $pos and $pos+$upstream and lt.strand > 0) or
+                          (lt.fmax between $pos-$upstream and $pos and lt.strand < 0)) and
+                         t.type_id=368
+                         ),\@{$resultsHash{upstream5_class}});
+                         #),\@upstream5_class);
+  
+    $session->db->select(
+                      qq(select distinct t.name from feature a, feature t, featureloc lt
+                         where
+                         t.feature_id=lt.feature_id and
+                         a.feature_id=lt.srcfeature_id and
+                         a.uniquename='$arm' and
+                         ((lt.fmax between $pos-$upstream and $pos and lt.strand > 0) or
+                          (lt.fmin between $pos and $pos+$upstream and lt.strand < 0)) and
+                         t.type_id=368
+                         ),\@{$resultsHash{downstream3_class}});
+                         #),\@downstream3_class);
+  
+  }
+
+  # hashify
+  my %bigHash;
+  my (%coding_class,%utr_5exon_class,%utr_3exon_class,
+      %coding_intron_class,%utr_5intron_class,%utr_3intron_class,
+      %upstream5_class,%downstream3_class);
+
+  foreach my $table qw (coding_class utr_5exon_class utr_3exon_class
+                      coding_intron_class utr_5intron_class
+                      utr_3intron_class upstream5_class downstream3_class) {
+    map { $bigHash{$table}->{$_} =1 } @{$resultsHash{$table}};
+    # now remove a transcript from this class if it appeared in any
+    # earlier class;
+    foreach my $prev_table qw (coding_class utr_5exon_class utr_3exon_class
+                               coding_intron_class utr_5intron_class
+                               utr_3intron_class upstream5_class downstream3_class) {
+      last if $prev_table eq $table;
+      map { delete $bigHash{$table}->{$_} if exists $bigHash{$prev_table}->{$_} } keys %{$bigHash{$table}};
+    }
+    @{$resultsHash{$table}} = sort { $a cmp $b } keys %{$bigHash{$table}};
+  }
+
+  
+  
+
+  return (join_it(@{$resultsHash{coding_class}}),
+          join_it(@{$resultsHash{utr_5exon_class}}),
+          join_it(@{$resultsHash{utr_3exon_class}}),
+          join_it(@{$resultsHash{coding_intron_class}}),
+          join_it(@{$resultsHash{utr_5intron_class}}),
+          join_it(@{$resultsHash{utr_3intron_class}}),
+          join_it(@{$resultsHash{upstream5_class}}),
+          join_it(@{$resultsHash{downstream3_class}}));
+
+  sub join_it{ my %hash;
+               map { s/-R.$//;
+                     $hash{$_} = 1;
+                   } @_;
+                   return join(' ',sort { $a cmp $b} keys %hash) || $cgi->nbsp }
+}
+
+
+sub intronPhase
+{
+  my $session = shift;
+  my $strain = shift;
+  my $release = shift;
+
+  my $seqS = new SeqSet($session,{-strain_name=>$strain})->select;
+  return "N/A" unless $seqS->count;
+  my $pos;
+  my $arm;
+  # hashed by transcript
+  my %byTranscript;
+  my %byPosition;
+  foreach my $seq ($seqS->as_list) {
+    next if $seq->qualifier;
+    my $aS = new Seq_AlignmentSet($session,{-seq_name=>$seq->seq_name,
+                                            -seq_release=>$release});
+    $aS->select;
+    foreach my $alignment ($aS->as_list) {
+      if ($alignment->status eq 'unique' || $alignment->status eq 'curated') {
+        $pos = $alignment->s_insert;
+        $arm = $alignment->scaffold;
+        $byPosition{$arm.':'.$pos} = 1;
+        my $phaseS = new PhaseSet($session,{-arm=>$arm,-less_than_or_equal=>{intron_start=>$pos},
+                                                 -greater_than_or_equal=>{intron_end=>$pos}})->select;
+        foreach my $phase ($phaseS->as_list) {
+          if (exists($byTranscript{$phase->transcript_name}) ) {
+            $byTranscript{$phase->transcript_name} = 'Multiple' if
+                     $byTranscript{$phase->transcript_name} ne $phase->phase;
+          } else {
+            $byTranscript{$phase->transcript_name} = $phase->phase;
+          }
+        }
+      }
+    }
+  }
+
+  return 'None' unless keys(%byTranscript);
+
+  return join(", ",map { $_.':'.$byTranscript{$_} } sort keys %byTranscript);
+
+}
+
 sub closeEnuf
 {
   my $range = shift;
@@ -658,3 +995,4 @@ sub determineVTrim
   }
   return;
 }
+
