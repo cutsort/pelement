@@ -55,16 +55,22 @@ my $phenotype = 1;        # do we require a pheontype record?
 my $outFile;
 my $update = 0;           # mark ALL insertion data as 'is_update=Y'
 my $release = 5;          # which alignment release to work with
+my $submit_consensus = 0;
 GetOptions('ifaligned!' => \$ifAligned,
            'phenotype!' => \$phenotype,
            'rel4!'      => \$stop_without_4,
            'update!'    => \$update,
            'out=s'      => \$outFile,
            'release=i'  => \$release,
+           'consensus!' => \$submit_consensus,
            );
 
 # this default depends on the release.
 $stop_without_4 = ($release==3)?1:0 unless defined($stop_without_4);
+
+# submitting assembled sequences?
+my @subset = qw(3 5);
+push @subset,'b' if $submit_consensus;
 
 #if ($outFile) {
 #  unless (open(FIL,"> $outFile") ) {
@@ -296,6 +302,7 @@ foreach my $strain_name (@ARGV) {
       # are part of the same insertion.
 
       next if Seq::qualifier($seq->seq_name) =~ /^[ri]/;
+      next if $seq->end eq 'b' && !$submit_consensus;
 
       # in case we've already dealt with this before, we skip and go on
       next if $handled_seqs{$seq->seq_name};
@@ -390,7 +397,7 @@ foreach my $strain_name (@ARGV) {
       # if this seq is mapped, look for others that are nearby
       if ($arm && $strand && @pos_range ) {
          # now look through all the other sequences for things that map nearby
-         foreach my $end qw(3 5 b) {
+         foreach my $end (@subset) {
             next if $handled_both;
             foreach my $alignHR (@{$align{$end}}) {
                my $this_seq_name = $alignHR->{seq_name};
