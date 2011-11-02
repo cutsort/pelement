@@ -48,6 +48,7 @@ my $appendFile;
 my $minLength = 10;
 my $update = 1;
 my $release = 5;
+my $submit_merged = 0;
 
 # only submit aligned strains?
 my $ifAligned = 1;
@@ -64,6 +65,7 @@ GetOptions('out=s'      => \$outFile,
            'test!'      => \$test,
            'update!'    => \$update,
            'release=i'  => \$release,
+           'merge!'     => \$submit_merged,
           );
 
 if ($appendFile && -e $appendFile) {
@@ -203,7 +205,7 @@ foreach my $arg (@ARGV) {
       next unless exists $insertions{$insert}->{pos};
       my %pos = %{$insertions{$insert}->{pos}};
 
-      if (exists($ends{b}) && length($ends{b}) >= $minLength ) {
+      if ($submit_merged && exists($ends{b}) && length($ends{b}) >= $minLength ) {
          # if we have a 'both' end, we're submitting that.
 
          # if we're requiring alignment, then we need to see that at
@@ -234,7 +236,7 @@ foreach my $arg (@ARGV) {
 
          $gb->add_seq('b',$ends{b},$pos{b});
          my $p_end = $gb->p_end;
-         $p_end =~ s/<ENDDESCR>/both 5' and 3' ends/;
+         $p_end =~ s/<ENDDESCR>/both/;
          $gb->p_end($p_end);
          print FIL $gb->print ,"\n";
       } else {
@@ -263,7 +265,7 @@ foreach my $arg (@ARGV) {
                }
 
                $gb->add_seq($end,$ends{$end},$pos{$end});
-               my $end_txt = $end."' end";
+               my $end_txt = $end;
                my $p_end = $gb->p_end;
                $p_end =~ s/<ENDDESCR>/$end_txt/;
                $gb->p_end($p_end);
