@@ -61,7 +61,7 @@ $PELEMENT_NOTIFY = "joe\@fruitfly.org";
 # db server
 $PELEMENT_DB_DBI     = "Pg";
 # whatever it takes to connect.
-$PELEMENT_DB_CONNECT = "dbname=pelement;host=staufen.lbl.gov";
+$PELEMENT_DB_CONNECT = "dbname=pelement;host=eel.lbl.gov";
 
 # other executable directories
 $GENOMIC_BIN = "/usr/local/bdgp/bin/";
