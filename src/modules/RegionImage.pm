@@ -20,7 +20,7 @@ sub makePanel
   my $scaffold = shift;
   my $center = shift || return;
   my $range = shift || 5000;
-  my $rel = shift || 3;
+  my $rel = shift || 5;
   my $showall = shift || 0;
 
   my $session = new Session({-log_level=>0});
@@ -103,7 +103,7 @@ sub makePanel
       }
     }
 
-    next unless $status eq 'permanent' || $status eq 'new' || $status =~ /exel/i || $showall;
+    next unless $status eq 'permanent' || $status eq 'new' || $status =~ /exel/i || $status =~ /carnegie/i || $showall;
      
     my $strand = (($s->p_start < $s->p_end) eq ($s->s_start < $s->s_end))?+1:-1;
     my $feature = new Bio::SeqFeature::Generic(
@@ -168,15 +168,17 @@ sub makePanel
   
   # get the genes
   my $chado;
-  if (my $grab_from_real_chado = 0 ) {
-    my $chado_session = new Session({-log_level=>0,
-                  -dbistr=>'dbi:Pg:dbname=chacrm_4_2;host=mastermind.lbl.gov'});
-    $chado = new ChadoGeneModelSet($chado_session,
-                   $scaffold,$start_pos,$end_pos)->select;
-    $chado_session->exit;
-  } else {
-    $chado = $session->GeneModelSet($scaffold.'.rel'.$rel,
-                                  $start_pos,$end_pos)->select;
+  if ($rel == 5) {
+    if (my $grab_from_real_chado = 0 ) {
+      my $chado_session = new Session({-log_level=>0,
+                    -dbistr=>'dbi:Pg:dbname=chacrm_4_2;host=mastermind.lbl.gov'});
+      $chado = new ChadoGeneModelSet($chado_session,
+                     $scaffold,$start_pos,$end_pos)->select;
+      $chado_session->exit;
+    } else {
+      $chado = $session->GeneModelSet($scaffold,
+                                    $start_pos,$end_pos)->select;
+    }
   }
 
   # repackage these to group the exons into transcripts.
