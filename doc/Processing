@@ -1,7 +1,7 @@
 
 Normal Processing
 
-1) Registration of Benchwork.
+I) Registration of Benchwork.
 
 The normal procedure for experimental data is:
 	a) registration of a plate of strains
@@ -20,7 +20,7 @@ was done and the important associated details.
 When the gels are done, Martha will send an email notifying the person
 processing them.
 
-2) Processing of the data.
+II) Processing of the data.
 
 The normal workflow of data depends on whether the data consists of new
 or recheck sequences.
@@ -65,3 +65,51 @@ Check for gels that got transferred. They usually come in pairs.
 Check for abnormal behavior or many error messages
 
 3) run blastMaster.pl
+
+
+III) Curation
+
+Bob Levis is in charge of selecting the lines for the permanent
+collection.  Interactions with him involve 3 steps:
+
+1) After a new batch is sequenced, he will send a file listing the strain
+names and a status update. This changes strains that have status 'new'
+in the strain table to either 'permenent' or 'discard'. This file is
+fed to the script processStatus.pl to update the strain table.
+
+2) After a recheck batch is confirmed, Bob will send a list of strains
+to be submitted to the permanent collection. First, the sequence of
+these need to be submitted to GenBank. The usual command is
+
+generateGenBankMail.pl -out <file_to_send> `cat <list_of_strains>`
+
+Email the file to dbGSS and wait for an email response. This usually comes the next
+day.
+
+3) A second file from Bob will contain genotype/phenotype
+information. These usually have the same strains as the previous file,
+unless there were last minute decisions to add some. It's worthwhile
+to proofread this file before importing it. I typically remove quotes
+that appear in the comment fields, remove some spurious newlines, and
+make sure the column headers match what is expected in the processing
+script, importPhenotype.pl.
+
+
+To submit to FlyBase, first process the accession numbers with
+processGenbankAcc.pl. When the accession numbers have been loaded,
+we can generate the FlyBase xml with the command
+
+generateFlyBaseXML.pl -out <file_to_send> `cat <list_of_strains>`
+
+Do a quick check on this file to be sure it contains the expected number
+of strain entries. And see that the comments have made it into the xml.
+At least at first, email it to Bob so that he can proofread it.
+
+Email the final version to Lynn Crosby (crosby@morgan.harvard.edu)
+and Kathleen Falls (falls@morgan.harvard.edu) and Bob.
+
+Kathleen will email back a list of FlyBase accession numbers. These can
+be processed with either processXML.pl or processXML_text.pl. The first
+version was a grandiose xml parser. The second was a hack of the first
+version that just deals with a text file. I've been using the second
+version lately.
