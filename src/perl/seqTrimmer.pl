@@ -61,6 +61,7 @@ my $session = new Session();
 
 my ($gel_name,$gel_id,$lane_name,@lane_id,$enzyme,$vector_junc,$offset,$redo);
 my $test = 0;
+my $only_quality = 0;
 
 GetOptions('gel=s'      => \$gel_name,
            'gel_id=i'   => \$gel_id,
@@ -71,6 +72,7 @@ GetOptions('gel=s'      => \$gel_name,
            'vector=s'   => \$vector_junc,
            'insert=i'   => \$offset,
            'redo!'      => \$redo,
+           'onlyq!'     => \$only_quality,
           );
 
 # processing hierarchy. In case multiple things are specified, we have to
@@ -292,10 +294,10 @@ foreach my $lane (@lanes) {
 
    $session->info("Changing vector start location")
             if $vStart && $phred_seq->v_trim_start &&
-                                     $vStart != $phred_seq->v_trim_start;
+                                     $vStart != $phred_seq->v_trim_start && !$only_quality;
    $session->info("Changing vector end location")
             if $vEnd && $phred_seq->v_trim_end &&
-                                     $vEnd != $phred_seq->v_trim_end;
+                                     $vEnd != $phred_seq->v_trim_end && !$only_quality;
    $session->info("Changing quality start location")
             if $qStart && $phred_seq->q_trim_start &&
                                      $qStart != $phred_seq->q_trim_start;
@@ -304,8 +306,8 @@ foreach my $lane (@lanes) {
                                      $qEnd != $phred_seq->q_trim_end;
    # update
    my $is_updated = 0;
-   $phred_seq->v_trim_start($vStart) && ($is_updated = 1 ) if $vStart;
-   $phred_seq->v_trim_end($vEnd)     && ($is_updated = 1 ) if $vEnd;
+   $phred_seq->v_trim_start($vStart) && ($is_updated = 1 ) if $vStart && !$only_quality;
+   $phred_seq->v_trim_end($vEnd)     && ($is_updated = 1 ) if $vEnd && !$only_quality;
    $phred_seq->q_trim_start($qStart) && ($is_updated = 1 ) if $qStart;
    $phred_seq->q_trim_end($qEnd)     && ($is_updated = 1 ) if $qEnd;
    $phred_seq->last_update('now') if $is_updated;
