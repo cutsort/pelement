@@ -139,8 +139,7 @@ foreach my $strain_name (@ARGV) {
    # and may have been deleted.
    my %align = (3 => [], 5 => [], b => [], o => []);
    foreach my $align (@seq_alignments) {
-      next if $align->status eq 'multiple';
-      next if $align->status eq 'deselected';
+      next unless $align->status eq 'unique' or $align->status eq 'curated';
       my $end = Seq::end($align->seq_name);
       my $qual = Seq::qualifier($align->seq_name);
       # do not look at unconfirmed recheck seq.
@@ -270,7 +269,7 @@ foreach my $strain_name (@ARGV) {
                             });
    # we've created the line record, but we'll defer adding
    # it to the submission until we have data.
-   my $addThisLine = 0;
+   my $addedThisLine = 0;
 
    # the problem remains on how to deal with the separate sequences. Are they
    # individual insertions? or are they separate elements of insertion data
@@ -307,14 +306,13 @@ foreach my $strain_name (@ARGV) {
       # in case we've already dealt with this before, we skip and go on
       next if $handled_seqs{$seq->seq_name};
       next if $handled_both;
-      $handled_seqs{$seq->seq_name} = 1;
       # preempt the 3' and 5' if there is a both end seq. we've sorted so
       # that is is first
       $handled_both = 1 if $seq->end eq 'b';
 
       # create the insert record, but defer inserting the insert until
       # we're sure there is data to go there.
-      my $addThisInsert = 0;
+      my $addedThisInsert = 0;
       $insert = new XML::Insertion(
                             {transposon_symbol => $submit_info->transposon_symbol });
 
@@ -341,7 +339,7 @@ foreach my $strain_name (@ARGV) {
               ($update?(is_update=>'Y'):())});
 
       # have we put this insertData into the insert?
-      my $addThisInsertData = 0;
+      my $addedThisInsertData = 0;
       map { $insert->add(new XML::Stock({stock_center=>'Bloomington',
                                          stock_id => $_})) } keys %stock_numbers;
 
@@ -357,20 +355,6 @@ foreach my $strain_name (@ARGV) {
                             {accession_version=>$submitted_seq->gb_acc});
       $flankSeq->add($acc);
       $insertData->add($flankSeq);
-
-      # once the insertData has a flank, we can add it to the xml
-      unless ($addThisInsertData) {
-         $insert->add($insertData);
-         $addThisInsertData = 1;
-         unless ($addThisInsert) {
-            $line->add($insert);
-            $addThisInsert = 1;
-            unless ($addThisLine) {
-              $sub->add($line);
-              $addThisLine = 1;
-            }
-         }
-      }
 
       my ($arm,$strand,@pos_range) = getAlignmentFromSeqName($seq->seq_name,\%align);
 
@@ -393,44 +377,81 @@ foreach my $strain_name (@ARGV) {
 
          }
       }
+      # if this sequence is not aligned, do not insert it (yet)
+      next unless ($arm && $strand && @pos_range) or !$ifAligned;
 
-      # if this seq is mapped, look for others that are nearby
+      # once the insertData has a flank, we can add it to the xml
+      unless ($addedThisInsertData) {
+         $insert->add($insertData);
+         $addedThisInsertData = 1;
+         unless ($addedThisInsert) {
+            $line->add($insert);
+            $addedThisInsert = 1;
+            unless ($addedThisLine) {
+              $sub->add($line);
+              $addedThisLine = 1;
+            }
+         }
+      }
+
+      # we've dealt with this sequence end
+      $handled_seqs{$seq->seq_name} = 1;
+
+      # if this seq is mapped, look for others that are nearby. or unmapped.
       if ($arm && $strand && @pos_range ) {
          # now look through all the other sequences for things that map nearby
          foreach my $end (@subset) {
             next if $handled_both;
-            foreach my $alignHR (@{$align{$end}}) {
-               my $this_seq_name = $alignHR->{seq_name};
+            # here is where we include aligned ends
+            if (@{$align{$end}}) {
+               foreach my $alignHR (@{$align{$end}}) {
+                  my $this_seq_name = $alignHR->{seq_name};
 
-               next if $handled_seqs{$this_seq_name};
+                  next if $handled_seqs{$this_seq_name};
 
-               my $this_arm = $alignHR->{scaffold};
-               my $this_pos = $alignHR->{position};
-               my $this_strand = $alignHR->{strand};
-               next if (($this_arm ne $arm) || ($this_strand != $strand)
-                                            || ($pos_range[0] - $this_pos > 500)
-                                            || ($this_pos - $pos_range[-1] > 500) );
+                  my $this_arm = $alignHR->{scaffold};
+                  my $this_pos = $alignHR->{position};
+                  my $this_strand = $alignHR->{strand};
+                  next if ( ($this_arm && $this_arm ne $arm) ||
+                             ($this_strand && $this_strand != $strand) ||
+                             ($this_pos && ($pos_range[0] - $this_pos > 500) ) ||
+                             ($this_pos && ($this_pos - $pos_range[-1] > 500) ) );
 
-               # ok. this seq is nearby; we need to say we've handled this one
-               # and let the limits creep.
-               $handled_seqs{$this_seq_name} = 1;
-               $pos_range[0] = $this_pos if $this_pos < $pos_range[0];
-               $pos_range[-1] = $this_pos if $this_pos > $pos_range[-1];
+                  # ok. this seq is nearby; we need to say we've handled this one
+                  # and let the limits creep.
+                  $handled_seqs{$this_seq_name} = 1;
+                  $pos_range[0] = $this_pos if $this_pos < $pos_range[0];
+                  $pos_range[-1] = $this_pos if $this_pos > $pos_range[-1];
 
-               # was this submitted? If not we cannot add it to the flank seq
-               my $submitted_seq = new Submitted_Seq($session,
-                                     {-seq_name=>$this_seq_name})->select_if_exists;
-               next unless $submitted_seq->gb_acc;
-               next if $submitted_seq->subsumed;
+                  # was this submitted? If not we cannot add it to the flank seq
+                  my $submitted_seq = new Submitted_Seq($session,
+                                        {-seq_name=>$this_seq_name})->select_if_exists;
+                  next unless $submitted_seq->gb_acc;
+                  next if $submitted_seq->subsumed;
 
-               # I know I asked you this already, but what what that insertion position again?
-               my $this_seq_pos = new Seq($session,{-seq_name=>$this_seq_name})->select->insertion_pos;
+                  # I know I asked you this already, but what what that insertion position again?
+                  my $this_seq_pos = new Seq($session,{-seq_name=>$this_seq_name})->select->insertion_pos;
 
-               my $flankSeq = new XML::FlankSeq({flanking=>$end,
-                      position_of_first_base_of_target_sequence =>$this_seq_pos});
-               $flankSeq->add(new XML::GBAccno(
-                                     {accession_version=>$submitted_seq->gb_acc}));
-               $insertData->add($flankSeq);
+                  my $flankSeq = new XML::FlankSeq({flanking=>$end,
+                         position_of_first_base_of_target_sequence =>$this_seq_pos});
+                  $flankSeq->add(new XML::GBAccno(
+                                        {accession_version=>$submitted_seq->gb_acc}));
+                  $insertData->add($flankSeq);
+              }
+            } else {
+              # if we have an unaligned sequence, with an
+              # accession number, we'll add it here.
+              my $this_seq_name = $strain_name.'-'.$end;
+              my $submitted_seq = new Submitted_Seq($session,
+                                        {-seq_name=>$this_seq_name})->select_if_exists;
+              if ($submitted_seq->gb_acc ) {
+                  my $this_seq_pos = new Seq($session,{-seq_name=>$this_seq_name})->select->insertion_pos;
+                  my $flankSeq = new XML::FlankSeq({flanking=>$end,
+                         position_of_first_base_of_target_sequence =>$this_seq_pos});
+                  $flankSeq->add(new XML::GBAccno(
+                                        {accession_version=>$submitted_seq->gb_acc}));
+                  $insertData->add($flankSeq);
+              }
             }
          }
 
@@ -576,7 +597,7 @@ foreach my $strain_name (@ARGV) {
    }
 
    $session->die("Strain $strain_name was not inserted in the xml.")
-                                                     unless $addThisLine;
+                                                     unless $addedThisLine;
 }
 
 $sub->validate;
