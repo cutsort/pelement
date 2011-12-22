@@ -95,6 +95,10 @@ sub reconcile
   my $old_aSet = shift;
   my $new_aSet = shift;
   my $release = shift;
+
+  # extra base pairs when assessing overlap of alignments.
+  my $slop = 10;
+  
   # go through every pair and try to reconcile new and old
   foreach my $old ($old_aSet->as_list) {
     foreach my $new ($new_aSet->as_list) {
@@ -103,7 +107,7 @@ sub reconcile
       # same orientation?
       next unless (($old->p_start < $old->p_end) == ($new->p_start < $new->p_end));
       # something overlaps?
-      next unless overlaps($old->s_start,$old->s_end,$new->s_start,$new->s_end);
+      next unless overlaps($old->s_start-$slop,$old->s_end+$slop,$new->s_start-$slop,$new->s_end+$slop);
       if ($old->status eq 'curated') {
         $session->verbose("An old curated alignment on ".$old->scaffold." at ".
                                                          $old->s_insert." is being transfered.");
