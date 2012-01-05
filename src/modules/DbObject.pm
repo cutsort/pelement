@@ -242,7 +242,7 @@ sub db_exists
 
 =cut
 
-sub db_exists
+sub db_count
 {
   my $self = shift;
   my $sessionHandle = $self->{_session} || shift ||
