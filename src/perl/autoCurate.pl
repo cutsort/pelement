@@ -57,6 +57,7 @@ my $session = new Session();
 my ($gel_name,$gel_id,$lane_name,@lane_id);
 my $test = 0;
 my $release = 5;
+my $threshold = 100;
 
 GetOptions('gel=s'      => \$gel_name,
            'gel_id=i'   => \$gel_id,
@@ -64,6 +65,7 @@ GetOptions('gel=s'      => \$gel_name,
            'lane_id=i@' => \@lane_id,
            'test!'      => \$test,
            'release=i'  => \$release,
+           'threshold=i' => \$threshold,
           );
 
 # processing hierarchy. In case multiple things are specified, we have to
@@ -141,7 +143,7 @@ foreach my $lane (@lanes) {
             foreach my $a1 ($otherAlignment->as_list) {
               next unless $a1->status eq 'unique' || $a1->status eq 'curated';
               foreach my $a2 ($alignment->as_list) {
-                if ($a1->scaffold eq $a2->scaffold && abs($a1->s_insert - $a2->s_insert) < 100
+                if ($a1->scaffold eq $a2->scaffold && abs($a1->s_insert - $a2->s_insert) < $threshold
                         && ($a1->s_start-$a1->s_end)*($a1->s_start-$a1->s_end) > 0) {
                   $session->info("$seq_name has a consistent alignment. Can update.");
                   unless ($test) {
