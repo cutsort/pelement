@@ -55,7 +55,7 @@ $PELEMENT_WEB_CACHE = $PELEMENT . "tmp/webcache/";
 $PELEMENT_VECTORS = $PELEMENT . "vectors/";
 
 # e-mail errors to these people
-$PELEMENT_NOTIFY = "joe\@fruitfly.org";
+$PELEMENT_NOTIFY = "bbooth\@fruitfly.org";
 
 
 # db server
