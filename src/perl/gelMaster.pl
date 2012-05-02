@@ -35,8 +35,8 @@ while (@ARGV) {
   $batch->select;
   ($session->warn("Cannot find a type field for batch $batch_id.") and next) unless $batch->type;
 
-  if ($batch->type eq 'New') {
-    $session->info("Processing $gel_name as New data.");
+  if ($batch->type eq 'New' || $batch->type eq 'Redo') {
+    $session->info("Processing $gel_name as ".$batch->type." data.");
     next if $report;
     $session->verbose(shell("./baseCaller.pl -gel ".$gel_name));
     $session->verbose(shell("./seqTrimmer.pl -gel ".$gel_name));
