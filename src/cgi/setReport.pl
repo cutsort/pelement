@@ -25,7 +25,7 @@ use Cytology;
 use PelementCGI;
 use PelementDBI;
 
-#use GeneModelSet;
+use List::MoreUtils qw(uniq);
 
 use strict;
 no strict 'refs';
@@ -614,14 +614,13 @@ sub getCytoAndGene
       my $down = $in->{strand}==1?0:0;
       my $up = $in->{strand}==1?0:0;
 
-      #my $geneSet = new GeneModelSet($session,$arm,$start-$down,$end+$up)->select;
-      # explicit SQL
-      my @geneSet;
-      $session->db->select(qq(select g.name,g.uniquename,fmin,fmax from feature g, featureloc l, feature a
-                              where l.feature_id=g.feature_id and a.feature_id=l.srcfeature_id
-                              and a.uniquename='$arm' and
-                              fmin <= $end+$up and fmax >= $start-$down and g.type_id=219),\@geneSet);
-      
+      my @geneSet = map {$_->gene_name, $_->gene_uniquename, $_->gene_start, $_->gene_end}
+        $session->Gene_ModelSet({
+          scaffold_uniquename=>$arm,
+          -less_than_or_equal=>{gene_start=>$end+$up},
+          -greater_than_or_equal=>{gene_end=>$start-$down},
+          -rtree_bin=>{gene_bin=>[$end+$up, $start-$down]},
+        })->select->as_list;
 
       # look at each annotation and decide if we're inside it.
 
@@ -707,167 +706,110 @@ sub classifyPosition
   my %return;
 
   my $upstream = 500;
-  my @coding_class;
-  my @utr_5exon_class;
-  my @utr_3exon_class;
-  my @coding_intron_class;
-  my @utr_5intron_class;
-  my @utr_3intron_class;
-  my @upstream5_class;
-  my @downstream3_class;
   my %resultsHash;
   
   foreach my $location (@locs) {
-
     my ($arm,$pos) = split(/:/,$location);
     $arm =~ s/arm_//;
     my @vals;
 
-    $session->db->select(
-                      qq(select distinct t.name from
-                         feature e,feature a,feature t, feature p,
-                         featureloc le, featureloc lp,
-                         feature_relationship te, feature_relationship tp
-                         where
-                         e.feature_id=le.feature_id and
-                         a.feature_id=le.srcfeature_id and
-                         a.uniquename='$arm' and
-                         le.fmin <= $pos and
-                         le.fmax >= $pos and
-                         e.type_id=257 and
-                         t.type_id=368 and
-                         p.type_id=1179 and
-                         te.subject_id=e.feature_id and
-                         te.object_id=t.feature_id and
-                         tp.subject_id=p.feature_id and
-                         tp.object_id=t.feature_id and
-                         lp.feature_id=p.feature_id and
-                         lp.srcfeature_id=a.feature_id and
-                         lp.fmin <= $pos and
-                         lp.fmax >= $pos ),\@{$resultsHash{coding_class}});
-                         #lp.fmax >= $pos ),\@coding_class);
-    $session->db->select(
-                      qq(select distinct t.name from
-                         feature e,feature a,feature t, feature p,
-                         featureloc le, featureloc lp,
-                         feature_relationship te, feature_relationship tp
-                         where
-                         e.feature_id=le.feature_id and
-                         a.feature_id=le.srcfeature_id and
-                         a.uniquename='$arm' and
-                         le.fmin <= $pos and
-                         le.fmax >= $pos and
-                         e.type_id=257 and
-                         t.type_id=368 and
-                         p.type_id=1179 and
-                         te.subject_id=e.feature_id and
-                         te.object_id=t.feature_id and
-                         tp.subject_id=p.feature_id and
-                         tp.object_id=t.feature_id and
-                         lp.feature_id=p.feature_id and
-                         lp.srcfeature_id=a.feature_id and
-                         ((lp.fmin > $pos and le.strand > 0) or
-                          (lp.fmax < $pos and le.strand < 0)) ),\@{$resultsHash{utr_5exon_class}});
-                          #(lp.fmax < $pos and le.strand < 0)) ),\@utr_5exon_class);
-    $session->db->select(
-                      qq(select distinct t.name from
-                         feature e,feature a,feature p,feature t,
-                         featureloc le, featureloc lp,
-                         feature_relationship te, feature_relationship tp
-                         where
-                         e.feature_id=le.feature_id and
-                         a.feature_id=le.srcfeature_id and
-                         a.uniquename='$arm' and
-                         le.fmin <= $pos and
-                         le.fmax >= $pos and
-                         e.type_id=257 and
-                         t.type_id=368 and
-                         p.type_id=1179 and
-                         te.subject_id=e.feature_id and
-                         te.object_id=t.feature_id and
-                         tp.subject_id=p.feature_id and
-                         tp.object_id=t.feature_id and
-                         lp.feature_id=p.feature_id and
-                         lp.srcfeature_id=a.feature_id and
-                         ((lp.fmin > $pos and le.strand < 0) or
-                          (lp.fmax < $pos and le.strand > 0)) ),\@{$resultsHash{utr_3exon_class}});
-                          #(lp.fmax < $pos and le.strand > 0)) ),\@utr_3exon_class);
-    $session->db->select(
-                      qq(select distinct t.name from feature a, feature p, featureloc lp,
-                         feature_relationship tp, feature t
-                         where
-                         p.feature_id=lp.feature_id and
-                         a.feature_id=lp.srcfeature_id and
-                         tp.subject_id=p.feature_id and
-                         tp.object_id=t.feature_id and
-                         a.uniquename='$arm' and
-                         lp.fmin <= $pos and
-                         lp.fmax >= $pos and
-                         t.type_id=368 and
-                         p.type_id=1179 ),\@{$resultsHash{coding_intron_class}});
-                         #p.type_id=1179 ),\@coding_intron_class);
-    $session->db->select(
-                      qq(select distinct t.name from feature a, feature t, featureloc lt,
-                         feature p, featureloc lp, feature_relationship tp
-                         where
-                         t.feature_id=lt.feature_id and
-                         a.feature_id=lt.srcfeature_id and
-                         p.feature_id=lp.feature_id and
-                         a.feature_id=lp.srcfeature_id and
-                         a.uniquename='$arm' and
-                         lt.fmin <= $pos and
-                         lt.fmax >= $pos and
-                         t.type_id=368 and
-                         p.type_id=1179 and
-                         tp.subject_id=p.feature_id and
-                         tp.object_id=t.feature_id and
-                         ((lp.fmin > $pos and lt.strand > 0) or
-                          (lp.fmax < $pos and lp.strand < 0)) 
-                         ),\@{$resultsHash{utr_5intron_class}});
-                         #),\@utr_5intron_class);
-    $session->db->select(
-                      qq(select distinct t.name from feature a, feature t, featureloc lt,
-                         feature p, featureloc lp, feature_relationship tp
-                         where
-                         t.feature_id=lt.feature_id and
-                         a.feature_id=lt.srcfeature_id and
-                         p.feature_id=lp.feature_id and
-                         a.feature_id=lp.srcfeature_id and
-                         a.uniquename='$arm' and
-                         lt.fmin <= $pos and
-                         lt.fmax >= $pos and
-                         t.type_id=368 and
-                         p.type_id=1179 and
-                         tp.subject_id=p.feature_id and
-                         tp.object_id=t.feature_id and
-                         ((lp.fmin > $pos and lt.strand<0) or
-                          (lp.fmax < $pos and lp.strand>0)) 
-                         ),\@{$resultsHash{utr_3intron_class}});
-                         #),\@utr_3intron_class);
-    $session->db->select(
-                      qq(select distinct t.name from feature a, feature t, featureloc lt
-                         where
-                         t.feature_id=lt.feature_id and
-                         a.feature_id=lt.srcfeature_id and
-                         a.uniquename='$arm' and
-                         ((lt.fmin between $pos and $pos+$upstream and lt.strand > 0) or
-                          (lt.fmax between $pos-$upstream and $pos and lt.strand < 0)) and
-                         t.type_id=368
-                         ),\@{$resultsHash{upstream5_class}});
-                         #),\@upstream5_class);
-  
-    $session->db->select(
-                      qq(select distinct t.name from feature a, feature t, featureloc lt
-                         where
-                         t.feature_id=lt.feature_id and
-                         a.feature_id=lt.srcfeature_id and
-                         a.uniquename='$arm' and
-                         ((lt.fmax between $pos-$upstream and $pos and lt.strand > 0) or
-                          (lt.fmin between $pos and $pos+$upstream and lt.strand < 0)) and
-                         t.type_id=368
-                         ),\@{$resultsHash{downstream3_class}});
-                         #),\@downstream3_class);
-  
+    @{$resultsHash{coding_class}} = uniq map {$_->transcript_name}
+      $session->Gene_ModelSet({
+          scaffold_uniquename=>$arm,
+          transcript_type_id=>368,
+          -greater_than_or_equal=>{exon_end=>$pos, cds_max=>$pos},
+          -less_than_or_equal=>{exon_start=>$pos, cds_min=>$pos},
+          -rtree_bin=>{exon_bin=>[$pos, $pos], cds_bin=>[$pos, $pos]},
+        })->select->as_list;
+      
+    @{$resultsHash{utr_5exon_class}} = uniq map {$_->transcript_name}
+      grep {($_->cds_min > $pos && $_->exon_strand > 0)
+              || ($_->cds_max < $pos && $_->exon_strand < 0)} 
+      $session->Gene_ModelSet({
+          scaffold_uniquename=>$arm,
+          transcript_type_id=>368,
+          -greater_than_or_equal=>{exon_end=>$pos},
+          -less_than_or_equal=>{exon_start=>$pos},
+          -rtree_bin=>{exon_bin=>[$pos, $pos]},
+        })->select->as_list;
+        
+    @{$resultsHash{utr_3exon_class}} = uniq map {$_->transcript_name}
+      grep {($_->cds_min > $pos && $_->exon_strand < 0)
+              || ($_->cds_max < $pos && $_->exon_strand > 0)} 
+      $session->Gene_ModelSet({
+          scaffold_uniquename=>$arm,
+          transcript_type_id=>368,
+          -greater_than_or_equal=>{exon_end=>$pos},
+          -less_than_or_equal=>{exon_start=>$pos},
+          -rtree_bin=>{exon_bin=>[$pos, $pos]},
+        })->select->as_list;
+        
+    @{$resultsHash{coding_intron_class}} = uniq map {$_->transcript_name}
+      $session->Gene_ModelSet({
+          scaffold_uniquename=>$arm,
+          transcript_type_id=>368,
+          -greater_than_or_equal=>{cds_max=>$pos},
+          -less_than_or_equal=>{cds_min=>$pos},
+          -rtree_bin=>{cds_bin=>[$pos, $pos]},
+        })->select->as_list;
+        
+    @{$resultsHash{utr_5intron_class}} = uniq map {$_->transcript_name}
+      grep {($_->cds_min > $pos && $_->transcript_strand > 0)
+              || ($_->cds_max < $pos && $_->transcript_strand < 0)}
+      $session->Gene_ModelSet({
+          scaffold_uniquename=>$arm,
+          transcript_type_id=>368,
+          -greater_than_or_equal=>{transcript_end=>$pos},
+          -less_than_or_equal=>{transcript_start=>$pos},
+          -rtree_bin=>{transcript_bin=>[$pos, $pos]},
+        })->select->as_list;
+        
+    @{$resultsHash{utr_3intron_class}} = uniq map {$_->transcript_name}
+      grep {($_->cds_min > $pos && $_->transcript_strand < 0)
+              || ($_->cds_max < $pos && $_->transcript_strand > 0)}
+      $session->Gene_ModelSet({
+          scaffold_uniquename=>$arm,
+          transcript_type_id=>368,
+          -greater_than_or_equal=>{transcript_end=>$pos},
+          -less_than_or_equal=>{transcript_start=>$pos},
+          -rtree_bin=>{transcript_bin=>[$pos, $pos]},
+        })->select->as_list;
+        
+    @{$resultsHash{upstream5_class}} = uniq map {$_->transcript_name}
+      ($session->Gene_ModelSet({
+          scaffold_uniquename=>$arm,
+          transcript_type_id=>368,
+          -greater_than=>{transcript_strand=>0},
+          -greater_than_or_equal=>{transcript_start=>$pos},
+          -less_than_or_equal=>{transcript_start=>$pos+$upstream},
+          -rtree_bin=>{transcript_bin=>[$pos, $pos+$upstream]},
+        })->select->as_list,
+       $session->Gene_ModelSet({
+          scaffold_uniquename=>$arm,
+          transcript_type_id=>368,
+          -less_than=>{transcript_strand=>0},
+          -greater_than_or_equal=>{transcript_start=>$pos-$upstream},
+          -less_than_or_equal=>{transcript_start=>$pos},
+          -rtree_bin=>{transcript_bin=>[$pos-$upstream, $pos]},
+        })->select->as_list);
+        
+    @{$resultsHash{downstream3_class}} = uniq map {$_->transcript_name}
+      ($session->Gene_ModelSet({
+          scaffold_uniquename=>$arm,
+          transcript_type_id=>368,
+          -greater_than=>{transcript_strand=>0},
+          -greater_than_or_equal=>{transcript_end=>$pos-$upstream},
+          -less_than_or_equal=>{transcript_end=>$pos},
+          -rtree_bin=>{transcript_bin=>[$pos-$upstream, $pos]},
+        })->select->as_list,
+       $session->Gene_ModelSet({
+          scaffold_uniquename=>$arm,
+          transcript_type_id=>368,
+          -less_than=>{transcript_strand=>0},
+          -greater_than_or_equal=>{transcript_start=>$pos},
+          -less_than_or_equal=>{transcript_start=>$pos+$upstream},
+          -rtree_bin=>{transcript_bin=>[$pos, $pos+$upstream]},
+        })->select->as_list);
   }
 
   # hashify
@@ -891,9 +833,6 @@ sub classifyPosition
     @{$resultsHash{$table}} = sort { $a cmp $b } keys %{$bigHash{$table}};
   }
 
-  
-  
-
   return (join_it(@{$resultsHash{coding_class}}),
           join_it(@{$resultsHash{utr_5exon_class}}),
           join_it(@{$resultsHash{utr_3exon_class}}),
@@ -909,7 +848,6 @@ sub classifyPosition
                    } @_;
                    return join(' ',sort { $a cmp $b} keys %hash) || $cgi->nbsp }
 }
-
 
 sub intronPhase
 {
