@@ -1,0 +1,33 @@
+These next 2 sets are unrelated to these.
+
+3) Exelixis Chromatograms
+
+I have 39 directories containing a total of 2048 chromatograms for c lines
+from Exelixis. There are 1007 3' reads and 1041 5' reads for 1262 different
+strains.
+
+4) Inherited Sequence
+
+I also have 2 files names garza_seq.txt and garza_seqs.txt.from_bob.
+These are trimmed flanking sequences and/or genomic cutouts. The
+sequence and strain identifiers in these files are identical. The
+version labeled from_bob has fasta headers which indicate whether it is
+a read sequence or genomic cutout. Representative headers for both
+types are
+
+>Garza_genome_seq|c07574|lethality unknown|3L|11215696|minus
+>Garza_read|c09082|lethality unknown|G29655.78|3'
+
+These are all "c" PB lines. There are 1,319 entries in this files for
+1,304 different sequence identifiers. 1,055 entries are genomic cutouts
+and 264 are reads. The duplicated entries are all for reads; of the 264
+reads there are 249 unique sequence identifiers.  3 entries in this
+file have exactly the same sequence (entries for c07750-5, c07758-5,
+and c07846-5) with different gel identifiers. There are 12 other
+examples of repeated sequence identifiers with different sequence:
+c07690-5, c07743-5, c07798-5, c07803-5, c07804-5, c08116-3, c08143-3,
+c08183-3, c08272-3, c08386-3, c08387-3, and c08462-3.  These also
+appear to be resequencing with different results. In all cases the
+sequences look basically the same and I can align the two together and
+make a consensus.
+

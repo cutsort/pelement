@@ -1,0 +1,231 @@
+I) Data Sources
+
+  There are 2 sources for the base data:
+
+
+1) Exelixis CDROM of phred sequence
+
+The bulk of Exelixis data is from a file off a CDR of phred calls and
+associated phred quality values. The raw files were named by Exelixis
+tnsSequences.txt and tnsQuality.txt. For reference, the fingerprint on
+the files are
+
+176e5112cd7b13138bffd884530245ad  tnsSequences.txt
+53bddf33c0d1afce2eb180b33327c8cf  tnsQuality.txt
+
+There are 52,183 entries in this file. These break into 4 collections,
+
+Collection  Total Seq   Number of 3'   Number of 5'  Number of Strains
+    PB       15,099        6,493          8,606           4,737
+    XP       15,516        6,295          9,221           6,832
+    RB        8,780        4,782          3,998           3,919
+    WH       12,788        6,908          5,880           6,656
+  Total      52,183       24,478         27,705          22,144 
+
+The PB strains are labeled a designator of the form cNNNNN (N's are
+digits 0-9), the XP are dNNNNN, the RB are named eNNNNN, and the WH are
+fNNNNN.
+
+There are not 2 end reads for each strain. For the PB collection, there
+are 7,984 distinct combinations of strain name and end. There are 3,880
+cases where there is just 1 read for a given PB strain and end (either
+5' or 3') and 4,104 PB strains with multiple reads on one end or
+another. For the other collections the number are:
+
+Collection  Distinct Seq and End   # with 1 read    # with more than 1 read 
+    PB               7,984            3,880             4,104
+    XP              10,335            6,822             3,513
+    RB               6,512            4,641             1,871
+    WH              11,454           10,190             1,264
+  Total             36,285           25,533            10,752
+
+This is the data set that I'm calling the 'lane data'.
+
+2) Supplemental Tables
+
+I have the supplemental tables of cutouts from release 2 genome from
+TXXX et al. These are loaded directly the pelement project's database
+of flanking sequence with identifiers named strain_name.cutoutN. N is a
+number that counts the number of cutout for that strain.
+
+Collection  Distinct Strain IDs   # of Cutouts
+    PB           3,685               4,427
+    XP           3,761               4,031
+    RB           3,364               3,559
+    WH           5,718               5,935
+  Total         16,528              17,952
+
+The genomic cutouts were blasted and aligned to release 3 genome.
+17,678 of these aligned automatically to release 3, 269 aligned in
+multiple locations. Only 5 did not align. My impression is that most of
+the cases of multiple alignments is that there is 1 alignment for a
+flank in euchromatin and other alignments in heterchromatic scaffolds.
+
+There are 5 strains with data only present in the supplemental tables:
+c06765, e04237, f02744, f05785, and f07543. Other than those 5, the
+lane data is a superset of the data from the supplemental tables.
+
+Integration
+
+The problem would be trivial if there were at most 1 read from each
+strain and end. The ambiguities arise since there strains with lane
+data from either the 5' or 3' end multiple times. I cannot say at
+first which data is the reference. I've done this in a 3 part
+process:
+
+      a) for the cases where I have multiple lane data sequence for a
+      given strain and end, I vector and quality trim all traces,
+      then align with sim4 each one individually to the supplied
+      genomic cutout. Read data that aligned to a genomic cutout was
+      imported into the database and the corresponding genomic cutout
+      was renamed from strain.cutoutN to strain.oldcutN. Read data
+      which did not align was assumed to be a failure. In some cases
+      I see different sets of end read data align to different
+      genomic cutouts. In this case, I import this data as if it were
+      multiple insertions.
+
+      b) for the cases where we only have 1 sequence for a given
+      strain and end, I processed the sequence data normally. I
+      vector and quality trimed, then imported the sequence, blasted
+      and aligned it to the release 3 genome. I went back to the
+      sequence from the cutouts and saw which genomic cutout data
+      could be subsumed by the data. The genomic cutout was renamed
+      to strain.oldcutN
+
+      To illustrate, assume I have 1 end read from the 3' end of
+      c12345, and 2 end reads from the 5' end, and there were genomic
+      cutouts associated with c12345. One outcome would be that I
+      processed the 2 lanes of the 5' end and saw one of the cutout
+      match 1 lane of the 5' end. I imported that 5' end read as the
+      reference read for this end and renamed the cutout. I processed
+      the 3' end normally and renamed any genomic cutout if it was
+      similar to the flanking sequence.
+
+      The final step is:
+
+      c) there was some data left over from the cases of duplicated
+      flank data where none of it aligned. I processed all end reads
+      from the flanks.  and imported these into the database as
+      'unconfirmed recheck' sequences.  I looked at these cases
+      manually. In many cases, I could make the decision of what is
+      the reference data by seeing which lane data aligned to the
+      same location as the cutout.
+
+
+Imported Sequence
+
+Some numbers for the strains with data:
+
+  Collection        Strains with         Strains with       Strains with
+                 Lane & Cutout data    Only Cutout data     Only Lane data
+
+     PB                3,559                 126               606
+     XP                3,599                 162              2199
+     RB                3,281                  83               459
+     WH                5,554                 164               822
+   Total              15,993                 535              4086
+
+I'm comfortable with submitting processed lane data for all cases in
+the first and third categories. I'm not in favor of submitting the
+cutout data for the second class:  in many cases, these are instances
+where the lane data is showing some similarity to the cutout data, but
+it has multiple alignments in heterchromatin. These may have been too
+agressively aligned when the cutouts were done.
+
+The third category of strains may be irrelevant; if they weren't
+described in the paper, then they're not part of any collection, or are
+they?
+
+In category 2, some of these are cases where I have lane data - all from
+multiple sequencing records - but none of it matches the cutout, while
+other cases are instances where I was not able to process the lane data
+and get anything out above our thresholds. The number of strains where
+I have no processed lane data are 70 for PB, 113 for XP, 60 for RB and 
+150 for WH. (these number include the 5 strains for which there is
+no lane data.)
+
+Category 1 includes unsubsumed genomic cutouts. That is, if
+I have unique sequence for a flank, I import that data even if it does
+not match the genomic cutout. There are cases of strains with only
+1 sequencing attempt, but multiple genomic cutouts. These are not
+multiple insertion lines, but rather seem to be ambiguous alignments
+to the release 2 genome. There are 438 PB strains with unsubsumed
+cutouts, 451 XP strains, 136 RB strains and 181 WH strains. These are
+all examples of cases where we will be unable to confirm the Exelixis
+published data.
+
+
+Alignment
+
+I've done the blasting and automated alignment. I'll be sending the
+positions I get for all uniquely alignable strains. The number of
+the uniquely alignable strains based on lane data is:
+
+   Collection      Strains with unique alignment
+      PB                  3,289
+      XP                  4,286
+      RB                  3,193
+      WH                  5,384
+
+These numbers include strains from categories 1 and 3 from above. I have not
+broken them down into the two classes. Note that these will include cases
+of 3' and 5' flanks each uniquely aligning to different locations.
+
+Here is the full list of 535 strains with no lane data. Can someone
+check on the permanent collection lists they have (I'll check against
+mine as well) to see if any of these should be looked at:
+
+c00029 c00041 c00408 c00710 c00731 c01035 c01037 c01195 c01259 c01288
+c01317 c01375 c01420 c01520 c01544 c01554 c01574 c01598 c01806 c01817
+c01898 c01950 c01954 c02004 c02007 c02034 c02090 c02125 c02127 c02136
+c02231 c02252 c02299 c02388 c02471 c02475 c02479 c02483 c02578 c02585
+c02614 c02615 c02643 c02662 c02705 c02713 c02779 c03102 c03135 c03238
+c03249 c03481 c03494 c03514 c03552 c03578 c03587 c03620 c03638 c03657
+c03802 c03826 c03848 c03859 c03928 c03932 c03986 c04095 c04134 c04270
+c04352 c04372 c04538 c04585 c04597 c04599 c04639 c04740 c04809 c04815
+c04842 c04858 c04876 c04916 c04942 c04984 c05030 c05084 c05201 c05230
+c05236 c05298 c05337 c05346 c05355 c05541 c05661 c05681 c05700 c05764
+c05822 c05895 c05958 c05959 c05975 c05978 c05983 c05991 c05995 c06049
+c06231 c06370 c06375 c06456 c06492 c06553 c06636 c06765 c06788 c06821
+c06859 c06886 c06907 c06914 c06990 c07067 d00007 d00009 d00015 d00048
+d00050 d00061 d00089 d00092 d00147 d00236 d00249 d00295 d00355 d00397
+d00403 d00458 d00462 d00488 d00491 d00548 d00556 d00601 d00635 d00670
+d00714 d00795 d00800 d00822 d00849 d00859 d00862 d00875 d00897 d00898
+d00919 d00955 d00992 d01077 d01157 d01181 d01332 d01466 d01477 d01484
+d01487 d01575 d01583 d01600 d01835 d01995 d02001 d02033 d02040 d02056
+d02100 d02109 d02220 d02233 d02255 d02315 d02334 d02416 d02595 d03133
+d03178 d03252 d03321 d03329 d03406 d03477 d03518 d03648 d03689 d03798
+d03901 d04009 d04087 d04155 d04198 d04247 d04259 d04414 d04443 d04493
+d04514 d04545 d04546 d04714 d04878 d05112 d05302 d05673 d05695 d05730
+d05891 d06001 d06077 d06079 d06156 d06170 d06394 d06592 d06686 d06753
+d06882 d06904 d06976 d07009 d07147 d07196 d07214 d07254 d07286 d07463
+d07465 d07523 d07570 d07803 d07830 d07954 d07988 d08138 d08162 d08296
+d08374 d08378 d08410 d08414 d08495 d08521 d08604 d08630 d08710 d08766
+d08906 d09034 d09113 d09143 d09154 d09177 d09230 d09266 d09392 d09478
+d09546 d09874 d09902 d09964 d10220 d10336 d10374 d10389 d10421 d10537
+d10603 d10754 d10773 d11041 d11205 d11359 d11653 d11726 e00117 e00202
+e00258 e00318 e00378 e00380 e00389 e00403 e00445 e00462 e00501 e00503
+e00522 e00607 e00717 e00843 e00929 e00950 e00957 e00971 e01053 e01089
+e01258 e01267 e01364 e01396 e01425 e01485 e01486 e01512 e01537 e01637
+e01836 e01857 e01888 e01889 e01891 e01895 e01900 e01905 e01962 e02384
+e02390 e02474 e02483 e02526 e02538 e02543 e02655 e02752 e02835 e02848
+e02856 e02997 e03142 e03154 e03345 e03423 e03426 e03471 e03502 e03537
+e03549 e03563 e03579 e03582 e03630 e03634 e03708 e03964 e03981 e04045
+e04051 e04078 e04225 e04237 e04295 e04322 e04340 e04455 e04474 e04641
+e04645 f00171 f00286 f00305 f00308 f00398 f00492 f00501 f00634 f00670
+f00677 f00717 f00850 f00906 f01131 f01178 f01212 f01253 f01271 f01283
+f01314 f01321 f01379 f01394 f01472 f01483 f01490 f01508 f01512 f01566
+f01633 f01669 f01791 f01822 f01962 f01963 f01974 f01985 f01986 f02050
+f02084 f02216 f02235 f02407 f02560 f02587 f02597 f02603 f02622 f02669
+f02722 f02731 f02744 f02769 f02821 f02912 f02924 f02931 f02967 f03089
+f03092 f03093 f03114 f03125 f03131 f03140 f03155 f03165 f03227 f03274
+f03324 f03330 f03399 f03419 f03465 f03491 f03514 f03544 f03745 f03799
+f03890 f03902 f03946 f03949 f03950 f03970 f03971 f03973 f03977 f03978
+f03983 f03988 f04013 f04018 f04029 f04169 f04184 f04222 f04296 f04367
+f04410 f04443 f04642 f04722 f04764 f04846 f04891 f04926 f04985 f05110
+f05176 f05236 f05252 f05330 f05335 f05362 f05387 f05416 f05511 f05575
+f05661 f05763 f05785 f05803 f05851 f05866 f05882 f05884 f05909 f05930
+f05931 f05985 f05997 f06078 f06102 f06113 f06171 f06207 f06398 f06440
+f06467 f06501 f06520 f06571 f06599 f06621 f06753 f06768 f06776 f06779
+f07050 f07282 f07325 f07522 f07543 f07576 f07619 f07633 f07637 f07652
+f07673 f07887 f08047 f08106 f08112

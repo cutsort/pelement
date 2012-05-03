@@ -1,0 +1,195 @@
+*                 { font-family: Verdana, Arial;
+                    font-size: 10pt; }
+
+BODY              { background: #F8F8F0;
+                    font-size: 10pt; }
+
+/* tables. Basic table and elements, then classified tables */
+
+TABLE             { border-bottom : groove gray 2pt;
+                    border-top : groove gray 2pt;
+                    border-left : groove gray 2pt;
+                    border-right : groove gray 2pt;
+                    align: center;
+                  }
+
+TH                { font-size: 10pt;
+                    font-weight: bold;
+	            font-family: Verdana, Arial;
+                    text-align: center;
+                    border-top : groove gray 1pt;
+                    border-bottom : groove gray 1pt;
+                    border-left : groove gray 1pt;
+                    border-right : groove gray 1pt;
+                    background-color: #A2C4D8; }
+
+TD                { background-color: #F8F8F0;
+                    font-size: 10pt;
+                    font-weight: normal;
+	            font-family: Verdana, Arial;
+                    text-align: center;
+                    border-top : groove gray 1pt;
+                    border-bottom : groove gray 1pt;
+                    border-left : groove gray 1pt;
+                    border-right : groove gray 1pt;
+                  }
+
+TABLE.sortable TH A:link, TABLE.sortable TH A:visited
+                  { font-size: 10pt;
+	            color: #000000;
+	            text-decoration: none; }
+
+TABLE.unboxed     { border-top: none;
+                    border-left: none;
+                    border-right: none;
+                    border-bottom: none;
+                  }
+
+TABLE.unboxed TH  { border-top: none;
+                    border-left: none;
+                    border-right: none;
+                    border-bottom: none;
+                  }
+                
+TABLE.unboxed TD  { border-top: none;
+                    border-left: none;
+                    border-right: none;
+                    border-bottom: none;
+                  }
+                
+TABLE.unboxed A:link, TABLE.unboxed  A:visited
+                  { color: #000000;
+	            text-decoration: none; }
+
+TABLE.unboxed A:active, TABLE.unboxed A:hover
+                  { color: #0000FF;
+                  }
+
+
+TABLE.keylist     { border: 1pt;
+                    align: center;
+                  }
+
+TD.key            { font-weight: bold;
+                    text-align: right;
+                  }
+
+TD.value          { text-align: left;
+                  }
+
+TABLE.keylist TH  { background: blue;
+                  }
+
+.unboxed          { border-bottom-style : none;
+                    border-top-style : none;
+                    border-left-style : none;
+                    border-right-style : none;
+                  }
+
+H2.SectionTitle   { font-size: 14pt;
+                    background: #660033;
+                    color: #FFFFFF;
+                  }
+
+.PageTitle        { font-size: 14pt;
+                    font-weight: bold;
+                    font-family: Verdana, Arial; }
+
+.SectionTitle     { font-size: 12pt;
+                    font-weight: bold;
+                    font-family: Verdana, Arial; }
+
+.BlockTitle       { font-size: 12pt;
+                    font-weight: normal;
+                    font-family: Verdana, Arial; }
+
+TD.BlockTitle     { background: #FFCC00;
+                    text-align: center; }
+
+LI.BlockTitle     { background: #660033;
+                    color: #FFFFFF;
+                    text-align: center;
+                    text-indent: 0em;
+	            list-style-type: none;
+                    line-height: 14pt; }
+
+HR                { color: #777777;
+ 	           height: 4pt;
+ 	           text-align: left; }
+
+.Head, H1         { font: 16pt Verdana;
+	            font-weight: normal;
+	            color: #666644; }
+
+img.flashable { cursor: pointer; }
+img.flashable:active { background: rgb(0,0,0); }
+
+
+A.bare:link, A.bare:visited {
+	            color: #000000;
+	            text-decoration: none; }
+
+A.scroll-to       { text-decoration: none; }
+
+A.scroll-from:before  {  background-image: url(/labtrack/left_circle.png);
+                         width: 16px; }
+
+A.scroll-from:after   {  background-image: url(/labtrack/right_circle.png);
+                         width: 16px; }
+
+A.scroll-from, A.scroll-from:link, A.scroll-from:visited,
+A.scroll-from:active, A.scroll-from:hover
+                      { color: #FFFFFF;
+                         margin-left: 16px;
+                         margin-right: 16px;
+                         text-decoration: none; }
+
+.PageTitle A.:active
+                  { color: #0000FF;
+                  }
+
+.PageTitle A.:hover
+                  { color: #00FFFF;
+                  }
+
+.PageTitle A.banner  { color: black;
+                       text-decoration: none; 
+                       font-size: 14pt;
+                       font-weight: bold;
+                       font-family: Verdana, Arial; }
+
+/* was commented out
+A:link, A:visited { font-size: 10pt;
+	            color: #333399;
+	            text-decoration: none; }
+
+A:active, A:hover { color: #0000FF;
+	            text-decoration: underline; }
+
+*/
+
+PRE.fasta         { font-family: fixed-width, monospace;
+	            color: black;
+	            font-size: 10pt; 
+                    text-align: left; }
+
+PRE               { font-family: fixed-width, monospace;
+	            color: black;
+	            font-size: 10pt;
+                    text-align: left; }
+
+BLOCKQUOTE        { font-family: Lucida Console, monospace;
+	            color: black;
+	            font-size: 10pt; }
+
+UL, OL            { font-family: Verdana, Helvetica, sans-serif;
+	            font-size: 10pt;
+	            line-height: 12pt;
+	            list-style-type: disc; }
+
+UL LI             { list-style-type: square; }
+UL LI LI          { list-style-type: disc; }
+UL LI LI LI       { list-style-type: circle; }
+OL LI             { list-style-type: decimal; }
+OL OL LI          { list-style-type: lower-alpha; }
+OL OL OL LI       { list-style-type: lower-roman; }

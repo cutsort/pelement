@@ -1,0 +1,100 @@
+fasta_extract_wrap.c
+
+[ Module : fasta_extract, Package : fasta_extract ]
+
+
+seq_extract(s,t,int ,int ,i);
+        [ returns char * ]
+
+get_info();
+        [ returns struct extract_info * ]
+
+1.  class extract_info
+======================
+[ created from struct extract_info ]
+
+
+extract_info_header_set(self,header);
+extract_info_header_get(self);
+        [ Member data: returns char * ]
+
+extract_info_file_offset_set(self,file_offset);
+extract_info_file_offset_get(self);
+        [ Member data: returns int  ]
+
+extract_info_regex_flags_set(self,regex_flags);
+extract_info_regex_flags_get(self);
+        [ Member data: returns int  ]
+
+extract_info_match_set(self,match);
+extract_info_match_get(self);
+        [ Member data: returns regmatch_t * ]
+
+extract_info_n_match_set(self,n_match);
+extract_info_n_match_get(self);
+        [ Member data: returns int  ]
+
+extract_info_err_set(self,err);
+extract_info_err_get(self);
+        [ Member data: returns int  ]
+
+extract_info_flags_set(self,flags);
+extract_info_flags_get(self);
+        [ Member data: returns int  ]
+
+extract_info_mmem_set(self,mmem);
+extract_info_mmem_get(self);
+        [ Member data: returns char * ]
+
+----------
+
+$HEADERSIZE = 200
+        [ Constant: int  ]
+        get everything 
+
+$FSTA_ENTIRE = -1
+        [ Constant: int  ]
+        eventually, it may be nice to have the ability to keep the file
+        open and mapped when iterating. These currently do not work - but
+        it doesn't look like a show stopper. 
+
+$FSTA_NO_OPEN = 1
+        [ Constant: int  ]
+
+$FSTA_OPEN_ONLY = ((1)<<1)
+        [ Constant: int  ]
+
+$FSTA_NO_CLOSE = ((((1)<<1))<<1)
+        [ Constant: int  ]
+
+$FSTA_CLOSE_ONLY = ((((((1)<<1))<<1))<<1)
+        [ Constant: int  ]
+
+$ERR_SUPPRESS = ((((((((1)<<1))<<1))<<1))<<1)
+        [ Constant: int  ]
+        error flags 
+
+$NO_MATCH = 1
+        [ Constant: int  ]
+
+$OPEN_ERR = ((1)+1)
+        [ Constant: int  ]
+
+$STAT_ERR = ((((1)+1))+1)
+        [ Constant: int  ]
+
+$MMAP_ERR = ((((((1)+1))+1))+1)
+        [ Constant: int  ]
+
+$REGEXP_COMP_ERR = ((((((((1)+1))+1))+1))+1)
+        [ Constant: int  ]
+
+$MALLOC_ERR = ((((((((((1)+1))+1))+1))+1))+1)
+        [ Constant: int  ]
+
+$NO_EOL = ((((((((((((1)+1))+1))+1))+1))+1))+1)
+        [ Constant: int  ]
+
+strncpychk(char *,char *,size_t *,size_t *);
+        [ returns char * ]
+
