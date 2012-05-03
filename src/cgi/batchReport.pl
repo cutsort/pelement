@@ -351,8 +351,14 @@ sub reportBatch
                                          {-seq_name=>$sa->seq_name,-db=>'vector',
                                           -greater_than=>{score=>50} })->select;
 
-                        $hitVector = 1 if $vecReport->count;
                                
+                        foreach my $hit ($vecReport->as_list) {
+                          $hitVector = 1 if $hit->percent > 90 && ($hit->query_begin <= 5 || $hit->query_end <= 5);
+                          $hitVector = 1 if $hit->percent > 90 && ((length($saSeq->sequence)-$hit->query_begin) <= 5 || (length($saSeq->sequence)-$hit->query_end) <= 5);
+                          last if $hitVector;
+                        }
+        
+
                         unless ($alignmentDoneSeq{$sa->seq_name}) {
                           $alignmentDoneSeq{$sa->seq_name} = 1;
                           my $al = new Seq_AlignmentSet($session,

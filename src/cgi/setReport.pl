@@ -13,6 +13,7 @@ use SeqSet;
 use Sample;
 use SampleSet;
 use Strain;
+use StrainSet;
 use Seq_AlignmentSet;
 use Seq_Alignment;
 use PhaseSet;
@@ -249,6 +250,15 @@ sub reportSet
    map { map {$seqSet{Seq::strain($_)}=1 unless !$_ || $_ =~ /[,+]/ }
                                                    split(/\s/,$_) } @set;
 
+   # expand wildcards
+   foreach my $strain (sort keys %seqSet) {
+      if ($strain =~ /%/) {
+         my $xSet = new StrainSet($session,{-like=>{strain_name=>$strain}})->select;
+         map { $seqSet{$_->strain_name} = 1 } $xSet->as_list;
+         delete $seqSet{$strain};
+      }
+   }
+
    foreach my $strain (sort keys %seqSet) {
 
       my $seqS;
@@ -441,7 +451,7 @@ sub reportSet
 
    if ($reports{'intron'}) {
          my @phases;
-         map {push @phases ,[$_,intronPhase($session,$_,$release)] } map {split /\s+/,$_} @set;
+         map {push @phases ,[$_,intronPhase($session,$_,$release)] } map {split /\s+/,$_} sort keys %seqSet;
          print $cgi->center($cgi->div({-class=>'SectionTitle'},"Intron Phase"),$cgi->br),"\n",
             $cgi->center(
               $cgi->table({-border=>2,-width=>"30%",
@@ -459,7 +469,7 @@ sub reportSet
 
    if ($reports{'class'}) {
        my @classes;
-       map { push @classes, [$_,classifyInsert($cgi,$session,$_,$release)] }  map {split /\s+/,$_} @set;
+       map { push @classes, [$_,classifyInsert($cgi,$session,$_,$release)] }  map {split /\s+/,$_} sort keys %seqSet;
          print $cgi->center($cgi->div({-class=>'SectionTitle'},"Position Classification"),$cgi->br),"\n",
             $cgi->center(
               $cgi->table({-border=>2,-width=>"80%",
