@@ -3,7 +3,8 @@
 # and installing scripts and modules
 
 INSTALLDIR = /data/pelement
-WEBINSTALLDIR = /opt/httpd/cgi-bin/pelement
+WEBINSTALLDIR = /srv/www/cgi-bin/pelement
+HTMLINSTALLDIR = /srv/www/htdocs/pelement
 
 check:
 	for I in perl cgi modules ; do (cd $$I; make check ); done
@@ -11,8 +12,13 @@ check:
 all:
 	for I in perl cgi modules ; do (cd $$I; make all ); done
 
-webinstall: hostcheck
+webinstall: cgiinstall htmlinstall
+	
+cgiinstall: hostcheck
 	for I in cgi modules ; do (cd $$I; INSTALLDIR=$(WEBINSTALLDIR) make install ); done
+
+htmlinstall: hostcheck
+	for I in html ; do (cd $$I; INSTALLDIR=$(HTMLINSTALLDIR) make install ); done
 	
 install:
 	for I in perl modules ; do (cd $$I; INSTALLDIR=$(INSTALLDIR) make install ); done
@@ -20,5 +26,5 @@ install:
 hostcheck:
 	hostname | grep boss 
 
-dist:
-	tar czvf pelement_src.tgz `cvsFileList.pl`
+dist: hostcheck
+	tar czvf pelement_src.tgz `./cvsFileList.pl`

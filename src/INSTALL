@@ -1,0 +1,12 @@
+
+Some notes on installing the source.
+
+The file module/Pelement.pm has directory settings for various parts
+of the filesystem needed. For a client connection the important
+one is probably only $PELEMENT_LOG for log files.
+
+The top level Makefile also has INSTALLDIR set top level
+installation directory of the scripts. This also should be reset.
+This Makefile also has a hostname check for installing the cgi scripts;
+locally we have on a served from a machine not using an NFS mounted
+location for the htdocs.
