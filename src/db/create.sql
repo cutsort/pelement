@@ -794,4 +794,12 @@ create index on gene_model (scaffold_uniquename,transcript_bin,transcript_start,
 create index on gene_model (scaffold_uniquename,cds_bin,cds_min,cds_max);
 analyze gene_model;
 
+CREATE OR REPLACE FUNCTION remove_null(anyarray)
+RETURNS anyarray AS $$
+SELECT ARRAY(SELECT x FROM unnest($1) g(x) WHERE x IS NOT NULL)
+$$ LANGUAGE sql;
+ALTER FUNCTION remove_null(anyarray) OWNER TO labtrack;
+GRANT EXECUTE ON FUNCTION remove_null(anyarray) TO public;
+
+
 commit;
