@@ -635,7 +635,6 @@ sub getCytoAndGene
       # look at each annotation and decide if we're inside it.
 
       my %gene_name_hash;
-      #foreach my $annot ($geneSet->as_list) {
       while (@geneSet) {
         my $gene_name = shift @geneSet;
         my $gene_uniquename = shift @geneSet;
@@ -723,7 +722,7 @@ sub classifyPosition
     $arm =~ s/arm_//;
     my @vals;
 
-    @{$resultsHash{coding_class}} = uniq map {$_->transcript_name}
+    push @{$resultsHash{coding_class}}, uniq map {$_->transcript_name}
       $session->Gene_ModelSet({
           scaffold_uniquename=>$arm,
           transcript_type_id=>368,
@@ -732,7 +731,7 @@ sub classifyPosition
           -rtree_bin=>{exon_bin=>[$pos, $pos], cds_bin=>[$pos, $pos]},
         })->select->as_list;
       
-    @{$resultsHash{utr_5exon_class}} = uniq map {$_->transcript_name}
+    push @{$resultsHash{utr_5exon_class}}, uniq map {$_->transcript_name}
       grep {($_->cds_min > $pos && $_->exon_strand > 0)
               || ($_->cds_max < $pos && $_->exon_strand < 0)} 
       $session->Gene_ModelSet({
@@ -743,7 +742,7 @@ sub classifyPosition
           -rtree_bin=>{exon_bin=>[$pos, $pos]},
         })->select->as_list;
         
-    @{$resultsHash{utr_3exon_class}} = uniq map {$_->transcript_name}
+    push @{$resultsHash{utr_3exon_class}}, uniq map {$_->transcript_name}
       grep {($_->cds_min > $pos && $_->exon_strand < 0)
               || ($_->cds_max < $pos && $_->exon_strand > 0)} 
       $session->Gene_ModelSet({
@@ -754,7 +753,7 @@ sub classifyPosition
           -rtree_bin=>{exon_bin=>[$pos, $pos]},
         })->select->as_list;
         
-    @{$resultsHash{coding_intron_class}} = uniq map {$_->transcript_name}
+    push @{$resultsHash{coding_intron_class}}, uniq map {$_->transcript_name}
       $session->Gene_ModelSet({
           scaffold_uniquename=>$arm,
           transcript_type_id=>368,
@@ -763,7 +762,7 @@ sub classifyPosition
           -rtree_bin=>{cds_bin=>[$pos, $pos]},
         })->select->as_list;
         
-    @{$resultsHash{utr_5intron_class}} = uniq map {$_->transcript_name}
+    push @{$resultsHash{utr_5intron_class}}, uniq map {$_->transcript_name}
       grep {($_->cds_min > $pos && $_->transcript_strand > 0)
               || ($_->cds_max < $pos && $_->transcript_strand < 0)}
       $session->Gene_ModelSet({
@@ -774,7 +773,7 @@ sub classifyPosition
           -rtree_bin=>{transcript_bin=>[$pos, $pos]},
         })->select->as_list;
         
-    @{$resultsHash{utr_3intron_class}} = uniq map {$_->transcript_name}
+    push @{$resultsHash{utr_3intron_class}}, uniq map {$_->transcript_name}
       grep {($_->cds_min > $pos && $_->transcript_strand < 0)
               || ($_->cds_max < $pos && $_->transcript_strand > 0)}
       $session->Gene_ModelSet({
@@ -785,7 +784,7 @@ sub classifyPosition
           -rtree_bin=>{transcript_bin=>[$pos, $pos]},
         })->select->as_list;
         
-    @{$resultsHash{upstream5_class}} = uniq map {$_->transcript_name}
+    push @{$resultsHash{upstream5_class}}, uniq map {$_->transcript_name}
       ($session->Gene_ModelSet({
           scaffold_uniquename=>$arm,
           transcript_type_id=>368,
@@ -798,12 +797,12 @@ sub classifyPosition
           scaffold_uniquename=>$arm,
           transcript_type_id=>368,
           -less_than=>{transcript_strand=>0},
-          -greater_than_or_equal=>{transcript_start=>$pos-$upstream},
-          -less_than_or_equal=>{transcript_start=>$pos},
+          -greater_than_or_equal=>{transcript_end=>$pos-$upstream},
+          -less_than_or_equal=>{transcript_end=>$pos},
           -rtree_bin=>{transcript_bin=>[$pos-$upstream, $pos]},
         })->select->as_list);
         
-    @{$resultsHash{downstream3_class}} = uniq map {$_->transcript_name}
+    push @{$resultsHash{downstream3_class}}, uniq map {$_->transcript_name}
       ($session->Gene_ModelSet({
           scaffold_uniquename=>$arm,
           transcript_type_id=>368,
