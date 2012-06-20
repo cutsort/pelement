@@ -716,6 +716,8 @@ sub classifyPosition
 
   my $upstream = 500;
   my %resultsHash;
+
+  my @transcript_type_ids = (475,438,368,450,456,461,426,927);
   
   foreach my $location (@locs) {
     my ($arm,$pos) = split(/:/,$location);
@@ -725,7 +727,7 @@ sub classifyPosition
     push @{$resultsHash{coding_class}}, uniq map {$_->transcript_name}
       $session->Gene_ModelSet({
           scaffold_uniquename=>$arm,
-          transcript_type_id=>368,
+          -in=>{transcript_type_id=>\@transcript_type_ids},
           -greater_than_or_equal=>{exon_end=>$pos, cds_max=>$pos},
           -less_than_or_equal=>{exon_start=>$pos, cds_min=>$pos},
           -rtree_bin=>{exon_bin=>[$pos, $pos], cds_bin=>[$pos, $pos]},
@@ -736,7 +738,7 @@ sub classifyPosition
               || ($_->cds_max < $pos && $_->exon_strand < 0)} 
       $session->Gene_ModelSet({
           scaffold_uniquename=>$arm,
-          transcript_type_id=>368,
+          -in=>{transcript_type_id=>\@transcript_type_ids},
           -greater_than_or_equal=>{exon_end=>$pos},
           -less_than_or_equal=>{exon_start=>$pos},
           -rtree_bin=>{exon_bin=>[$pos, $pos]},
@@ -747,7 +749,7 @@ sub classifyPosition
               || ($_->cds_max < $pos && $_->exon_strand > 0)} 
       $session->Gene_ModelSet({
           scaffold_uniquename=>$arm,
-          transcript_type_id=>368,
+          -in=>{transcript_type_id=>\@transcript_type_ids},
           -greater_than_or_equal=>{exon_end=>$pos},
           -less_than_or_equal=>{exon_start=>$pos},
           -rtree_bin=>{exon_bin=>[$pos, $pos]},
@@ -756,7 +758,7 @@ sub classifyPosition
     push @{$resultsHash{coding_intron_class}}, uniq map {$_->transcript_name}
       $session->Gene_ModelSet({
           scaffold_uniquename=>$arm,
-          transcript_type_id=>368,
+          -in=>{transcript_type_id=>\@transcript_type_ids},
           -greater_than_or_equal=>{cds_max=>$pos},
           -less_than_or_equal=>{cds_min=>$pos},
           -rtree_bin=>{cds_bin=>[$pos, $pos]},
@@ -767,7 +769,7 @@ sub classifyPosition
               || ($_->cds_max < $pos && $_->transcript_strand < 0)}
       $session->Gene_ModelSet({
           scaffold_uniquename=>$arm,
-          transcript_type_id=>368,
+          -in=>{transcript_type_id=>\@transcript_type_ids},
           -greater_than_or_equal=>{transcript_end=>$pos},
           -less_than_or_equal=>{transcript_start=>$pos},
           -rtree_bin=>{transcript_bin=>[$pos, $pos]},
@@ -778,7 +780,7 @@ sub classifyPosition
               || ($_->cds_max < $pos && $_->transcript_strand > 0)}
       $session->Gene_ModelSet({
           scaffold_uniquename=>$arm,
-          transcript_type_id=>368,
+          -in=>{transcript_type_id=>\@transcript_type_ids},
           -greater_than_or_equal=>{transcript_end=>$pos},
           -less_than_or_equal=>{transcript_start=>$pos},
           -rtree_bin=>{transcript_bin=>[$pos, $pos]},
@@ -787,7 +789,7 @@ sub classifyPosition
     push @{$resultsHash{upstream5_class}}, uniq map {$_->transcript_name}
       ($session->Gene_ModelSet({
           scaffold_uniquename=>$arm,
-          transcript_type_id=>368,
+          -in=>{transcript_type_id=>\@transcript_type_ids},
           -greater_than=>{transcript_strand=>0},
           -greater_than_or_equal=>{transcript_start=>$pos},
           -less_than_or_equal=>{transcript_start=>$pos+$upstream},
@@ -795,7 +797,7 @@ sub classifyPosition
         })->select->as_list,
        $session->Gene_ModelSet({
           scaffold_uniquename=>$arm,
-          transcript_type_id=>368,
+          -in=>{transcript_type_id=>\@transcript_type_ids},
           -less_than=>{transcript_strand=>0},
           -greater_than_or_equal=>{transcript_end=>$pos-$upstream},
           -less_than_or_equal=>{transcript_end=>$pos},
@@ -805,7 +807,7 @@ sub classifyPosition
     push @{$resultsHash{downstream3_class}}, uniq map {$_->transcript_name}
       ($session->Gene_ModelSet({
           scaffold_uniquename=>$arm,
-          transcript_type_id=>368,
+          -in=>{transcript_type_id=>\@transcript_type_ids},
           -greater_than=>{transcript_strand=>0},
           -greater_than_or_equal=>{transcript_end=>$pos-$upstream},
           -less_than_or_equal=>{transcript_end=>$pos},
@@ -813,7 +815,7 @@ sub classifyPosition
         })->select->as_list,
        $session->Gene_ModelSet({
           scaffold_uniquename=>$arm,
-          transcript_type_id=>368,
+          -in=>{transcript_type_id=>\@transcript_type_ids},
           -less_than=>{transcript_strand=>0},
           -greater_than_or_equal=>{transcript_start=>$pos},
           -less_than_or_equal=>{transcript_start=>$pos+$upstream},

@@ -146,8 +146,18 @@ sub initialize_self
       $bin,
     )." and";
   }
+  my $in_constraint = parseArgs($args,'in') || {};
+  for my $in (keys %$in_constraint) {
+     my $in_list = ref($in_constraint->{$in}) eq 'ARRAY'
+       ? $in_constraint->{$in} : [$in_constraint->{$in}];
+     $constraint .= " $in in ("
+       .((@$in_list>0)
+         ? (join(',',map {$sessionHandle->db->quote($_)} @$in_list))
+         : 'NULL')
+       .") and";
+  }
+  
   $self->{_constraint} =~ s/ and$//;
-
   return $self;
 }
 
