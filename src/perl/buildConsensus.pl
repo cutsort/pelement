@@ -318,7 +318,7 @@ foreach my $lane (@lanes) {
    # after the insertion. NOT the interbase coordinate!
    $insert_pos++;
 
-   if (length($seq) > $minSeqSize) {
+   if (length($seq) >= $minSeqSize) {
       # we have passed all tests and are ready to insert.
       $seq = substr($seq,0,$maxSeqSize) 
                if ($maxSeqSize && length($seq) > $maxSeqSize);
