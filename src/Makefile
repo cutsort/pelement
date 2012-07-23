@@ -24,7 +24,7 @@ install:
 	for I in perl modules ; do (cd $$I; INSTALLDIR=$(INSTALLDIR) make install ); done
 
 hostcheck:
-	hostname | grep boss 
+	hostname | grep sina 
 
 dist: hostcheck
 	tar czvf pelement_src.tgz `./cvsFileList.pl`
