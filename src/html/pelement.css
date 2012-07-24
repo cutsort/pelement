@@ -1,6 +1,8 @@
 *                 { font-family: Verdana, Arial;
                     font-size: 10pt; }
 
+TT, TT *          { font-family: monospace; }
+
 BODY              { background: #F8F8F0;
                     font-size: 10pt; }
 
