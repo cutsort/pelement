@@ -143,7 +143,7 @@ foreach my $strain_name (@ARGV) {
       my $end = Seq::end($align->seq_name);
       my $qual = Seq::qualifier($align->seq_name);
       # do not look at unconfirmed recheck seq.
-      next if $qual =~ /^[ri]/;
+      next if $qual =~ /^[rio]/;
       # we deduce the strand from p_start and p_end
       my $strand = ($align->p_end > $align->p_start)?1:-1;
       $end = 'o' if $qual =~ /^\d+$/;
@@ -300,7 +300,7 @@ foreach my $strain_name (@ARGV) {
       # we loop through all sequences, trying to bundle together sequences that
       # are part of the same insertion.
 
-      next if Seq::qualifier($seq->seq_name) =~ /^[ri]/;
+      next if Seq::qualifier($seq->seq_name) =~ /^[rio]/;
       next if $seq->end eq 'b' && !$submit_consensus;
 
       # in case we've already dealt with this before, we skip and go on
