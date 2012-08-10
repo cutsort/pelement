@@ -17,10 +17,11 @@ SRC =	Alignment.pm AlignmentSet.pm Association.pm Batch.pm BatchSet.pm \
 	Trimming_Protocol.pm Vector.pm WebCache.pm WebSession.pm \
         SQLObject.pm SQLObjectSet.pm ChadoGeneModelSet.pm GeneModelSet.pm \
 	Phase.pm PhaseSet.pm StrainSet.pm \
- 	RegionImage.pm fasta_extract.pm
+ 	RegionImage.pm GeneralUtils/Structures.pm \
+ 	GeneralUtils/XML/Generator.pm
 
 install: check
-	for I in $(SRC); do ( cp $$I $(INSTALLDIR)/modules/$$I ); done
+	for I in $(SRC); do ( cp --parents $$I $(INSTALLDIR)/modules/$$I ); done
 
 check:	$(SRC) 
 	for I in $?; do ( perl -c $$I ); done
