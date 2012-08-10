@@ -22,7 +22,7 @@ use PhredInterface;
 use Phred_Seq;
 use Phred_Qual;
 use IPCR;
-use lib '/users/joe/src/production/utilities/';
+use lib '/usr/local/bdgp/lib/perl';
 use EditTrace::TraceData;
 use EditTrace::ABIData;
 use EditTrace::SCFData;
@@ -194,7 +194,7 @@ foreach my $file (@files) {
  
 
   # add the supplemental info.
-  foreach my $field qw(lane well run_date machine) {
+  foreach my $field (qw(lane well run_date machine)) {
      next unless $comment_db{$field};
      my $val = join(':',map { $comments{$_} } @{$comment_db{$field}});
      # don't bother to add all blank fields. leave them null.
