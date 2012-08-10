@@ -150,7 +150,7 @@ foreach my $lane (@lanes) {
                     my $new_seq_name = Seq::strain($seq_name).'-'.Seq::end($seq_name);
                     $session->db_begin;
                     $session->db->do("set constraints all deferred");
-                    foreach my $table qw(seq_alignment seq_assembly blast_run seq) {
+                    foreach my $table (qw(seq_alignment seq_assembly blast_run seq)) {
                       $session->info("Command: update $table set seq_name='$new_seq_name' where seq_name='$seq_name'");
                       $session->db->do("update $table set seq_name='$new_seq_name' where seq_name='$seq_name'");
                     }

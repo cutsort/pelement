@@ -9,7 +9,7 @@ my $session = new Session;
 
 my $rel = 3;
 
-foreach my $arm qw(X 2L 2R 3L 3R 4) {
+foreach my $arm (qw(X 2L 2R 3L 3R 4)) {
   my $chado;
   if (my $grab_from_real_chado = 0 ) {
     my $chado_session = new Session({-log_level=>0,
@@ -43,7 +43,7 @@ foreach my $arm qw(X 2L 2R 3L 3R 4) {
                               [$exon->exon_start,$exon->exon_end,$exon->exon_uniquename];
       # and the start and stop codons?
       # this is anathema to the whole chado spirit
-      foreach my $end qw(start stop) {
+      foreach my $end (qw(start stop)) {
         my $f = $session->Feature({-name=>$exon->transcript_name.'_'.$end})->select_if_exists;
         if ($f && $f->feature_id) {
           my $fs = $session->FeatureLoc({-feature_id=>$f->feature_id})->select_if_exists;

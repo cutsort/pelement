@@ -300,8 +300,8 @@ sub reportStrain
    my %alignedHSP = ();
    my $ctr = 1;
 
-   #foreach my $release qw( 3 5 ) {
-   foreach my $release qw( 5 ) {
+   #foreach my $release (qw( 3 5 )) {
+   foreach my $release (qw( 5 )) {
      # I gotta get these table joins to work.
      my @tableRows = ();
      foreach my $seq ($seqSet->as_list) {

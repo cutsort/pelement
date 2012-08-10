@@ -150,19 +150,19 @@ sub reportStrain
    $pheno->is_homozygous_fertile('U') unless $pheno->is_homozygous_fertile;
 
    my @tableRows = ();
-   foreach my $col qw(Is_Homozygous_Viable Is_Homozygous_Fertile ) {
+   foreach my $col (qw(Is_Homozygous_Viable Is_Homozygous_Fertile )) {
       (my $label = $col) =~ s/_/ /g;
       my $db = lc($col);
       push @tableRows , $cgi->td({-align=>"right",-align=>"left"},
                                 [$label,$cgi->popup_menu(-name=>$db,-values=>['Y','N','U'],-default=>$pheno->$db)]);
    }
-   foreach my $col qw(Derived_Cytology) {
+   foreach my $col (qw(Derived_Cytology)) {
       (my $label = $col) =~ s/_/ /g;
       my $db = lc($col);
       push @tableRows , $cgi->td({-align=>"right",-align=>"left"},
                                 [$label,$cgi->textfield(-name=>$db,-value=>$pheno->$db)]);
    }
-   foreach my $col qw(Associated_Aberration Phenotype Strain_Comment Phenotype_Comment) {
+   foreach my $col (qw(Associated_Aberration Phenotype Strain_Comment Phenotype_Comment)) {
       (my $label = $col) =~ s/_/ /g;
       my $db = lc($col);
       push @tableRows , $cgi->td({-align=>"right",-align=>"left"},

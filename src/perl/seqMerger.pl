@@ -158,7 +158,7 @@ foreach my $strain (@ARGV) {
          }
       }
 
-      foreach my $end qw(3 5) {
+      foreach my $end (qw(3 5)) {
          unless ( ($pos{$end} > 0)  && ($pos{$end} < length($ends{$end})) ) {
             $session->warn("Insertion for end $end is outside the sequence.");
             next INSERTION;

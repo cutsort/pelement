@@ -460,7 +460,7 @@ sub reportStrain
   }
 
   # now track down 3' or 5' flanks not imported if we do not have primary data
-   foreach my $end qw( 3 5) {
+   foreach my $end (qw( 3 5)) {
       next if $endsCaught{$end};
 
       # we do this if we have not identified a phred seq; look for a lane

@@ -99,10 +99,10 @@ sub select_sql
                where);
   $sql .= " seq_name=".$self->session->db->quote($self->p_name)." and " if $self->p_name;
   $sql .= " scaffold=".$self->session->db->quote($self->s_name)." and " if $self->s_name;
-  foreach my $var qw(p_start s_start) {
+  foreach my $var (qw(p_start s_start)) {
      $sql .= " $var>= ".$self->{$var}." and " if $self->{$var};
   }
-  foreach my $var qw(p_end s_end) {
+  foreach my $var (qw(p_end s_end)) {
      $sql .= " $var<= ".$self->{$var}." and " if $self->{$var};
   }
   $sql =~ s/ and $//;

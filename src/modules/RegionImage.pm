@@ -26,7 +26,7 @@ sub makePanel
   my $session = new Session({-log_level=>0});
 
   # add the arm_ prefix if need be.
-  map { $scaffold = 'arm_'.$scaffold if $scaffold eq $_ } qw(2L 2R 3L 3R 4 X);
+  map { $scaffold = 'arm_'.$scaffold if $scaffold eq $_ } (qw(2L 2R 3L 3R 4 X));
   my $insHits = $session->Seq_AlignmentSet(
                              {-scaffold => $scaffold,
                            -seq_release => $rel,
@@ -212,7 +212,7 @@ sub makePanel
     # and the start and stop codons?
     # this is anathema to the whole chado spirit
     # since we're using names to identify things.
-    foreach my $end qw(start stop) {
+    foreach my $end (qw(start stop)) {
       my $f = $session->Feature({-name=>$g.'_'.$end})->select_if_exists;
       if ($f && $f->feature_id) {
         my $fs = $session->FeatureLoc({-feature_id=>$f->feature_id,-srcfeature_id=>$scaffold_id})->select_if_exists;

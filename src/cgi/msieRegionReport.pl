@@ -80,7 +80,7 @@ sub reportRegion
   my $range = $form->param('range') || 10000;
   my $rel = $form->param('release') || 3;
 
-  map { $scaffold = 'arm_'.$scaffold if $scaffold eq $_ } qw( 2L 2R 3L 3R 4 X);
+  map { $scaffold = 'arm_'.$scaffold if $scaffold eq $_ } (qw( 2L 2R 3L 3R 4 X));
 
   my $session = new Session({-log_level=>0});
 

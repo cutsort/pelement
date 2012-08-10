@@ -138,7 +138,7 @@ while (<FIL>) {
      delete($nearHash{3});
    }
      
-   foreach my $end qw(b 5 3) {
+   foreach my $end (qw(b 5 3)) {
      print OUT "\t$end within: ",join(' ',@{$geneHash{$end}}) if $geneHash{$end};
      print OUT "\t$end near: ",join(' ',@{$nearHash{$end}}) if $nearHash{$end};
    }

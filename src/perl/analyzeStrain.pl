@@ -74,7 +74,7 @@ while (my $strain_name = shift @ARGV ) {
     }
   }
 
-  foreach my $end qw( 3 5 ) {
+  foreach my $end (qw( 3 5 )) {
     next unless $endInfo{$end};
     next unless my $arm = $endInfo{$end}->[0];
     next unless my $r4 = $endInfo{$end}->[1];

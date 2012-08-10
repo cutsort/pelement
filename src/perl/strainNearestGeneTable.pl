@@ -130,7 +130,7 @@ while (<FIL>) {
                  $nameH{3},$armH{3},$insertH{3},$strandH{3},$cytoH{3})),"\t";
    }
 
-   foreach my $end qw(b 5 3) {
+   foreach my $end (qw(b 5 3)) {
      if ($straddleH{$end}) {
        print OUT " $end inside ",$straddleH{$end} if $straddleH{$end};
      }

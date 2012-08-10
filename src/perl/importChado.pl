@@ -42,7 +42,7 @@ foreach my $model ($chado->as_list) {
                                -uniquename => $model->scaffold_uniquename,
                                -type_id    => $model->scaffold_type_id});
   map { $arm->uniquename($_.'.rel'.$mig_rel) if $arm->uniquename eq $_ }
-                                                       qw( X 2L 2R 3L 3R 4 );
+                                                       (qw( X 2L 2R 3L 3R 4 ));
   ($arm->insert and $ins++) unless $arm->db_exists;
   my $gene = $session->Feature({-feature_id => $model->gene_id,
                                 -name       => $model->gene_name,
@@ -132,9 +132,9 @@ foreach my $model ($chado->as_list) {
 $session->info("Processed $ctr records with $ins insertions.");
 
 # insert the mappings
-foreach my $rel qw(3 4 5) {
+foreach my $rel (qw(3 4 5)) {
   next if $rel == $mig_rel;
-  foreach my $arm qw(X 2L 2R 3L 3R 4) {
+  foreach my $arm (qw(X 2L 2R 3L 3R 4)) {
     my $new_arm = $session->Feature({-uniquename=>$arm.'.rel'.$rel});
     next unless $new_arm->db_exists;
     $new_arm->select;

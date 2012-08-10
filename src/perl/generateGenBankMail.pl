@@ -241,7 +241,7 @@ foreach my $arg (@ARGV) {
          print FIL $gb->print ,"\n";
       } else {
          # otherwise, both ends are separate submissions
-         foreach my $end qw(3 5) {
+         foreach my $end (qw(3 5)) {
             if ( exists($ends{$end}) && length($ends{$end}) >= $minLength ) {
                my $gb = new GenBank_Submission_Info($session,{-collection=>$st->collection})->select;
                $gb->gss($insert.'-'.$end.'prime');

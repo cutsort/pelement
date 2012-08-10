@@ -188,7 +188,7 @@ sub DESTROY
 
    $self->session->info("Deleting temporary phrap files.");
 
-   foreach my $ext qw( .singlets .qual .problems.qual .problems .log .contigs .contigs.qual .ace ) {
+   foreach my $ext (qw( .singlets .qual .problems.qual .problems .log .contigs .contigs.qual .ace )) {
       if( -e $self->{file}.$ext ) {
          unlink($self->{file}.$ext) or
              $self->session->warn("Trouble deleting ".$self->{file}.$ext);

@@ -829,15 +829,15 @@ sub classifyPosition
       %coding_intron_class,%utr_5intron_class,%utr_3intron_class,
       %upstream5_class,%downstream3_class);
 
-  foreach my $table qw (coding_class utr_5exon_class utr_3exon_class
+  foreach my $table (qw (coding_class utr_5exon_class utr_3exon_class
                       coding_intron_class utr_5intron_class
-                      utr_3intron_class upstream5_class downstream3_class) {
+                      utr_3intron_class upstream5_class downstream3_class)) {
     map { $bigHash{$table}->{$_} =1 } @{$resultsHash{$table}};
     # now remove a transcript from this class if it appeared in any
     # earlier class;
-    foreach my $prev_table qw (coding_class utr_5exon_class utr_3exon_class
+    foreach my $prev_table (qw (coding_class utr_5exon_class utr_3exon_class
                                coding_intron_class utr_5intron_class
-                               utr_3intron_class upstream5_class downstream3_class) {
+                               utr_3intron_class upstream5_class downstream3_class)) {
       last if $prev_table eq $table;
       map { delete $bigHash{$table}->{$_} if exists $bigHash{$prev_table}->{$_} } keys %{$bigHash{$table}};
     }

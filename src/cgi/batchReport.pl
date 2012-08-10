@@ -401,7 +401,7 @@ sub reportBatch
                     ($builtSeq{3}?'3':'n')));
          $conSeqH{$cons}++;
          # qualify this
-         foreach my $e qw(5 3) {
+         foreach my $e (qw(5 3)) {
             $builtSeq{$e} = join(',', sort { $a cmp $b} split(/,/,$builtSeq{$e}) );
             $cons .= "($e:$builtSeq{$e})" if ($builtSeq{$e} && $builtSeq{$e} ne 'c');
          }
@@ -483,7 +483,7 @@ sub reportBatch
             # ooooh. scary. conflicting data
             # first, clear out the space data
             map { $_ = '' } ($coord,$cyto,$arm,$strand);
-            foreach my $e qw(3 5) {
+            foreach my $e (qw(3 5)) {
                my $scaff = new GenBankScaffold($session)->mapped_from_arm(
                                                  $seqs{$e}->[0]->scaffold,
                                                  $seqs{$e}->[0]->s_insert);
