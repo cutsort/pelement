@@ -35,8 +35,10 @@ use Blast_HitSet;
 use Blast_HSPSet;
 use lib $FLYBASE_MODULE_PATH;
 use Getopt::Long;
-use BPlite;
 use DBI;
+
+use lib '/usr/local/bdgp/lib/perl';
+use BPlite;
 
 =head1 Public Methods
 
