@@ -12,8 +12,7 @@ use lib '/usr/local/bdgp/labtrack';
 use Bio::Graphics;
 use Bio::SeqFeature::Generic;
 use Bio::SeqFeature::Gene::Transcript;
-use Bio::SeqFeature::Gene::Exon;
-use Bio::SeqFeature::Gene::UTR;
+use Bio::Graphics::Feature;
 
 sub makePanel
 {
@@ -225,9 +224,9 @@ sub makePanel
                                        -end=>$models{$g}->{end});
     if (my $this_is_the_old_style = 0) {
       foreach my $e ( @{$models{$g}->{exons}} ) {
-        my $exon = new Bio::SeqFeature::Gene::Exon(-start=>$e->[0],
-                                                   -end=>$e->[1]);
-        $gene->add_sub_SeqFeature($exon,'EXPAND');
+        my $exon = new Bio::Graphics::Feature(-start=>$e->[0],
+                                              -end=>$e->[1]);
+        $gene->add_SeqFeature($exon,'EXPAND');
       }
     } else {
 
@@ -240,55 +239,62 @@ sub makePanel
       # as far as I can tell, building the models means splitting
       # the exons into coding and non-coding explictly.
 
-      my $exon = new Bio::SeqFeature::Gene::Exon(-start=>$e->[0],
-                                                 -end=>$e->[1]);
-      $exon->strand($this_strand);
+      my $exon_start = $e->[0];
+      my $exon_end = $e->[1];
+      my $exon_strand = $this_strand;
+      my $exon_type = 'CDS';
 
       if ( ($this_strand > 0 && ($e->[1] < $this_start) ) ||
            ($this_strand < 0 && ($e->[0] > $this_start) ) ) {
-        $exon->primary_tag('utr5prime');
+        $exon_type = 'five_prime_UTR';
       } elsif ( ($this_strand > 0 && ($e->[0] > $this_stop) ) ||
                 ($this_strand < 0 && ($e->[1] < $this_stop) ) ) {
-        $exon->primary_tag('utr3prime');
+        $exon_type = 'three_prime_UTR';
       } else {
         if ( $this_strand > 0 && ($e->[0] <= $this_start) ) {
-          $exon->start($this_start);
-          my $nexon = new Bio::SeqFeature::Gene::Exon(
-                            -start=>$e->[0],
-                            -end=>$this_start);
-          $nexon->primary_tag('utr5prime');
-          $nexon->strand($this_strand);
-          $gene->add_exon($nexon);
+          $exon_start = $this_start;
+          my $nexon = new Bio::Graphics::Feature(
+            -start=>$e->[0],
+            -end=>$this_start,
+            -strand=>$this_strand,
+            -type=>'five_prime_UTR');
+          $gene->add_SeqFeature($nexon);
         }
         if ( $this_strand < 0 && ($e->[1] >= $this_start) ) {
-          $exon->end($this_start);
-          my $nexon = new Bio::SeqFeature::Gene::Exon(
-                             -start=>$this_start,
-                             -end=>$e->[1]);
-          $nexon->primary_tag('utr5prime');
-          $nexon->strand($this_strand);
-          $gene->add_exon($nexon);
+          $exon_end = $this_start;
+          my $nexon = new Bio::Graphics::Feature(
+            -start=>$this_start,
+            -end=>$e->[1],
+            -type=>'five_prime_UTR',
+            -strand=>$this_strand);
+          $gene->add_SeqFeature($nexon);
         }
         if ( $this_strand > 0 && ($e->[1] >= $this_stop) ) {
-          $exon->end($this_stop);
-          my $nexon = new Bio::SeqFeature::Gene::Exon(
-                          -start=>$this_stop,
-                          -end=>$e->[1]);
-          $nexon->primary_tag('utr3prime');
-          $nexon->strand($this_strand);
-          $gene->add_exon($nexon);
+          $exon_end = $this_stop;
+          my $nexon = new Bio::Graphics::Feature(
+            -start=>$this_stop,
+            -end=>$e->[1],
+            -type=>'three_prime_UTR',
+            -strand=>$this_strand);
+          $gene->add_SeqFeature($nexon);
         }
         if ( $this_strand < 0 && ($e->[0] <= $this_stop) )  {
-          $exon->start($this_stop);
-          my $nexon = new Bio::SeqFeature::Gene::Exon(
-                          -start=>$e->[0],
-                          -end=>$this_stop);
-          $nexon->primary_tag('utr3prime');
-          $nexon->strand($this_strand);
-          $gene->add_exon($nexon);
+          $exon_start = $this_stop;
+          my $nexon = new Bio::Graphics::Feature(
+            -start=>$e->[0],
+            -end=>$this_stop,
+            -type=>'three_prime_UTR',
+            -strand=>$this_strand);
+          $gene->add_SeqFeature($nexon);
         }
       }
-      $gene->add_exon($exon);
+
+      my $exon = new Bio::Graphics::Feature(
+        -start=>$exon_start,
+        -end=>$exon_end,
+        -strand=>$exon_strand,
+        -type=>$exon_type);
+      $gene->add_SeqFeature($exon);
     }
     }
 
