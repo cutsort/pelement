@@ -1,0 +1,28 @@
+locally installed somewhere
+  BPlite.pm
+
+production stuff
+  EditTrace/ABIData.pm
+  EditTrace/GDInterface.pm
+  EditTrace/SCFData.pm
+  EditTrace/TraceData.pm
+
+sim4 stuff
+  GH/Sim4.pm
+
+cpan stuff
+  LDS/BioGraphics-1.006001.tar.gz
+  CJFields/BioPerl-1.006001.tar.gz **
+
+  BPEDERSE/CGI-Ajax-0.67.tar.gz
+  NWIGER/CGI-FormBuilder-3.0202.tar.gz
+  MARKSTOS/CGI-Session-4.35.tar.gz
+  TIMB/DBI-1.601.tar.gz
+  LDS/GD-2.44.tar.gz
+
+  GAAS/HTTP-Message-1.40.tar.gz
+  GAAS/libwww-perl-1.41.tar.gz
+  ADAMK/List-MoreUtils-0.22.tar.gz
+  GAAS/MIME-Base64-Perl-1.00.tar.gz
+  TODDR/Sys-Mmap-0.11.tar.tz
+  MSERGEANT/XML-XPath-1.13.tar.gz
