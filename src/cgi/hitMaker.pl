@@ -18,6 +18,7 @@ use PelementCGI;
 use PelementDBI;
 
 use GH::Sim4;
+use lib '/usr/local/bdgp/lib/perl';
 use fasta_extract;
 
 my $cgi = new PelementCGI;
