@@ -21,7 +21,7 @@ SRC =	Alignment.pm AlignmentSet.pm Association.pm Batch.pm BatchSet.pm \
  	GeneralUtils/XML/Generator.pm
 
 install: check
-	for I in $(SRC); do ( cp --parents $$I $(INSTALLDIR)/modules/$$I ); done
+	for I in $(SRC); do ( cp --remove-destination --parents $$I $(INSTALLDIR)/modules ); done
 
 check:	$(SRC) 
 	for I in $?; do ( perl -c $$I ); done
