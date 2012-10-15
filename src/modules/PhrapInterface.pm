@@ -43,6 +43,7 @@ sub new
   my $save = 0;
   my $match = 8;
   my $score = 8;
+  my $duplicates = 1;
 
   # we'll look for a hash of optional arguments
   my $args = shift;
@@ -53,9 +54,11 @@ sub new
     $save    = $args->{-save}    if exists($args->{-save});
     $match   = $args->{-match}   if exists($args->{-match});
     $score   = $args->{-score}   if exists($args->{-score});
+    $duplicates = $args->{-duplicates} if exists($args->{-duplicates});
   }
 
-  $options = $options || " -retain_duplicates -vector_bound 0 -minscore $score -minmatch $match -raw -word_raw ";
+  $options = $options || " ".($duplicates?"-retain_duplicates":"")
+    ." -vector_bound 0 -minscore $score -minmatch $match -raw -word_raw ";
 
   my $self = {
               "session" => $sessionHandle,

@@ -64,6 +64,7 @@ my $score;            # the value used in a lane.
                    # individual cases only
 my $save;          # save tmp phrap files.
 my $singlets = 0;  # do we call an assembly something built from 1 read
+my $duplicates = 1; # do we tell phrap to retain duplicate sequences?
 my $end;
 my $refLane;       # if we can't figure it out, what lane MUST be in the consensus
 my $endSlop = 5;
@@ -85,6 +86,7 @@ GetOptions('gel=s'      => \$gel_name,
            'score=i'    => \$scoreOpt,
            'save!'      => \$save,
            'singlets!'  => \$singlets,
+           'duplicates!' => \$duplicates,
            'end=i'      => \$end,
            'ref=i'      => \$refLane,
            'endslop=i'  => \$endSlop,
@@ -245,7 +247,12 @@ foreach my $lane (@lanes) {
          $score = 14;
       }
    }
-   my $phrap = new PhrapInterface($session,{-file=>$seqFile,-save=>$save,-score=>$score,-match=>$score});
+   my $phrap = new PhrapInterface($session,{
+       -file=>$seqFile,
+       -save=>$save,
+       -score=>$score,
+       -match=>$score,
+       -duplicates=>$duplicates});
 
    $session->verbose("phrap command: ".$phrap->command);
 
