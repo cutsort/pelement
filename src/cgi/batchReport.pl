@@ -1,4 +1,4 @@
-#!/usr/local/bin/perl5.8.0 -I../modules
+#!/usr/local/bin/perl -I../modules
 
 =head1 NAME
 
