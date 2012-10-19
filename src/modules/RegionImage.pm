@@ -66,6 +66,7 @@ sub makePanel
   my $plus_inserts = $panel->unshift_track(-glyph => 'pinsertion',
                                       -bump => -1,
                                       -label => 1,
+                                      -fgcolor => \&colorCallback,
                                       -bgcolor => \&colorCallback);
 
   my $minus_genes = $panel->add_track(-glyph => 'processed_transcript',
@@ -78,6 +79,7 @@ sub makePanel
   my $minus_inserts = $panel->add_track(-glyph => 'pinsertion',
                                       -bump  => 1,
                                       -label => 1,
+                                      -fgcolor => \&colorCallback,
                                       -bgcolor => \&colorCallback);
 
 

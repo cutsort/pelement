@@ -143,7 +143,7 @@ sub reportRegion
                        $cgi->div({-id=>'action'},'Click to Scroll/Zoom').
                   $cgi->div({-id=>'regionImage'},
                   $cgi->a(
-           $cgi->img({-width=>800,-ismap=>'t',-usemap=>'#linemap',-border=>'0',
+           $cgi->img({-ismap=>'t',-usemap=>'#linemap',-border=>'0',
                       -src=>"data:image/png;base64,$image"})),$map));
   return $return;
 }
@@ -190,7 +190,7 @@ sub imageMove {
     my $image = encode_base64($panel->png);
 
     return ($cgi->a(
-                $cgi->img({-width=>800,-ismap=>'t',-usemap=>'#linemap',-border=>'0',
+                $cgi->img({-ismap=>'t',-usemap=>'#linemap',-border=>'0',
                            -src=>"data:image/png;base64,$image"})).$map,
             "Release $rel Scaffold $scaff centered at $center, range $range");
   }
