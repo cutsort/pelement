@@ -1,4 +1,4 @@
-SRC = alignSeq.pl associateSeq.pl baseCaller.pl	generateXML.pl runBlast.pl \
+SRC = alignSeq.pl baseCaller.pl	generateXML.pl runBlast.pl \
 	seqTrimmer.pl generateFlyBaseXML.pl seqImporter.pl dumpSeq.pl \
 	importFromFasta.pl importQualFromFasta.pl buildConsensus.pl seqMerger.pl \
 	generateGenBankMail.pl importChado.pl
