@@ -349,12 +349,16 @@ foreach my $lane (@lanes) {
             map { $firstPhred = $_->id if $_->lane_id == $refLane } @phred_seq;
 
          } else {
-            # as a fallback, use the oldest
+            # as a fallback, use the oldest good lane
             # we're assuming lexigraphic ordering is good.
-            my $firstLane = (sort { PCommon::date_cmp($a->run_date,$b->run_date) } $laneSet->as_list)[0];
-      
-            $session->verbose("Oldest lane for this strain is dated ".$firstLane->run_date);
-            map { $firstPhred = $_->id if $_->lane_id == $firstLane->id } @phred_seq;
+            my @firstLane = sort { PCommon::date_cmp($a->run_date,$b->run_date) } $laneSet->as_list;
+            for my $firstLane (@firstLane) {
+              map { $firstPhred = $_->id if $_->lane_id == $firstLane->id && $pidH{$_->id} } @phred_seq;
+              if (defined $firstPhred) {
+                $session->verbose("Oldest good lane for this strain is dated ".$firstLane->run_date);
+                last;
+              }
+            }
          }
           
          ($session->warn("Cannot determine the base phred sequence.") and next LANE) unless $firstPhred;
