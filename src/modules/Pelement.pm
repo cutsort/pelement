@@ -30,6 +30,7 @@ require Exporter;
     $BDGP_MODULE_PATH
     $GENOMIC_BIN
 
+    $NCBI_BLAST_BIN_DIR
     $BLAST_DB
     $BLAST_PATH
 
@@ -75,6 +76,7 @@ $PELEMENT_CROSS_MATCHBIN = "/usr/local/bdgp/bin/cross_match";
 $ENV{PHRED_PARAMETER_FILE} = "/usr/local/bdgp/etc/phredpar.dat";
 
 # include paths for blast tools
+$NCBI_BLAST_BIN_DIR = "/usr/local/bdgp/ncbi-blast-2.2.26+/bin/";
 $BLAST_PATH = "/usr/local/bdgp/wublast-2.0-030822/";
 $BLAST_DB = "/data/pelement/blast/";
 $ENV{BLASTDB} = $BLAST_DB;

@@ -18,7 +18,7 @@ SRC =	Alignment.pm AlignmentSet.pm Association.pm Batch.pm BatchSet.pm \
         SQLObject.pm SQLObjectSet.pm ChadoGeneModelSet.pm GeneModelSet.pm \
 	Phase.pm PhaseSet.pm StrainSet.pm \
  	RegionImage.pm GeneralUtils/Structures.pm \
- 	GeneralUtils/XML/Generator.pm
+ 	GeneralUtils/XML/Generator.pm NCBIBlastInterface.pm
 
 install: check
 	for I in $(SRC); do ( cp --remove-destination --parents $$I $(INSTALLDIR)/modules ); done

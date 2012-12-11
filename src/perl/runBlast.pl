@@ -12,7 +12,7 @@
 
 use Pelement;
 use Session;
-use BlastInterface;
+use NCBIBlastInterface;
 use Blast_OptionSet;
 use Blast_RunSet;
 use Seq;
@@ -67,15 +67,11 @@ $blastArg->{-options} = $blastOptions if $blastOptions;
 my $seq = new Seq($session,{-seq_name=>$ARGV[0]})->select;
 
 my $blast_score;
-
 # if not specified, give score cutoff for both hit and hsp
 $blast_score = length($seq->sequence)>500?1000:2*length($seq->sequence);
 $session->verbose("Minimum blast score S is $blast_score.");
-$blastArg->{-options} = "S=$blast_score ".$blastArg->{-options} unless $blastArg->{-options} =~ /S\s*=/;
-
-$blast_score = length($seq->sequence)>250?250:int(length($seq->sequence)+.51);
-$session->verbose("Minimum blast score S is $blast_score.");
-$blastArg->{-options} = "S2=$blast_score ".$blastArg->{-options} unless $blastArg->{-options} =~ /S2\s*=/;
+$blastArg->{-options} = "-min_raw_gapped_score $blast_score ".$blastArg->{-options} 
+  unless $blastArg->{-options} =~ /-min_raw_gapped_score/;
 
 unless ($seq->sequence) {
    $session->die("No record for sequence $ARGV[0].");
@@ -96,7 +92,7 @@ $seq->to_fasta($fasta_file);
 
 $session->at_exit(sub{unlink $fasta_file});
 
-my $blastRun = new BlastInterface($session,$blastArg);
+my $blastRun = new NCBIBlastInterface($session,$blastArg);
 
 $session->info("About to run blast program on $fasta_file.");
 
