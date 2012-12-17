@@ -26,6 +26,7 @@ use PelementDBI;
 use Phred_Seq;
 use Processing;
 use Seq_Assembly;
+use Seq_AssemblySet;
 use Seq;
 use Seq_AlignmentSet;
 
@@ -86,7 +87,7 @@ if ($gel_name || $gel_id) {
                                                        unless $laneSet;
    @lanes = $laneSet->as_list;
 } elsif ( $lane_name ) {
-   @lanes = (new Lane($session,{-name=>$lane_name})->select_if_exists);
+   @lanes = (new Lane($session,{-file=>$lane_name})->select_if_exists);
 } elsif ( @lane_id ) {
    map { push @lanes, (new Lane($session,{-id=>$_})->select_if_exists) }
                                                                   @lane_id ;
@@ -117,63 +118,64 @@ foreach my $lane (@lanes) {
     next LANE;
   }
   $p->select;
-  my $sA = new Seq_Assembly($session,{-src_seq_src=>'phred_seq',
-                                       -src_seq_id=>$p->id});
-  unless ($sA->db_exists) {
+  my @sA = new Seq_AssemblySet($session,{-src_seq_src=>'phred_seq',
+                                       -src_seq_id=>$p->id})->select->as_list;
+  unless (@sA) {
     $session->warn("Lane ",$lane->id," has not been used in a consensus sequence. Skipping...");
     next LANE;
   }
-  $sA->select;
-  my $seq_name = $sA->seq_name;
-  my $qualifier = Seq::qualifier($seq_name);
-  my $can_update = 0;
-  if ($qualifier) {
-    if ($qualifier =~ /^r/) {
-      $session->info("$seq_name is a recheck sequence.");
-      my $original_seq = new Seq($session,{-seq_name=>Seq::strain($seq_name).'-'.Seq::end($seq_name)});
-      if ($original_seq->db_exists) {
-        $session->info("Original sequence data already exists for this line.");
-      } else {
-        my $alignment = new Seq_AlignmentSet($session,{-seq_name=>$seq_name,-seq_release=>$release})->select;
-        if ($alignment->count) {
-          (my $other_end = Seq::end($seq_name) ) =~ tr/35/53/;
-          my $other_seq_name = Seq::strain($seq_name).'-'.$other_end;
-          my $otherAlignment = new Seq_AlignmentSet($session,{-seq_name=>$other_seq_name,-seq_release=>$release})->select;
-          if ($otherAlignment->count) {
-            foreach my $a1 ($otherAlignment->as_list) {
-              next unless $a1->status eq 'unique' || $a1->status eq 'curated';
-              foreach my $a2 ($alignment->as_list) {
-                if ($a1->scaffold eq $a2->scaffold && abs($a1->s_insert - $a2->s_insert) < $threshold
-                        && ($a1->s_start-$a1->s_end)*($a1->s_start-$a1->s_end) > 0) {
-                  $session->info("$seq_name has a consistent alignment. Can update.");
-                  unless ($test) {
-                    my $new_seq_name = Seq::strain($seq_name).'-'.Seq::end($seq_name);
-                    $session->db_begin;
-                    $session->db->do("set constraints all deferred");
-                    foreach my $table (qw(seq_alignment seq_assembly blast_run seq)) {
-                      $session->info("Command: update $table set seq_name='$new_seq_name' where seq_name='$seq_name'");
-                      $session->db->do("update $table set seq_name='$new_seq_name' where seq_name='$seq_name'");
+  for my $sA (@sA) {
+    my $seq_name = $sA->seq_name;
+    my $qualifier = Seq::qualifier($seq_name);
+    my $can_update = 0;
+    if ($qualifier) {
+      if ($qualifier =~ /^r/) {
+        $session->info("$seq_name is a recheck sequence.");
+        my $original_seq = new Seq($session,{-seq_name=>Seq::strain($seq_name).'-'.Seq::end($seq_name)});
+        if ($original_seq->db_exists) {
+          $session->info("Original sequence data already exists for this line.");
+        } else {
+          my $alignment = new Seq_AlignmentSet($session,{-seq_name=>$seq_name,-seq_release=>$release})->select;
+          if ($alignment->count) {
+            (my $other_end = Seq::end($seq_name) ) =~ tr/35/53/;
+            my $other_seq_name = Seq::strain($seq_name).'-'.$other_end;
+            my $otherAlignment = new Seq_AlignmentSet($session,{-seq_name=>$other_seq_name,-seq_release=>$release})->select;
+            if ($otherAlignment->count) {
+              foreach my $a1 ($otherAlignment->as_list) {
+                next unless $a1->status eq 'unique' || $a1->status eq 'curated';
+                foreach my $a2 ($alignment->as_list) {
+                  if ($a1->scaffold eq $a2->scaffold && abs($a1->s_insert - $a2->s_insert) < $threshold
+                          && ($a1->s_start-$a1->s_end)*($a1->s_start-$a1->s_end) > 0) {
+                    $session->info("$seq_name has a consistent alignment. Can update.");
+                    unless ($test) {
+                      my $new_seq_name = Seq::strain($seq_name).'-'.Seq::end($seq_name);
+                      $session->db_begin;
+                      $session->db->do("set constraints all deferred");
+                      foreach my $table (qw(seq_alignment seq_assembly blast_run seq)) {
+                        $session->info("Command: update $table set seq_name='$new_seq_name' where seq_name='$seq_name'");
+                        $session->db->do("update $table set seq_name='$new_seq_name' where seq_name='$seq_name'");
+                      }
+                      $session->db_commit;
                     }
-                    $session->db_commit;
+                    $can_update = 1;
+                    next LANE;
                   }
-                  $can_update = 1;
                 }
               }
+            } else {
+              $session->info("$other_seq_name does not have any alignments. Skipping.");
             }
           } else {
-            $session->info("$other_seq_name does not have any alignments. Skipping.");
+            $session->info("$seq_name does not have any alignments. Skipping.");
           }
-        } else {
-          $session->info("$seq_name does not have any alignments. Skipping.");
         }
+      } else {
+        $session->info("Skipping qualifier $qualifier.");
       }
     } else {
-      $session->info("Skipping qualifier $qualifier.");
+      $session->info("$seq_name is unqualified.");
     }
-  } else {
-    $session->info("$seq_name is unqualified.");
   }
-
 }
 
 $session->exit();
