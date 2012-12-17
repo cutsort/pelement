@@ -37,9 +37,10 @@ use Session;
 # project-specific settings
 use Pelement;
 our $blast_dir = $NCBI_BLAST_BIN_DIR;
+our $db_dir = $BLAST_DB;
 our $tmp_dir = $PELEMENT_TMP;
 our $default_parser = \&na_arms_parser;
-our $default_database = $BLAST_DB."release3_genomic";
+our $default_database = $db_dir."release3_genomic";
 our $default_options = join(' ', 
   -reward=>1,
   -penalty=>-2,
@@ -83,13 +84,13 @@ sub new
 
   $self->{output} = File::Temp->new(
     DIR=>$tmp_dir,
-    TEMPLATE=>'blast_${$}_XXXXX',
+    TEMPLATE=>"blast_${$}_XXXXX",
     SUFFIX=>'.out',
     UNLINK=>0,
   )->filename if !defined $self->{output};
   $self->{error} = File::Temp->new(
     DIR=>$tmp_dir,
-    TEMPLATE=>'blast_${$}_XXXXX',
+    TEMPLATE=>"blast_${$}_XXXXX",
     SUFFIX=>'.err',
     UNLINK=>0,
   )->filename if !defined $self->{error};
@@ -122,6 +123,7 @@ Execute the blast run.
 sub run
 {
   my $self = shift;
+  my $seq = shift;
   my $session = $self->{session};
 
   my $query;
@@ -129,7 +131,10 @@ sub run
   my $database;
 
   # choose the query source
-  if ($self->{query_string}) {
+  if ($seq && $seq->{fasta}) {
+    $query = Bio::SeqIO->new(-file=>$seq->{fasta}, -format=>'fasta')->next_seq;
+  }
+  elsif ($self->{query_string}) {
     $self->{query_string} = ">query\n".$self->{query_string} if $self->{query_string} !~ /^>/;
     $query = Bio::SeqIO->new(-fh=>IO::String->new($self->{query_string}), -format=>'fasta')->next_seq;
   }
@@ -172,6 +177,7 @@ sub run
 
   my $result;
   if ($database) {
+    $database = $db_dir.$database if $database !~ /^\//;
     # We need to manually reach in and set _db_path. Trying to set it through
     # the StandaloneBlastPlus::new method causes the db name to get mangled.
     # This also lets us use -db_dir to set the directory for tempfiles without
@@ -237,8 +243,7 @@ sub parse {
 
   # if there was an error, we cannot parse the db name
   my $db_name = $result->database_name || $self->{db};
-  my $blast_db = $self->session->config('BLAST_DIR');
-  $db_name =~ s/\Q$blast_db\E//;
+  $db_name =~ s/\Q$db_dir\E//;
 
   # prepare the blast run record.
   my $bR = $self->session->Blast_Run({
@@ -246,7 +251,7 @@ sub parse {
       trace_uid   => $q_name,
       subject_db => $db_name ,
       db => $db_name,
-      program    => basename($self->{program}),
+      program    => 'ncbi_'.basename($self->{program}),
       blast_time => $self->{blast_date},
       date => $self->{blast_date},
       run_datetime => $self->{blast_date},
