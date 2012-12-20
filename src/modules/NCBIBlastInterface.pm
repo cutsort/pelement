@@ -14,6 +14,17 @@ Some relevant links:
   http://search.cpan.org/~cjfields/BioPerl-Run-1.006900/lib/Bio/Tools/Run/StandAloneBlastPlus.pm
   http://www.bioperl.org/wiki/Parsing_BLAST_HSPs
 
+Supported NCBI Blast+ Matrices:
+
+  BLOSUM80 
+  BLOSUM62  (default)
+  BLOSUM50 
+  BLOSUM45 
+  PAM250 
+  BLOSUM90 
+  PAM30 
+  PAM70 
+
 =cut
 
 
@@ -26,7 +37,9 @@ use File::Temp;
 use List::Util qw(min max);
 use FileHandle;
 use File::Basename qw(basename dirname);
+use POSIX qw(strftime);
 
+use String::ShellQuote qw(shell_quote);
 use Text::ParseWords qw(shellwords);
 use IO::String;
 use Bio::SeqIO;
@@ -142,9 +155,10 @@ sub run
     $query = Bio::SeqIO->new(-file=>$self->{query}, -format=>'fasta')->next_seq;
   }
   else {
-    $self->session->error("No query file saved.");
-    return $self;
+    $self->session->error("No query specified.");
+    return 1;
   }
+  $self->{query_name} = $query->display_id;
 
   # choose the subject source
   if ($self->{subject_string}) {
@@ -162,14 +176,12 @@ sub run
   }
   if (!$subject && !$database) {
     $session->error("No subject/database specified.");
-    return $self;
+    return 1;
   }
 
   # run blast
   my $factory = Bio::Tools::Run::StandAloneBlastPlus->new(
     -prog_dir=>$self->{path},
-      # unfortunately, db_dir also doubles as the tmpdir for storing input
-      # FASTA, so we can only specify it when not using database mode.
     -db_dir=>$tmp_dir,
   );
   $factory->no_throw_on_crash(1); # don't throw exceptions
@@ -183,23 +195,47 @@ sub run
     # This also lets us use -db_dir to set the directory for tempfiles without
     # also requiring the database to reside there.
     $factory->{_db_path} = $database;
-    $result = $factory->run(
-      -method=>$self->{program}, 
-      -query=>$query, 
-      -method_args=>[shellwords($self->{options}||'')],
-      -outfile=>$self->{output},
-    );
+    eval {
+      $result = $factory->run(
+        -method=>$self->{program}, 
+        -query=>$query, 
+        -method_args=>[shellwords($self->{options}||'')],
+        -outfile=>$self->{output},
+      );
+    };
   }
   else {
-    $result = $factory->bl2seq(
-      -method=>$self->{program}, 
-      -query=>$query, 
-      -subject=>$subject, 
-      -method_args=>[shellwords($self->{options}||'')],
-      -outfile=>$self->{output},
-    );
+    eval {
+      $result = $factory->bl2seq(
+        -method=>$self->{program}, 
+        -query=>$query, 
+        -subject=>$subject, 
+        -method_args=>[shellwords($self->{options}||'')],
+        -outfile=>$self->{output},
+      );
+    };
   }
   my $status = $?>>8;
+  if ($@) {
+    $session->warn($@);
+    $status ||= 1;
+  }
+
+  # see if there were fatal error in this run. But we'll still record the
+  # run even if it failed.
+  $self->{stderr} = $factory->stderr;
+  if ($self->{stderr}) {
+    $session->warn($self->{stderr});
+    $status ||= 1;
+  }
+
+  if ($self->{error}) {
+    my $fh = FileHandle->new($self->{error},'w')
+      or $session->die("Could not open $self->{error} for writing: $!");
+    $fh->print($self->{stderr}) if $self->{stderr};
+    $fh->close;
+  }
+
   $self->{results} = [];
   if ($result) {
     push @{$self->{results}}, $result;
@@ -212,20 +248,20 @@ sub run
   my @paramstring;
   my @parameters = $factory->get_parameters;
   for (my $i=0; $i<$#parameters; $i+=2) {
-    push @paramstring, "-$parameters[$i] ".$parameters[$i+1];
+    push @paramstring, ("-$parameters[$i]",$parameters[$i+1])
+      if $parameters[$i] ne 'command';
   }
   $self->{parameters} = \@parameters;
-  $self->{command} = $factory->command;
+  $self->{command} = join(' ',
+    shell_quote($factory->command),
+    map {shell_quote($_)} @paramstring
+  );
 
-  $self->{blast_date} = scalar(localtime([stat($factory->blast_out)]->[9]));
+  $self->{blast_date} = strftime('%Y-%m-%d %H:%M:%S',
+    $factory->blast_out && -e $factory->blast_out
+    ? localtime((stat($factory->blast_out))[9])
+    : localtime);
 
-  $self->{sterr} = $factory->stderr;
-  if ($self->{error}) {
-    my $fh = FileHandle->new($self->{error},'w')
-      or $session->die("Could not open $self->{error} for writing: $!");
-    $fh->print($self->{stderr});
-    $fh->close;
-  }
   return $status;
 }
 
@@ -238,43 +274,48 @@ sub parse {
   my $result = $self->{results}[0];
 
   # clean up the query and db a bit
-  my $q_name = $result->query_name;
+  my $q_name = $result ? $result->query_name : $self->{query_name};
   $q_name =~ s/\s*\([0-9,]+ letters\)\s*$//;
 
   # if there was an error, we cannot parse the db name
-  my $db_name = $result->database_name || $self->{db};
+  my $db_name = $result ? $result->database_name : $self->{db};
   $db_name =~ s/\Q$db_dir\E//;
 
   # prepare the blast run record.
   my $bR = $self->session->Blast_Run({
-      seq_name   => $q_name,
-      trace_uid   => $q_name,
+      seq_name => $q_name,
+      trace_uid => $q_name,
       subject_db => $db_name ,
       db => $db_name,
-      program    => 'ncbi_'.basename($self->{program}),
+      program => basename($self->{program}),
       blast_time => $self->{blast_date},
       date => $self->{blast_date},
       run_datetime => $self->{blast_date},
-      protocol   => $self->{protocol} || 'unknown', 
+      protocol => $self->{protocol} || 'unknown', 
     });
   # prepare these containers for results
-  my $bHitSet = $self->session->Blast_HitSet;
-  my $bHspSet = $self->session->Blast_HSPSet;
+  my $bHitSet = $session->Blast_HitSet;
+  my $bHspSet = $session->Blast_HSPSet;
+
+  return ($bR,$bHitSet,$bHspSet) if !$result;
 
   # see if there were fatal error in this run. But we'll still record the
   # run even if it failed.
-  if ($self->{stderr} && (my $error = join "\n",grep {/Error:/} split /\n/,$self->{stderr})) {
-    $self->session->warn("Blast run had error(s): $error");
+  if ($self->{stderr}) {
     $bR->insert if !$noinsert;
     return ($bR,$bHitSet,$bHspSet);
   }
 
   my $hitCtr = 0;
   while (my $hit = $result->next_hit) {
-    my $headH = $self->{subject_parser}->($hit->name);
+    my $hit_tag = join('',
+      '>',$hit->name,
+      defined($hit->description) && $hit->description ne '' 
+        ? (' ',$hit->description) : ());
+    my $headH = $self->{subject_parser}->($hit_tag);
 
     # prepare the hit and add it to the set
-    my $bH = $self->session->Blast_Hit({ 
+    my $bH = $session->Blast_Hit({ 
         run_id => $bR->ref_of('id'),
         subject_name => $headH->{name},
         name => $headH->{name},
@@ -287,25 +328,25 @@ sub parse {
 
     my @hsps;
     while (my $hsp = $hit->next_hsp) {
-      my $bHsp = $self->session->Blast_HSP({ 
+      my $bHsp = $session->Blast_HSP({ 
           hit_id=>$bH->ref_of('id'),
           score=>$hsp->score,
           bits=>$hsp->bits,
           percent=>$hsp->percent_identity,
           match=>$hsp->num_identical,
           length=>$hsp->hsp_length,
-          query_begin=>$hsp->start('query'),
-          query_end=>$hsp->end('query'),
+          query_begin=>$hsp->strand('hit')<0? $hsp->end('query') : $hsp->start('query'),
+          query_end=>$hsp->strand('hit')<0? $hsp->start('query') : $hsp->end('query'),
           subject_begin=>$hsp->start('hit'),
           subject_end=>$hsp->end('hit'),
-          query_gaps=>$hsp->hsp_length-$hsp->length('query'),
+          query_gaps=>$hsp->hsp_length-($bR->program eq 'blastx'? $hsp->length('query')/3 : $hsp->length('query')),
           subject_gaps=>$hsp->hsp_length-$hsp->length('hit'),
           # watch out for underflows (only in postgres?)
           p_val=>do {my $p=1-exp(-$hsp->evalue); $p<1e-300? 0.0: $p},
-          query_align=>$hsp->query_string,
-          match_align=>$hsp->homology_string,
-          subject_align=>$hsp->hit_string,
-          strand=>$hsp->strand('hit'),
+          query_align=>$hsp->strand('hit')<0? revcomp(uc($hsp->query_string)) : uc($hsp->query_string),
+          match_align=>$hsp->strand('hit')<0? scalar(reverse(uc($hsp->homology_string))) : uc($hsp->homology_string),
+          subject_align=>$hsp->strand('hit')<0? revcomp(uc($hsp->hit_string)) : uc($hsp->hit_string),
+          strand=>$hsp->strand('hit')||1,
         });
       push @hsps, $bHsp;
     }
@@ -323,6 +364,18 @@ sub parse {
     $bHspSet->insert;
   }
   return ($bR,$bHitSet,$bHspSet);
+}
+
+=head2 revcomp
+
+Return the reverse-complemented sequence
+
+=cut
+
+sub revcomp {
+  my ($sequence) = @_;
+  $sequence =~ tr/ACGTacgt/TGCAtgca/;
+  return scalar reverse $sequence;
 }
 
 =head1 DESTORY
