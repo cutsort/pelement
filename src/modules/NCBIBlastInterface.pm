@@ -54,7 +54,7 @@ our $db_dir = $BLAST_DB;
 our $tmp_dir = $PELEMENT_TMP;
 our $default_parser = \&na_arms_parser;
 our $default_database = $db_dir."release3_genomic";
-our $default_options = join(' ', 
+our %default_options = (
   -reward=>1,
   -penalty=>-2,
   -xdrop_ungap=>6,
@@ -90,10 +90,15 @@ sub new
     protocol => scalar parseArgs($args, 'protocol'),
     clean_up => scalar parseArgs($args, 'clean_up'),
     path => scalar parseArgs($args, 'path'),
+    min_hit_score => scalar parseArgs($args, 'min_hit_score'),
   };
   $self->{subject_parser} = $default_parser if !defined $self->{subject_parser};
   $self->{program} = 'blastn' if !defined $self->{program};
-  $self->{options} = $default_options if !defined $self->{options};
+  $self->{options} = defined($self->{options})
+    ? {shellwords($self->{options})}
+    : \%default_options;
+  # extract the min_hit_score pseudo-option
+  $self->{$_} = delete $self->{options}{"-$_"} for qw(min_hit_score);
 
   $self->{output} = File::Temp->new(
     DIR=>$tmp_dir,
@@ -199,7 +204,7 @@ sub run
       $result = $factory->run(
         -method=>$self->{program}, 
         -query=>$query, 
-        -method_args=>[shellwords($self->{options}||'')],
+        -method_args=>[%{$self->{options}||{}}],
         -outfile=>$self->{output},
       );
     };
@@ -210,7 +215,7 @@ sub run
         -method=>$self->{program}, 
         -query=>$query, 
         -subject=>$subject, 
-        -method_args=>[shellwords($self->{options}||'')],
+        -method_args=>[%{$self->{options}||{}}],
         -outfile=>$self->{output},
       );
     };
@@ -308,6 +313,7 @@ sub parse {
 
   my $hitCtr = 0;
   while (my $hit = $result->next_hit) {
+    #next if defined($self->{min_hit_score}) && $hit->raw_score < $self->{min_hit_score};
     my $hit_tag = join('',
       '>',$hit->name,
       defined($hit->description) && $hit->description ne '' 
