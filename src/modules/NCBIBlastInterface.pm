@@ -54,6 +54,13 @@ our $db_dir = $BLAST_DB;
 our $tmp_dir = $PELEMENT_TMP;
 our $default_parser = \&na_arms_parser;
 our $default_database = $db_dir."release3_genomic";
+our %wublast_defaults = ( 
+  -reward=>5,
+  -penalty=>-4,
+  -gapopen=>10,
+  -gapextend=>10,
+  -word_size=>11,
+);
 our %default_options = (
   -reward=>1,
   -penalty=>-2,
@@ -95,7 +102,7 @@ sub new
   $self->{subject_parser} = $default_parser if !defined $self->{subject_parser};
   $self->{program} = 'blastn' if !defined $self->{program};
   $self->{options} = defined($self->{options})
-    ? {shellwords($self->{options})}
+    ? {%wublast_defaults, shellwords($self->{options})}
     : \%default_options;
   # extract the min_hit_score pseudo-option
   $self->{$_} = delete $self->{options}{"-$_"} for qw(min_hit_score);
@@ -286,6 +293,8 @@ sub parse {
   my $db_name = $result ? $result->database_name : $self->{db};
   $db_name =~ s/\Q$db_dir\E//;
 
+  my $program_version = $result ? $result->algorithm_version : undef;
+
   # prepare the blast run record.
   my $bR = $self->session->Blast_Run({
       seq_name => $q_name,
@@ -297,6 +306,7 @@ sub parse {
       date => $self->{blast_date},
       run_datetime => $self->{blast_date},
       protocol => $self->{protocol} || 'unknown', 
+      program_version => $program_version,
     });
   # prepare these containers for results
   my $bHitSet = $session->Blast_HitSet;
@@ -314,6 +324,7 @@ sub parse {
   my $hitCtr = 0;
   while (my $hit = $result->next_hit) {
     #next if defined($self->{min_hit_score}) && $hit->raw_score < $self->{min_hit_score};
+
     my $hit_tag = join('',
       '>',$hit->name,
       defined($hit->description) && $hit->description ne '' 
