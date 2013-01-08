@@ -66,6 +66,13 @@ $blastArg->{-options} = $blastOptions if $blastOptions;
 
 my $seq = new Seq($session,{-seq_name=>$ARGV[0]})->select;
 
+# my $blast_score;
+# # if not specified, give score cutoff for both hit and hsp
+# $blast_score = length($seq->sequence)>500?1000:2*length($seq->sequence);
+# $session->verbose("Minimum blast score S is $blast_score.");
+# $blastArg->{-options} = "-min_raw_gapped_score $blast_score ".$blastArg->{-options} 
+#   unless $blastArg->{-options} =~ /-min_raw_gapped_score/;
+
 unless ($seq->sequence) {
    $session->die("No record for sequence $ARGV[0].");
 }
