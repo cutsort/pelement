@@ -38,7 +38,7 @@ sub new
                      die "Session handle required for Phred interface";
 
   # the default database
-  my $phred_exe = $GENOMIC_BIN."/phred";
+  my $phred_exe = $PELEMENT_PHREDBIN;
   my $options = "-process_nomatch";
   my $seq = Files::make_temp("phred.seq.XXXX");
   my $qual = Files::make_temp("phred.qual.XXXX");

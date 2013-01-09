@@ -28,7 +28,6 @@ require Exporter;
 
     $FLYBASE_MODULE_PATH
     $BDGP_MODULE_PATH
-    $GENOMIC_BIN
 
     $NCBI_BLAST_BIN_DIR
     $BLAST_DB
@@ -64,19 +63,28 @@ $PELEMENT_DB_DBI     = "Pg";
 # whatever it takes to connect.
 $PELEMENT_DB_CONNECT = "dbname=pelement;host=eel.lbl.gov";
 
-# other executable directories
-$GENOMIC_BIN = "/usr/local/bdgp/bin/";
-
 #######################################################################
 ### Paths to programs labtrack runs
 
-$PELEMENT_PHREDBIN = "/usr/local/bdgp/bin/phred";
-$PELEMENT_PHRAPBIN = "/usr/local/bdgp/bin/phrap";
-$PELEMENT_CROSS_MATCHBIN = "/usr/local/bdgp/bin/cross_match";
+if ($^O eq 'darwin') {
+  $PELEMENT_PHREDBIN = "/usr/local/bdgp/consed_mac-23.0/bin/phred";
+  $PELEMENT_PHRAPBIN = "/usr/local/bdgp/consed_mac-23.0/bin/phrap";
+  $PELEMENT_CROSS_MATCHBIN = "/usr/local/bdgp/consed_mac-23.0/bin/cross_match";
+  $NCBI_BLAST_BIN_DIR = "/usr/local/bin/";
+}
+elsif ($^O eq 'linux') {
+  $PELEMENT_PHREDBIN = "/usr/local/bdgp/bin/phred";
+  $PELEMENT_PHRAPBIN = "/usr/local/bdgp/bin/phrap";
+  $PELEMENT_CROSS_MATCHBIN = "/usr/local/bdgp/bin/cross_match";
+  $NCBI_BLAST_BIN_DIR = "/usr/local/bdgp/ncbi-blast-2.2.26+/bin/";
+}
+else {
+  die "Unsupported platform: $^O";
+}
+
 $ENV{PHRED_PARAMETER_FILE} = "/usr/local/bdgp/etc/phredpar.dat";
 
 # include paths for blast tools
-$NCBI_BLAST_BIN_DIR = "/usr/local/bdgp/ncbi-blast-2.2.26+/bin/";
 $BLAST_PATH = "/usr/local/bdgp/wublast-2.0-030822/";
 $BLAST_DB = "/data/pelement/blast/";
 $ENV{BLASTDB} = $BLAST_DB;
