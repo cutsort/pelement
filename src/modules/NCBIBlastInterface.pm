@@ -349,7 +349,7 @@ sub parse {
           hit_id=>$bH->ref_of('id'),
           score=>$hsp->score,
           bits=>$hsp->bits,
-          percent=>$hsp->percent_identity,
+          percent=>sprintf('%.1f',$hsp->percent_identity),
           match=>$hsp->num_identical,
           length=>$hsp->hsp_length,
           query_begin=>$hsp->strand('hit')<0? $hsp->end('query') : $hsp->start('query'),
