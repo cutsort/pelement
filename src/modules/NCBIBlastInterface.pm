@@ -62,23 +62,11 @@ $wublast_defaults{blastn} = {
   -gapextend=>10,
   -word_size=>11,
 };
-$wublast_defaults{blastp} = $wublast_defaults{blastx} = {
-  -gapopen=>10,
-  -gapextend=>10,
-  -word_size=>11,
-};
 our %default_options;
 $default_options{blastn} = { 
   -reward=>1,
   -penalty=>-2,
   -dust=>'yes',
-  -xdrop_ungap=>6,
-  -xdrop_gap=>25,
-  -gapopen=>7,
-  -gapextend=>2,
-  -word_size=>7,
-};
-$default_options{blastp} = $default_options{blastx} = { 
   -xdrop_ungap=>6,
   -xdrop_gap=>25,
   -gapopen=>7,
