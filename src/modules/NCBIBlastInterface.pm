@@ -54,23 +54,37 @@ our $db_dir = $BLAST_DB;
 our $tmp_dir = $PELEMENT_TMP;
 our $default_parser = \&na_arms_parser;
 our $default_database = $db_dir."release3_genomic";
-our %wublast_defaults = ( 
+our %wublast_defaults;
+$wublast_defaults{blastn} = {
   -reward=>5,
   -penalty=>-4,
   -gapopen=>10,
   -gapextend=>10,
   -word_size=>11,
-);
-our %default_options = (
+};
+$wublast_defaults{blastp} = $wublast_defaults{blastx} = {
+  -gapopen=>10,
+  -gapextend=>10,
+  -word_size=>11,
+};
+our %default_options;
+$default_options{blastn} = { 
   -reward=>1,
   -penalty=>-2,
+  -dust=>'yes',
   -xdrop_ungap=>6,
   -xdrop_gap=>25,
   -gapopen=>7,
   -gapextend=>2,
   -word_size=>7,
-  -dust=>'yes',
-);
+};
+$default_options{blastp} = $default_options{blastx} = { 
+  -xdrop_ungap=>6,
+  -xdrop_gap=>25,
+  -gapopen=>7,
+  -gapextend=>2,
+  -word_size=>7,
+};
 
 sub new 
 {
@@ -102,8 +116,8 @@ sub new
   $self->{subject_parser} = $default_parser if !defined $self->{subject_parser};
   $self->{program} = 'blastn' if !defined $self->{program};
   $self->{options} = defined($self->{options})
-    ? {%wublast_defaults, shellwords($self->{options})}
-    : \%default_options;
+    ? {%{$wublast_defaults{$self->{program}}||{}}, shellwords($self->{options})}
+    : $default_options{$self->{program}}||{};
   # extract the min_hit_score pseudo-option
   $self->{$_} = delete $self->{options}{"-$_"} for qw(min_hit_score);
 
