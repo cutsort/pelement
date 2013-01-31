@@ -59,7 +59,10 @@ $wublast_defaults{blastn} = {
   -reward=>5,
   -penalty=>-4,
   -gapopen=>10,
-  -gapextend=>10,
+  # 10 is actually the wublast default, but NCBI Blast doesn't support
+  # the 5,-4,10,10 combination. So change this to 6.
+  #-gapextend=>10,
+  -gapextend=>6,
   -word_size=>11,
 };
 our %default_options;
