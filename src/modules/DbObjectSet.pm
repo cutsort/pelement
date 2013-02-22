@@ -18,21 +18,11 @@
 package DbObjectSet;
 
 use Exporter;
-use Pelement;
-use PCommon;
 use Session;
-
 use Carp;
-
-@ISA = qw(Exporter);
-@EXPORT = qw(new initialize_self select add insert delete count
-                      as_list as_list_ref AUTOLOAD DESTROY);
-
-=head1
-
-  new  a simple contructor
-
-=cut
+use base 'DbObject';
+use strict;
+use warnings;
 
 sub new
 {
@@ -42,102 +32,26 @@ sub new
 
   my $self = initialize_self($class,$session,$args);
 
-  return bless $self,$class;
-
+  $self->{_objects} = [];
+  return $self;
 }
 
+sub initialize_self {
+  my ($class, $session, $args) = @_;
+  (my $module = $class) =~ s/Set$//;
+  return DbObject::initialize_self($class,$session,$args,$module);
+}
 
 =head1
 
-  initialize_self creates a hash and prepares a set of keys for
-  columns in the table.
-
-  In addition to a key for each column, there are metatags for
-  _table and _cols. The first is the name of the table, the second
-  a reference to a list of column names.
+calls a "select count(*)" query that returns the number of rows in this query's
+result set.
 
 =cut
 
-sub initialize_self
-{
-  my $class = shift;
-
-  # we require an argument to specify the session
-  my $sessionHandle = shift ||
-                     die "Session handle required for $class interface";
-
-  # optional preset args.
-  my $args = shift || {};
-
-  $sessionHandle->log($Session::Error,"$class is not an ObjectSet class.")
-                                                         unless $class =~/Set$/;
-  (my $tablename = $class) =~ s/Set$//;
-
-  my $self = {};
-
-  $self->{_table}  = $tablename;
-  $self->{_session} = $sessionHandle;
-  $self->{_constraint} = '';
-
-  # try to read a cached (a.k.a.stashed) record of
-  # column names for this table.
-  unless ( exists $self->{_cols} &&
-           scalar @{$self->{_cols} = [ @{$self->{_session}->{col_hash}->{$tablename}} ]} ) {
-     my $sql = $sessionHandle->db->prepare("Select * from $tablename where false");
-     $sql->execute();
-     $self->{_session}->{col_hash}->{$tablename} = [@{$sql->{NAME}}];
-     $self->{_cols} = \@{$sql->{NAME}};
-     $sql->finish;
-  }
-  $self->{_objects} = [];
-
-  # process any specified arguments
-  map { $self->{$_} = parseArgs($args,$_) } @{$self->{_cols}};
-
-  # apply supplemental constraints.
-  # nulls are specified by the contents of an array pointed to by the -null arg
-  foreach my $is_null (@{parseArgs($args,'null') || [] }) {
-     $self->{_constraint} .= " $is_null is null and";
-  }
-  # not nulls are specified by the contents of an array pointed to by the
-  # -notnull arg
-  foreach my $isnt_null (@{parseArgs($args,'notnull') || [] }) {
-     $self->{_constraint} .= " $isnt_null is not null and";
-  }
-  # not equals, greater than's and less than's are specified by hashes of key/values
-  my $ne_constraint = parseArgs($args,'not_equal') || {};
-  foreach my $not_equal (keys %$ne_constraint) {
-     $self->{_constraint} .= " $not_equal != ".
-             $sessionHandle->db->quote($ne_constraint->{$not_equal})." and";
-  }
-  my $gt_constraint = parseArgs($args,'greater_than') || {};
-  foreach my $greater_than (keys %$gt_constraint) {
-     $self->{_constraint} .= " $greater_than > ".
-             $sessionHandle->db->quote($gt_constraint->{$greater_than})." and";
-  }
-  my $lt_constraint = parseArgs($args,'less_than') || {};
-  foreach my $less_than (keys %$lt_constraint) {
-     $self->{_constraint} .= " $less_than < ".
-             $sessionHandle->db->quote($lt_constraint->{$less_than})." and";
-  }
-  my $ge_constraint = parseArgs($args,'greater_than_or_equal') || {};
-  foreach my $greater_than (keys %$ge_constraint) {
-     $self->{_constraint} .= " $greater_than >= ".
-             $sessionHandle->db->quote($ge_constraint->{$greater_than})." and";
-  }
-  my $le_constraint = parseArgs($args,'less_than_or_equal') || {};
-  foreach my $less_than (keys %$le_constraint) {
-     $self->{_constraint} .= " $less_than <= ".
-             $sessionHandle->db->quote($le_constraint->{$less_than})." and";
-  }
-  my $like_constraint = parseArgs($args,'like') || {};
-  foreach my $like (keys %$like_constraint) {
-     $self->{_constraint} .= " $like like ".
-             $sessionHandle->db->quote($like_constraint->{$like})." and";
-  }
-  $self->{_constraint} =~ s/ and$//;
-
-  return $self;
+sub count_rows {
+  my $self = shift;
+  $self->db_exists(@_);
 }
 
 =head1
@@ -149,67 +63,131 @@ sub initialize_self
 
 =cut
 
-sub select
-{
+sub select {
   my $self = shift;
-  my $sessionHandle = $self->{_session} || shift ||
-                die "Session handle required db selection";
+  my $session = $self->{_session} 
+    || die "Session handle required db selection";
+  return unless $self->{_table} && $self->{_cols} && $self->{_module};
 
-  return unless $self->{_table} && $self->{_cols};
+  # load the table's package into memory
+  my $module = $self->{_module};
+  $session->table($module);
 
-  my $class = $self->{_table};
-  eval {require $class.'.pm'};
+  # apply rewrite rules if needed
+  $self->rewrite;
+  
+  my ($st, $sql) = $self->perform_select();
+  $session->log($Session::SQL,"SQL: $sql.");
 
-  my $sql = "select ".join(",",@{$self->{_cols}})." from ".($self->{_table})." where";
+  no strict 'refs';
+  while ( my $href = $st->fetchrow_arrayref() ) {
+    my $new_self = $module->new($session);
 
-  map { $sql .= " $_=".$sessionHandle->db->quote($self->{$_})." and" if defined($self->{$_})}
-                   @{$self->{_cols}};
+    my $ctr = 0;
+    $new_self->{$_} = $href->[$ctr++] for @{$self->{_cols}};
 
-  $sql .= $self->{_constraint};
-  # clean up
-  $sql =~ s/ and$//;
-  $sql =~ s/ where$//;
-
-  $sessionHandle->log($Session::SQL,"SQL: $sql.");
-
-  my $st = $sessionHandle->db->prepare($sql);
-  $st->execute;
-
-  while ( my $href = $st->fetchrow_hashref() ) {
-    my $new_self = $class->new($sessionHandle);
-    map { $new_self->{$_} = $href->{$_} } @{$self->{_cols}};
-    push @{$self->{_objects}} ,$new_self;
-
+    push @{$self->{_objects}}, $new_self;
   }
   $st->finish;
   return $self;
-
 }
 
-sub as_list
-{
+sub rewrite {
+  # the default rewrite rule is to do nothing.
+  my $self = shift;
+  return $self;
+}
+
+
+=head1 session
+
+  returns the session object
+
+=cut
+
+sub session {
+  return shift->{_session};
+}
+
+sub as_list {
   return @{shift->{_objects}};
 }
 
-sub as_list_ref
-{
+sub as_list_ref {
   return shift->{_objects};
 }
 
 =head1 add
 
-  Add an object to the set.
+  Add an object to the set. This does not save it in the db, only
+  puts it in the container.
 
 =cut
-sub add
-{
+
+sub add {
    my $self = shift;
    my $new_obj = shift;
 
-   $self->{_session}->die("$new_obj is not a ".$self->{_table}." object.")
-                                     unless ref($new_obj) eq $self->{_table};
-
+   $self->{_session}->die("$new_obj is not a ".$self->{_module}." object.")
+     if ref($new_obj) ne $self->{_module};
    push @{$self->{_objects}}, $new_obj;
+}
+
+=head1 unshift_obj
+
+  Kinda like add, but puts it at the top of the list
+
+=cut
+
+sub unshift_obj {
+   my $self = shift;
+   my $new_obj = shift;
+
+   $self->{_session}->die("$new_obj is not a ".$self->{_module}." object.")
+     if ref($new_obj) ne $self->{_module};
+   unshift @{$self->{_objects}}, $new_obj;
+}
+
+
+=head1 remove
+
+Removes the object from the container. The (smaller) container
+is returned. The db record is not deleted.
+
+=cut
+
+sub remove {
+  my $self = shift;
+  my $obj = shift;
+
+  for( my $i=0;$i<=$#{$self->{_objects}};) {
+    if ($self->{_objects}->[$i] eq $obj) {
+      splice(@{$self->{_objects}},$i,1);
+    } 
+    else {
+      $i++;
+    }
+  }
+  return $self;
+}
+
+=head1 shift_obj
+
+Remove one object from the container and return the removed object. Useful
+when processing all objects in a container, but the order is not
+guaranteed
+
+This is not called shift because of tedious name collision with CORE::shift
+
+=cut
+
+sub shift_obj {
+  my $self = shift;
+
+  return if $#{$self->{_objects}} < 0;
+  my $obj = $self->{_objects}->[0];
+  $self->remove($obj);
+  return $obj;
 }
 
 =head1 insert, delete
@@ -219,54 +197,49 @@ sub add
 
 =cut
 
-sub insert
-{
+sub insert {
    my $self = shift;
-   map { $_->insert } @{$self->{_objects}};
-   return $self;
+   $_->insert for @{$self->{_objects}};
 }
-sub delete
-{
+
+sub delete {
    my $self = shift;
-   map { $_->delete(@_) } @{$self->{_objects}};
-   return $self;
+   $_->delete for @{$self->{_objects}};
 }
 
 =head1 count
 
-  Hommany object we got. Not a DB query! So this works even after a delete.
+  Hommany object we got. Not a DB query!
 
 =cut
 
-sub count
-{
+sub count {
   my $self = shift;
-  return scalar(@{$self->{_objects}})||0;
+  return scalar(@{$self->{_objects}});
 }
 
+=head1 _dbg_print
+
+This is normally only used as part of debugging for printing fields.
+
+=cut
+
+sub _dump_fields {
+  my $self = shift;
+  my $return = join("\t",@{$self->{_cols}})."\n";
+  $return .= $_->_dump_fields."\n" for $self->as_list;
+  return $return;
+}
+
+sub select_if_exists { $_[0]->{_session}->die("Operation not supported") }
+sub select_or_die { $_[0]->{_session}->die("Operation not supported") }
+sub unique_identifier { $_[0]->{_session}->die("Operation not supported") }
+sub insert_or_update { $_[0]->{_session}->die("Operation not supported") }
+sub insert_or_ignore { $_[0]->{_session}->die("Operation not supported") }
+sub get_next_id { $_[0]->{_session}->die("Operation not supported") }
+sub set_id { $_[0]->{_session}->die("Operation not supported") }
 
 sub DESTROY {}
-
-=head1 AUTOLOAD
-
-  default setter/getter for db columns
-
-=cut
-
-sub AUTOLOAD
-{
-  my $self = shift;
-  croak "$self is not an object." unless ref($self);
-  my $name = $AUTOLOAD;
-
-  $name =~ s/.*://;
-  if (! exists( $self->{$name} ) ) {
-     $self->{_session}->error("$name is not a method for ".ref($self).".");
-  }
-  $self->{$name} = shift @_ if ( @_ );
-  return $self->{$name};
-}
-
 
 1;
 

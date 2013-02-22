@@ -11,13 +11,10 @@
 package SQLObjectSet;
 
 use Exporter;
-use PCommon;
 use Session;
-
 use Carp;
-
-@ISA = qw(Exporter);
-@EXPORT = qw(select add unshift count session as_list as_list_ref);
+use strict;
+use warnings;
 
 =head1 new
 
@@ -28,61 +25,33 @@ use Carp;
 sub new
 {
   my $class = shift;
-  my $session = shift || die "Session argument required.";
-  my $arg = shift || $session->die("SQL or object required for to construct $class.");
+  my $session = shift 
+    || die "Session argument required.";
+  my $arg = shift 
+    || $session->die("SQL or object required for to construct $class.");
 
   my $sql;
   my $cols;
-  if (ref($arg) eq '') {
-    # we passed SQL
-    $sql = $arg;
-  } else {
-    # we passed an object
-    $sql = $arg->{_sql};
-    $cols = $arg->{_cols};
+  if (ref $arg eq '') {
+    $sql = $arg; 
+    $arg = shift;
+  }
+  else {
+    $sql = $arg->{_sql}; 
+    $sql = $arg->{_cols}; 
   }
 
-  # the base class name is the class with Set stripped off
   (my $base = $class) =~ s/Set$//;
-  my $self = {     _sql => $sql,
-                  _cols => $cols,
-                  _base => $base,
-               _session => $session };
+  my $self = {  
+    _sql => $sql,
+    _cols => $cols,
+    _base => $base,
+    _objects => [],
+    _session => $session 
+  };
 
-  initialize_self($self,@_);
+  SQLObject::initialize_self($self,@_);
   return bless $self,$class;
-
-}
-
-sub initialize_self
-{
-  my $self = shift;
-  # make the internals (column names...) if they were not passed
-  return if $self->{_cols} && (ref($self->{_cols}) eq 'ARRAY') && @{$self->{_cols}};
-
-  # rather than trying to parse the SQL, we'll let the server
-  # do that work with a trivialized statement.
-
-
-  # this is the part that may need work; we're adding a 'where false' as a condition
-  # it comes before the 'group by...' if that exists.
-  my $trivialized_sql = $self->{_sql};
-  if ($trivialized_sql =~ /\swhere\s/) {
-    if ($trivialized_sql =~ /\sgroup\s/s) {
-      $trivialized_sql =~ s/(\swhere\s).*?(\sgroup\s.*)/$1 false $2/s;
-    } else {
-      $trivialized_sql =~ s/(\swhere\s).*/ where false/s;
-    }
-  } else {
-    $trivialized_sql =~ s/(\sgroup\s.*)?/s where false $1/;
-  }
-  my $sql = $self->{_session}->db->prepare($trivialized_sql);
-  $sql->execute;
-  $self->{_session}->die("$DBI::errstr in processing SQL: ".$self->{_sql})
-                   if $self->{_session}->db->state;
-  $self->{_cols} = \@{$sql->{NAME}};
-  $sql->finish;
-
 }
 
 sub select
@@ -94,11 +63,14 @@ sub select
   # do we need to load a class for the base object?
   my $class = $self->{_base};
   eval { require $class.'.pm'};
+  if ($@) {
+    eval "{package $class; use base 'SQLObject'; }";
+  }
 
   my $sql = $self->{_sql};
   $sessionHandle->sqlverbose("SQL: $sql.");
   my $st = $sessionHandle->db->prepare($sql);
-  $st->execute;
+  $st->execute(@_ ? @_ : @{$self->{_bind_params}});
   $sessionHandle->die("$DBI::errstr in processing SQL: $sql")
                                        if $sessionHandle->db->state;
   while ( my $href = $st->fetchrow_hashref() ) {
@@ -109,16 +81,6 @@ sub select
   }
   $st->finish;
   return $self;
-}
-
-=head1 session
-
-  returns the session object
-
-=cut
-sub session
-{
-  return shift->{_session};
 }
 
 sub as_list
@@ -173,7 +135,7 @@ sub unshift
 sub count
 {
   my $self = shift;
-  return scalar(@{$self->{_objects}})||0;
+  return scalar(@{$self->{_objects}});
 }
 
 1;

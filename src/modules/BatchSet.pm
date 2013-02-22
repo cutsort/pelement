@@ -14,6 +14,6 @@ package BatchSet;
 use strict;
 use Pelement;
 use PCommon;
-use DbObjectSet;
+use base 'DbObjectSet';
 
 1;

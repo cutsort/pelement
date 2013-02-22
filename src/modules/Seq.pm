@@ -16,7 +16,7 @@ package Seq;
 =cut
 
 use strict;
-use DbObject;
+use base 'DbObject';
 
 =head1 to_fasta(filename,{options})
 

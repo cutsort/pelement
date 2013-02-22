@@ -301,7 +301,8 @@ sub parse {
   my $program_version = $result ? $result->algorithm_version : undef;
 
   # prepare the blast run record.
-  my $bR = $self->session->Blast_Run({
+  my $bR = $self->session->Blast_Run;
+  my %args = (
       seq_name => $q_name,
       trace_uid => $q_name,
       subject_db => $db_name ,
@@ -312,7 +313,9 @@ sub parse {
       run_datetime => $self->{blast_date},
       protocol => $self->{protocol} || 'unknown', 
       program_version => $program_version,
-    });
+  );
+  $bR->$_($args{$_}) for grep {$bR->has_col($_)} keys %args;
+
   # prepare these containers for results
   my $bHitSet = $session->Blast_HitSet;
   my $bHspSet = $session->Blast_HSPSet;
@@ -337,7 +340,8 @@ sub parse {
     my $headH = $self->{subject_parser}->($hit_tag);
 
     # prepare the hit and add it to the set
-    my $bH = $session->Blast_Hit({ 
+    my $bH = $session->Blast_Hit;
+    my %args = (
         run_id => $bR->ref_of('id'),
         subject_name => $headH->{name},
         name => $headH->{name},
@@ -346,11 +350,13 @@ sub parse {
         db => $headH->{db},
         accession => $headH->{acc},
         subject_length => $hit->length,
-      });
+      );
+    $bH->$_($args{$_}) for grep {$bH->has_col($_)} keys %args;
 
     my @hsps;
     while (my $hsp = $hit->next_hsp) {
-      my $bHsp = $session->Blast_HSP({ 
+      my $bHsp = $session->Blast_HSP;
+      my %args = ( 
           hit_id=>$bH->ref_of('id'),
           score=>$hsp->score,
           bits=>$hsp->bits,
@@ -369,7 +375,8 @@ sub parse {
           match_align=>$hsp->strand('hit')<0? scalar(reverse(uc($hsp->homology_string))) : uc($hsp->homology_string),
           subject_align=>$hsp->strand('hit')<0? revcomp(uc($hsp->hit_string)) : uc($hsp->hit_string),
           strand=>$hsp->strand('hit')||1,
-        });
+        );
+      $bHsp->$_($args{$_}) for grep {$bHsp->has_col($_)} keys %args;
       push @hsps, $bHsp;
     }
     if (@hsps) {

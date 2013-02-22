@@ -20,7 +20,7 @@ package GenBank_Submission_Info;
 use Pelement;
 use PCommon;
 use PelementDBI;
-use DbObject;
+use base 'DbObject';
 
 =head1 new
 
@@ -33,7 +33,7 @@ sub new
    my $class = shift;
  
    # SUPER appears to be caught by AUTOLOAD. be explicit instead.
-   my $self = DbObject::new($class,@_);
+   my $self = $class->SUPER::new($class,@_);
    $self->{type} = 'GSS';
    $self->{status} = 'New';
    $self->{gss} = '';

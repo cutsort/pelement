@@ -12,7 +12,7 @@
 package Blast_Report;
 
 use strict;
-use DbObject;
+use base 'DbObject';
 use PelementCGI;
 
 use Blast_Run;

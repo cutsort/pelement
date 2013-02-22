@@ -15,7 +15,7 @@ use strict;
 use Pelement;
 use PCommon;
 use PelementDBI;
-use DbObjectSet;
+use base 'DbObjectSet';
 
 use Blast_Run;
 

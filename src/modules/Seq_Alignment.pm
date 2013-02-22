@@ -21,7 +21,7 @@ use PCommon;
 use PelementDBI;
 use Blast_Report;
 use Seq;
-use DbObject;
+use base 'DbObject';
 
 =head1 from_Blast_Report
 

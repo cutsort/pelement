@@ -14,7 +14,7 @@ package SampleSet;
 use strict;
 use Pelement;
 use PCommon;
-use DbObjectSet;
+use base 'DbObjectSet';
 
 =head1 sample_sheet
 

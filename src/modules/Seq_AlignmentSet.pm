@@ -15,25 +15,7 @@ use strict;
 use Pelement;
 use PCommon;
 use PelementDBI;
-use DbObjectSet;
-
-=head1
-
-   new create a generic set of db rows.
-
-=cut 
-
-sub new
-{
-  my $class = shift;
-  my $session = shift;
-  my $args = shift;
-
-  my $self = initialize_self($class,$session,$args);
-
-  return bless $self,$class;
-
-}
+use base 'DbObjectSet';
 
 1;
 

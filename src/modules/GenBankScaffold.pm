@@ -19,7 +19,7 @@ use strict;
 use Pelement;
 use PCommon;
 use PelementDBI;
-use DbObject;
+use base 'DbObject';
 
 =head1 mapped_from_arm
 

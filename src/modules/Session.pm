@@ -425,6 +425,12 @@ sub DESTROY
   $self->exit;
 }
 
+sub table {
+  my $self = shift;
+  $Session::AUTOLOAD = shift or return;
+  $self->AUTOLOAD(@_);
+}
+
 sub AUTOLOAD
 {
   my $self = shift;
@@ -458,7 +464,7 @@ sub AUTOLOAD
   unless ($loaded) {
     while (@packageClass) {
       my ($a,$b) = splice(@packageClass,0,2);
-      eval "package $a; use $b;";
+      eval "package $a; use base '$b';";
     }
   }
 

@@ -16,6 +16,6 @@ package Phase;
 =cut
 
 use strict;
-use DbObject;
+use base 'DbObject';
 
 1;

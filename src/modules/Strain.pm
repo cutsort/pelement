@@ -12,7 +12,7 @@
 package Strain;
 
 use strict;
-use DbObject;
+use base 'DbObject';
 
 1;
 

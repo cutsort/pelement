@@ -20,7 +20,7 @@ use strict;
 use Pelement;
 use PCommon;
 use PelementDBI;
-use DbObject;
+use base 'DbObject';
 
 1;
 

@@ -23,7 +23,7 @@
 
 package ChadoGeneModelSet;
 
-use SQLObjectSet;
+use base 'SQLObjectSet';
 
 BEGIN {
   # these change between shapshots only; it may speed up queries to code these.
