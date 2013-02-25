@@ -33,7 +33,7 @@ sub new
    my $class = shift;
  
    # SUPER appears to be caught by AUTOLOAD. be explicit instead.
-   my $self = $class->SUPER::new($class,@_);
+   my $self = $class->SUPER::new(@_);
    $self->{type} = 'GSS';
    $self->{status} = 'New';
    $self->{gss} = '';
