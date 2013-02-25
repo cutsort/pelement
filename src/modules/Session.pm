@@ -28,6 +28,7 @@ package Session;
 use strict;
 use File::Basename;
 use Getopt::Long qw(:config pass_through);
+use Carp;
 no strict 'refs';
 
 use Pelement;
@@ -404,7 +405,7 @@ sub error
   (&{$self->{error}->{$tag}} and return) if exists $self->{error}->{$tag};
 
   $self->log($Session::Error,$message);
-  $self->exit();
+  croak($message);
 }
 
 =head2 die
@@ -416,7 +417,6 @@ sub die
 {
   my $self = shift;
   $self->error(@_);
-  CORE::exit(2);
 }
 
 sub DESTROY
