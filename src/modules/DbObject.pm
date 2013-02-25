@@ -866,7 +866,8 @@ sub has_col {
   my $self = shift;
   my $col = shift;
   return $self->{_session}{cols_hash}{$self->{_module}}{$col}
-    || $self->{_session}{lccols_hash}{$self->{_module}}{lc($col)};
+    || $self->{_session}{lccols_hash}{$self->{_module}}{lc($col)}
+    || exists($self->{$col});
 }
 
 =head1 resolve_ref
