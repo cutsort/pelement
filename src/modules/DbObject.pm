@@ -763,9 +763,9 @@ sub _cols_values_lists {
   my $sqlVal='';
 
   for my $col (@{$self->{_cols}}) {
-    $self->{$col} = $self->resolve_ref($self->{$col});
     next if $col eq "id";
     next if !exists $self->{$col};
+    $self->{$col} = $self->resolve_ref($self->{$col});
 
     $sql .= $col.",";
     if (!defined($self->{$col})) {
@@ -784,9 +784,9 @@ sub _cols_values {
   my $self = shift;
   my $sql = '';  
   for my $col (@{$self->{_cols}}) {
-    $self->{$col} = $self->resolve_ref($self->{$col});
     next if $col eq "id";
     next if !exists $self->{$col};
+    $self->{$col} = $self->resolve_ref($self->{$col});
 
     if (!defined($self->{$col})) {
       $sql .= $col."=NULL, ";
