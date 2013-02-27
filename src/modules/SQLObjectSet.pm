@@ -10,6 +10,7 @@
 
 package SQLObjectSet;
 
+use SQLObject;
 use Exporter;
 use Session;
 use Carp;
