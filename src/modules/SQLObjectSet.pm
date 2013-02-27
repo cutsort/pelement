@@ -10,7 +10,7 @@
 
 package SQLObjectSet;
 
-use SQLObject;
+use base 'SQLObject';
 use Exporter;
 use Session;
 use Carp;
