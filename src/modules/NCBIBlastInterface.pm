@@ -213,6 +213,8 @@ sub run
     # also requiring the database to reside there.
     $factory->{_db_path} = $database;
     eval {
+      # hide warnings produced by the blast wrapper module
+      local $SIG{__WARN__} = sub {$session->verbose(@_)};
       $result = $factory->run(
         -method=>$self->{program}, 
         -query=>$query, 
@@ -223,6 +225,8 @@ sub run
   }
   else {
     eval {
+      # hide warnings produced by the blast wrapper module
+      local $SIG{__WARN__} = sub {$session->verbose(@_)};
       $result = $factory->bl2seq(
         -method=>$self->{program}, 
         -query=>$query, 
