@@ -497,7 +497,9 @@ sub insert
      $Session::Verbose,"Inserting info to ".$self->{_table});
 
    my ($cols_list, $vals_list) = $self->_cols_values_lists;
-   my $sql = "insert into ".$self->_table." ($cols_list) values ($vals_list)";
+   my $sql = 'insert into '.$self->_table.' '
+     .($cols_list eq ''? '':"($cols_list) ")
+     .($vals_list eq ''? 'default values':"values ($vals_list)");
    $sql .= " returning *" if $session->db->{dbh}{Driver}{Name} eq 'Pg';
 
    my $statement = $self->{_session}->db->prepare($sql);
