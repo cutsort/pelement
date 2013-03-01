@@ -383,10 +383,23 @@ sub update
       $self->{_session}->warn("Non-effective update on ".$self->{_table});
       return;
    }
+   $sql .= " returning *" if $session->db->{dbh}{Driver}{Name} eq 'Pg';
 
    $self->{_session}->log($Session::Verbose,"Updating info for ".$self->{_table}
      .($self->{id} ? " id=".$self->{id} : " and specified keys."));
-   $self->{_session}->db->do($sql);
+
+   my $statement = $self->{_session}->db->prepare($sql);
+   my $ret = $statement->execute;
+   $session->die("$DBI::errstr in processing SQL: $sql") if $session->db->state;
+
+   if ($session->db->{dbh}{Driver}{Name} eq 'Pg') {
+      my $href = $statement->fetchrow_arrayref();
+      if ($href) {
+        my $ctr = 0;
+        $self->{$_} = $href->[$ctr++] for @{$self->{_cols}};
+      }
+   }
+   return $ret;
 }
 
 =head1 insert_or_update
