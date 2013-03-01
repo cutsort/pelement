@@ -485,30 +485,20 @@ sub insert
 
    my ($cols_list, $vals_list) = $self->_cols_values_lists;
    my $sql = "insert into ".$self->_table." ($cols_list) values ($vals_list)";
+   $sql .= " returning *" if $session->db->{dbh}{Driver}{Name} eq 'Pg';
 
    my $statement = $self->{_session}->db->prepare($sql);
    $statement->execute;
    $session->die("$DBI::errstr in processing SQL: $sql") if $session->db->state;
-   return unless exists $self->{id};
 
-   if ($session->db->{dbh}->{Driver}->{Name} eq 'Pg' 
-     && $statement->{pg_oid_status}) 
-   {
-     my $oid = $statement->{pg_oid_status};
-     # we can determine the id in a intelligent manner in a DB dependent way
-     $self->{id} = $self->{_session}->db->select_value("select id from "
-       .$self->{_table}." where oid=$oid");
-     $self->{oid} = $oid;
-   } 
-   else {
-     # prepare a query for the id we just got.
-     my $qSql = "select max(id) from ".$self->_table." where";
-     $qSql .= $self->_mappings;
-     $qSql .= $self->_constraints;
-     $qSql = $self->_cleanup($qSql);
-     $self->{id} = $self->{_session}->db->select_value($qSql);
+   if ($session->db->{dbh}{Driver}{Name} eq 'Pg') {
+      my $href = $statement->fetchrow_arrayref();
+      if ($href) {
+        my $ctr = 0;
+        $self->{$_} = $href->[$ctr++] for @{$self->{_cols}};
+      }
    }
-   return $self->{id};
+   return exists $self->{id}? $self->{id} : ();
 }
 
 =head1 get_next_id
@@ -533,7 +523,7 @@ sub get_next_id
    $col = $self->_convert_col($col);
 
    # postgres
-   if ($session->db->{dbh}->{Driver}->{Name} eq 'Pg') {
+   if ($session->db->{dbh}{Driver}{Name} eq 'Pg') {
      my $nextval = $self->_nextval($col);
       my $iGot =  $session->db->select_value(
         "select nextval('$nextval')");
@@ -564,7 +554,7 @@ sub set_id
    $col = $self->_convert_col($col);
 
    # postgres
-   if ($session->db->{dbh}->{Driver}->{Name} eq 'Pg') {
+   if ($session->db->{dbh}{Driver}{Name} eq 'Pg') {
      my $nextval = $self->_nextval($col);
      my $iGot =  $session->db->select_value(
        "select setval('$nextval',$val)");
