@@ -47,7 +47,7 @@ while(<FIL>) {
 
    $name =~ s/prime$//;
 
-   unless ( new Seq($session,{-name=>$name})->db_exists ) {
+   unless ( new Seq($session,{-seq_name=>$name})->db_exists ) {
       $session->die("There is no sequence named $name.");
    }
 
