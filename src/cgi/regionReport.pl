@@ -27,9 +27,12 @@ use RegionImage;
 
 our $cgi = new PelementCGI;
 
-my $ajax = new CGI::Ajax('move',\&imageMove);
 
-print $ajax->build_html($cgi,\&MakeHTML);
+my $ajax = new CGI::Ajax('move', 
+  sub {my $r=eval {imageMove(@_)}; if ($@) {print STDERR "$@"; die "$@"} $r});
+
+print $ajax->build_html($cgi, 
+  sub {my $r=eval {MakeHTML(@_)}; if ($@) {print STDERR "$@"; die "$@"} $r});
 
 exit(0);
 

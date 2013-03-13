@@ -18,6 +18,7 @@
 package DbObject;
 
 use Session;
+use DBI;
 use Carp;
 use strict;
 use warnings;
@@ -712,7 +713,7 @@ sub _constraints
   }
   my $bin_constraint = _extract_args($args, 'rtree_bin') || {};
   for my $bin (keys %$bin_constraint) {
-    $constraint .= " ".RTree::bin_sql(
+    $constraint .= " ".bin_sql(
       @{$bin_constraint->{$bin}}[0..1], 
       $self->_convert_col($bin)
     )." and";
@@ -742,6 +743,52 @@ sub _constraints
 
   $self->{_constraints} = $constraint;
   return $constraint;
+}
+
+my $max_bin_num = 1_000_000;
+my $min_bin_size = 1_000;
+my $max_bin_size = 100_000_000;
+my $bin_step = 10;
+
+=head1 loc2bin
+
+Return the containing R-Tree bin for a given range.
+
+=cut
+
+sub loc2bin {
+  my ($start_pos, $end_pos, $bin_size) = @_;
+  return if !defined($start_pos);
+  $end_pos = $start_pos if !defined($end_pos);
+
+  if (!defined $bin_size) {
+    $bin_size = $min_bin_size;
+    $bin_size *= $bin_step while (int($start_pos/$bin_size) != int($end_pos/$bin_size));
+  }
+  my $bin = ($bin_size*$max_bin_num) + int($start_pos/$bin_size);
+  return $bin;
+}
+
+=head1 bin_sql
+
+Generate SQL code for R-Tree based querying.
+
+=cut
+
+sub bin_sql {
+  my ($start_pos, $end_pos, $bin_name) = @_;
+  $bin_name ||= 'bin';
+  my @sql;
+  for (my $bin_size=$max_bin_size; $bin_size >= $min_bin_size; $bin_size /= $bin_step) {
+    if (int($start_pos/$bin_size) == int($end_pos/$bin_size)) {
+      push @sql, "\"$bin_name\" = ".loc2bin($start_pos, $end_pos, $bin_size);
+    }
+    else {
+      push @sql, "\"$bin_name\" between ".loc2bin($start_pos, $start_pos, $bin_size)
+        .' and '.loc2bin($end_pos, $end_pos, $bin_size);
+    }
+  }
+  return ' ('.join(' OR ', @sql).') ';
 }
 
 =head1 _q, _qi

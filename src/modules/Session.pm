@@ -28,7 +28,7 @@ package Session;
 use strict;
 use File::Basename;
 use Getopt::Long qw(:config pass_through);
-use Carp;
+use Carp qw(confess);
 no strict 'refs';
 
 use Pelement;
@@ -405,7 +405,7 @@ sub error
   (&{$self->{error}->{$tag}} and return) if exists $self->{error}->{$tag};
 
   $self->log($Session::Error,$message);
-  croak($message);
+  confess($message);
 }
 
 =head2 die
