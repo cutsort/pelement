@@ -296,11 +296,11 @@ sub parse {
 
   # clean up the query and db a bit
   my $q_name = $result ? $result->query_name : $self->{query_name};
-  $q_name =~ s/\s*\([0-9,]+ letters\)\s*$//;
+  $q_name =~ s/\s*\([0-9,]+ letters\)\s*$// if defined $q_name;
 
   # if there was an error, we cannot parse the db name
   my $db_name = $result ? $result->database_name : $self->{db};
-  $db_name =~ s/\Q$db_dir\E//;
+  $db_name =~ s/\Q$db_dir\E// if defined $db_name;
 
   my $program_version = $result ? $result->algorithm_version : undef;
 
