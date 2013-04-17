@@ -39,6 +39,7 @@ while(<FIL>) {
    # skip headers and blank lines
    next unless $_;
    next if /^dbGSS_Id/;
+   next if /^dbEST_Id/;
    next if /^==/;
 
    my ($dbgss,$name,$acc) = split(/\s+/,$_);
