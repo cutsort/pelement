@@ -4,8 +4,6 @@
 
 =cut
 
-package PCommon;
-
 =head1 parseArg
 
   The common interface to parsing optional arguments to
@@ -21,9 +19,10 @@ package PCommon;
 
 use Exporter ();
 @ISA = qw(Exporter);
-@EXPORT = qw(parseArgs shell time_value is_true date_cmp);
+@EXPORT = qw(parseArgs shell time_value is_true date_cmp seq_extract);
 
 use Sys::Hostname ();
+use FileHandle;
 
 use Pelement;
 use strict;
@@ -125,4 +124,31 @@ sub sort_time_value
  } @_;
 
 }
+
+=head1 seq_extract
+
+Extract the substring of first sequence from a fasta file where the header
+matches $pat.
+
+=cut
+
+sub seq_extract {
+  my ($file, $pat, $start, $stop) = @_;
+  local $/ = '>';
+  my $fh = FileHandle->new($file,'r')
+    or die "Could not read file $file: $!";
+  $fh->getline;
+  while (my $fasta = $fh->getline) {
+    chomp $fasta; 
+    $fasta=~s/^([^\n]*)\n//;
+    my $header = $1;
+    if (!defined($pat) || (ref($pat) eq 'Regexp'? $header=~/$pat/ : ref($pat) eq 'CODE'? $pat->($header) : $header=~/\Q$pat\E/)) {
+      $fasta=~s/\s+//g;
+      return substr($fasta, defined($start) && $start>=0? $start:0, defined($stop) && $stop>=0? $stop:());
+    }
+  }
+  undef;
+}
+
 1;
+

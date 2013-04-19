@@ -9,6 +9,7 @@
 use strict;
 
 use Pelement;
+use PCommon;
 use Session;
 use Strain;
 use Seq;
