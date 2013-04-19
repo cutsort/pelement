@@ -392,6 +392,9 @@ sub parse {
   }
 
   if (!$noinsert) {
+    $bR->blast_time('now') if $bR->has_col('blast_time');
+    $bR->date('now') if $bR->has_col('date');
+    $bR->run_datetime('now') if $bR->has_col('run_datetime');
     $bR->insert;
     $bHitSet->insert;
     $bHspSet->insert;
