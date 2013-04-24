@@ -29,7 +29,7 @@ our $cgi = new PelementCGI;
 
 
 my $ajax = new CGI::Ajax('move', 
-  sub {my $r=eval {imageMove(@_)}; if ($@) {print STDERR "$@"; die "$@"} $r});
+  sub {my @r=eval {imageMove(@_)}; if ($@) {print STDERR "$@"; die "$@"} @r});
 
 print $ajax->build_html($cgi, 
   sub {my $r=eval {MakeHTML(@_)}; if ($@) {print STDERR "$@"; die "$@"} $r});
@@ -161,7 +161,6 @@ sub imageMove {
   my $operation = shift;
   my $location = shift;
 
-  print STERR "operation is $operation\n";
   if ($location =~
     /Release\s+(\d+)\s+Scaffold\s+(\S+)\s+centered at\s+(\d+),\s+range\s+(\d+)/
                                                                             ) {
