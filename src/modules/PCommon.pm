@@ -144,7 +144,7 @@ sub seq_extract {
     my $header = $1;
     if (!defined($pat) || (ref($pat) eq 'Regexp'? $header=~/$pat/ : ref($pat) eq 'CODE'? $pat->($header) : $header=~/\Q$pat\E/)) {
       $fasta=~s/\s+//g;
-      return substr($fasta, defined($start) && $start>=0? $start:0, defined($stop) && $stop>=0? $stop:());
+      return substr($fasta, defined($start) && $start>=0? $start:0, defined($stop) && $stop>=$start? $stop-$start:());
     }
   }
   undef;
