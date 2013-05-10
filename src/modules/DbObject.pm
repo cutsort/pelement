@@ -479,6 +479,7 @@ sub delete
     $session->log($Session::Verbose,"Deleting from ".$self->{_table}.".");
   }
   $session->db->do($sql);
+  return $self;
 }
 
 =head1 insert
