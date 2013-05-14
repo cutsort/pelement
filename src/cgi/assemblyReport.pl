@@ -132,7 +132,7 @@ sub rebuildSeqAssembly
              $cgi->br,"\n";
 
        $stuff = $session->Blast_RunSet({-seq_name=>$seq_name})->select->delete;
-       print $cgi->center("Deleting ".$stuff->count." blast runs or $seq_name..."),
+       print $cgi->center("Deleting ".$stuff->count." blast runs for $seq_name..."),
              $cgi->br,"\n";
 
        $stuff = $session->Seq_AssemblySet({-seq_name=>$seq_name}
