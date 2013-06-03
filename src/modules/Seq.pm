@@ -77,6 +77,7 @@ sub rev_comp
   require db retrieval but are based on parsing the input
 
 =cut
+
 =head1 parse
 
   Returns the strain, end, and qualifiers. This is not stored in the db
@@ -88,6 +89,7 @@ sub rev_comp
      Seq::parse($seq_name)
 
 =cut
+
 sub parse
 {
   my $self = shift;
