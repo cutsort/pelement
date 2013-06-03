@@ -23,7 +23,7 @@ img_install: $(IMG)
 	for I in $?; do ( cp $$I $(INSTALLDIR)/../../htdocs/pelement/images/ ); done
 
 check:	$(SRC) 
-	for I in $?; do ( perl -c $$I ); done
+	for I in $?; do ( perl -c $$I --installdeps); done
 	touch check
 
 

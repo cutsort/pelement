@@ -24,7 +24,7 @@ install: check
 	for I in $(SRC); do ( cp --remove-destination --parents $$I $(INSTALLDIR)/modules ); done
 
 check:	$(SRC) 
-	for I in $?; do ( perl -c $$I ); done
+	for I in $?; do ( perl -c $$I --installdeps); done
 	touch check
 
 

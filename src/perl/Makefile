@@ -4,7 +4,7 @@ SRC = alignSeq.pl baseCaller.pl	generateXML.pl runBlast.pl \
 	generateGenBankMail.pl importChado.pl
 
 check:	$(SRC) 
-	for I in $?; do ( perl -c $$I ); done
+	for I in $?; do ( perl -c $$I --installdeps); done
 	touch check
 
 # 'make install' should be invoked from a higher level makefile or

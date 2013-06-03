@@ -1,5 +1,6 @@
 package Pelement;
 require Exporter;
+use Getopt::Long;
 
 @ISA = qw(Exporter);
 @EXPORT = qw(
@@ -63,6 +64,10 @@ $PELEMENT_DB_DBI     = "Pg";
 # whatever it takes to connect.
 $PELEMENT_DB_CONNECT = "dbname=pelement;host=eel.lbl.gov";
 
+# CPAN mirror
+$PELEMENT_CPAN_MIRROR = '/share/cpan';
+$PELEMENT_SUDO = 1;
+
 #######################################################################
 ### Paths to programs labtrack runs
 
@@ -71,6 +76,7 @@ if ($^O eq 'darwin') {
   $PELEMENT_PHRAPBIN = "/usr/local/bdgp/consed_mac-23.0/bin/phrap";
   $PELEMENT_CROSS_MATCHBIN = "/usr/local/bdgp/consed_mac-23.0/bin/cross_match";
   $NCBI_BLAST_BIN_DIR = "/usr/local/bin/";
+  $PELEMENT_SUDO = 0;
 }
 elsif ($^O eq 'linux') {
   $PELEMENT_PHREDBIN = "/usr/local/bdgp/bin/phred";
@@ -95,5 +101,24 @@ $ENV{BLASTFILTER} = "$BLAST_PATH/filter";
 $BDGP_MODULE_PATH = "/usr/local/bdgp/lib/perl";
 $FLYBASE_MODULE_PATH = $ENV{FLYBASE_MODULE_PATH} || $PELEMENT_HOME."software/perl-modules/";
 $ENV{FLYBASE_MODULE_PATH} = $FLYBASE_MODULE_PATH;
+
+# Install any missing modules automatically
+if (!exists $ENV{GATEWAY_INTERFACE}) {
+  my $sudo;
+  my $installdeps;
+  Getopt::Long::Configure('pass_through');
+  GetOptions(
+    'sudo!'=>\$sudo,
+    'installdeps!'=>\$installdeps);
+  Getopt::Long::Configure('no_pass_through');
+  if ($installdeps) {
+    eval {
+      require lib::xi;
+      lib::xi->import('--quiet', '--notest',
+        '--mirror',$PELEMENT_CPAN_MIRROR, '--mirror','http://www.cpan.org',
+        (defined($sudo)?$sudo:$PELEMENT_SUDO)? '--sudo':());
+    };
+  }
+}
 
 1;
