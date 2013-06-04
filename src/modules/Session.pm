@@ -317,13 +317,8 @@ sub log
                      if $level <= $self->log_level;
 
 
-  if ($level <= $self->log_level && $self->{interactive} ) {
-    # which we print on depends on the leve of the error
-    if ( $level == $Session::Error || $level == $Session::Warn ) {
-      print STDERR "$message\n";
-    } else {
-      print STDOUT "$message\n";
-    }
+  if ($level <= $self->log_level && $self->{interactive} && !$self->{suppress_output}) {
+    print STDERR "$message\n";
   }
 
   return 1;
@@ -404,7 +399,9 @@ sub error
 
   (&{$self->{error}->{$tag}} and return) if exists $self->{error}->{$tag};
 
+  $self->{suppress_output} = 1;
   $self->log($Session::Error,$message);
+  delete $self->{suppress_output};
   confess($message);
 }
 
