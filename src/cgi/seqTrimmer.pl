@@ -321,8 +321,6 @@ sub processTrimmedSeq
    }
 
    print $cgi->h3("Processing trimming data...");
-   # gonna need an api for this
-   my $tunneled_sql;
 
    if ($v_trim_start ne '' && $phred->v_trim_start != $v_trim_start) {
       print $cgi->b("Updating vector trimming from ".
@@ -330,8 +328,7 @@ sub processTrimmedSeq
       $phred->v_trim_start($v_trim_start);
       $update = 1;
    } elsif ($v_trim_start eq '') {
-      $tunneled_sql .= qq(update phred_seq set v_trim_start=null where
-                          id=$phred->id;);
+      $phred->v_trim_start(undef);
       $update = 1;
    }
    
@@ -341,8 +338,7 @@ sub processTrimmedSeq
       $phred->v_trim_end($v_trim_end);
       $update = 1;
    } elsif ($v_trim_end eq '') {
-      $tunneled_sql .= qq(update phred_seq set v_trim_end=null where
-                          id=$phred->id;);
+      $phred->v_trim_end(undef);
       $update = 1;
    }
    
@@ -362,7 +358,6 @@ sub processTrimmedSeq
 
    $phred->last_update('now');
    $phred->update if $update;
-   $session->db->do($tunneled_sql) if $tunneled_sql;
 
    if ($update) {
      print $cgi->b("Sequence records updated."),$cgi->br,"\n";
