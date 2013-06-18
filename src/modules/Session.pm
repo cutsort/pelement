@@ -100,7 +100,6 @@ sub new
               "caller"        => $caller,
               "log_level"     => $log_level,
               "log_file"      => *LOG,
-              "interactive"   => (-t STDIN),
               "id"            => $id,
               "col_hash"      => {},
              };
@@ -317,7 +316,7 @@ sub log
                      if $level <= $self->log_level;
 
 
-  if ($level <= $self->log_level && $self->{interactive} && !$self->{suppress_output}) {
+  if ($level <= $self->log_level && !$self->{suppress_output}) {
     print STDERR "$message\n";
   }
 
