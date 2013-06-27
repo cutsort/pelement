@@ -15,10 +15,11 @@ SRC =	Alignment.pm AlignmentSet.pm Association.pm Batch.pm BatchSet.pm \
 	Seq_AssemblySet.pm Sequence.pm Session.pm Stock_Record.pm \
 	Stock_RecordSet.pm Strain.pm Strain_Alias.pm Submitted_Seq.pm \
 	Trimming_Protocol.pm Vector.pm WebCache.pm WebSession.pm \
-        SQLObject.pm SQLObjectSet.pm ChadoGeneModelSet.pm GeneModelSet.pm \
+	SQLObject.pm SQLObjectSet.pm ChadoGeneModelSet.pm GeneModelSet.pm \
 	Phase.pm PhaseSet.pm StrainSet.pm \
- 	RegionImage.pm GeneralUtils/Structures.pm \
- 	GeneralUtils/XML/Generator.pm NCBIBlastInterface.pm
+	RegionImage.pm GeneralUtils/Structures.pm \
+	GeneralUtils/XML/Generator.pm NCBIBlastInterface.pm \
+	GenBank_Submission_InfoSet.pm
 
 install: check
 	for I in $(SRC); do ( cp --remove-destination --parents $$I $(INSTALLDIR)/modules ); done

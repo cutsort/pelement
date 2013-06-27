@@ -34,6 +34,7 @@ use Seq_Alignment;
 use Seq;
 use SeqSet;
 use GenBank_Submission_Info;
+use GenBank_Submission_InfoSet;
 use Submitted_Seq;
 
 use File::Basename;
@@ -48,7 +49,6 @@ my $appendFile;
 my $minLength = 10;
 my $update = 1;
 my $release = 5;
-my $submit_merged = 0;
 
 # only submit aligned strains?
 my $ifAligned = 1;
@@ -65,7 +65,6 @@ GetOptions('out=s'      => \$outFile,
            'test!'      => \$test,
            'update!'    => \$update,
            'release=i'  => \$release,
-           'merge!'     => \$submit_merged,
           );
 
 if ($appendFile && -e $appendFile) {
@@ -205,75 +204,39 @@ foreach my $arg (@ARGV) {
       next unless exists $insertions{$insert}->{pos};
       my %pos = %{$insertions{$insert}->{pos}};
 
-      if ($submit_merged && exists($ends{b}) && length($ends{b}) >= $minLength ) {
-         # if we have a 'both' end, we're submitting that.
+      # both ends are separate submissions
+      foreach my $end (qw(3 5)) {
+         if ( exists($ends{$end}) && length($ends{$end}) >= $minLength ) {
+            my $gb = (
+              grep {$_->p_end =~ /$end/}
+              map {(my $p_end = $_->p_end) =~ s/<ENDDESCR>/$end/; $_->p_end($p_end); $_}
+              GenBank_Submission_InfoSet->new($session,{-collection=>$st->collection})->select->as_list)[0]
+                or $session->die("Could not find genbank_submission_info record for collection ".$st->collection.", end $end");
 
-         # if we're requiring alignment, then we need to see that at
-         # least 1 flanking seq has an alignment
-         if ($ifAligned) {
-            ($session->warn("No alignments for either end of $arg. Skipping") and next) unless
-                    exists($ends{5}) || exists($ends{3});
-         }
-         my $gb = new GenBank_Submission_Info($session,{-collection=>$st->collection})->select;
-         $gb->gss($insert);
-         # was this submitted before?
-         if (new Submitted_Seq($session,{-seq_name=>$insert.'-'.$end})->db_exists) {
-           next unless $update;
-           $gb->status('Update');
-         }
+            $gb->gss($insert.'-'.$end.'prime');
 
-         if ($stock && $stock->fbti) {
-           $gb->add_xref('FlyBase',$stock->fbti);
-         } else {
-           $gb->add_xref('BDGP_INS',$insert);
-         }
-
-         if( $stock && $stock->stock_name) {
-           $gb->comment($gb->comment.
-                ' The Bloomington Drosophila Stock Center identifier is '.
-                $stock->stock_name.'.');
-         }
-
-         $gb->add_seq('b',$ends{b},$pos{b});
-         my $p_end = $gb->p_end;
-         $p_end =~ s/<ENDDESCR>/both/;
-         $gb->p_end($p_end);
-         print FIL $gb->print ,"\n";
-      } else {
-         # otherwise, both ends are separate submissions
-         foreach my $end (qw(3 5)) {
-            if ( exists($ends{$end}) && length($ends{$end}) >= $minLength ) {
-               my $gb = new GenBank_Submission_Info($session,{-collection=>$st->collection})->select;
-               $gb->gss($insert.'-'.$end.'prime');
-
-               # was this submitted before?
-               if (new Submitted_Seq($session,{-seq_name=>$insert.'-'.$end})->db_exists) {
-                 next unless $update;
-                 $gb->status('Update');
-               }
-
-               if ($stock && $stock->fbti) {
-                 $gb->add_xref('FlyBase',$stock->fbti);
-               } else {
-                 $gb->add_xref('BDGP_INS',$insert);
-               }
-
-               if( $stock && $stock->stock_name) {
-                 $gb->comment($gb->comment.
-                      ' The Bloomington Drosophila Stock Center identifier is '.
-                      $stock->stock_name.'.');
-               }
-
-               $gb->add_seq($end,$ends{$end},$pos{$end});
-               my $end_txt = $end;
-               my $p_end = $gb->p_end;
-               $p_end =~ s/<ENDDESCR>/$end_txt/;
-               $gb->p_end($p_end);
-               print FIL $gb->print ,"\n";
+            # was this submitted before?
+            if (new Submitted_Seq($session,{-seq_name=>$insert.'-'.$end})->db_exists) {
+              next unless $update;
+              $gb->status('Update');
             }
+
+            if ($stock && $stock->fbti) {
+              $gb->add_xref('FlyBase',$stock->fbti);
+            } else {
+              $gb->add_xref('BDGP_INS',$insert);
+            }
+
+            if( $stock && $stock->stock_name) {
+              $gb->comment($gb->comment.
+                   ' The Bloomington Drosophila Stock Center identifier is '.
+                   $stock->stock_name.'.');
+            }
+
+            $gb->add_seq($end,$ends{$end},$pos{$end});
+            print FIL $gb->print ,"\n";
          }
       }
-       
    }
    $session->log($Session::Info,"Submission info for $arg generated.");
 
