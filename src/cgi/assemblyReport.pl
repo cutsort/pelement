@@ -149,7 +149,7 @@ sub rebuildSeqAssembly
        print $cgi->center("Reprocessing sequence $seq_name..."),
              $cgi->br,"\n";
       
-       `$PELEMENT_BIN/seqImporter.pl -quiet $import_command`;
+       `$PELEMENT_BIN/seqImporter.pl $import_command`;
         
        if ($old_s->db_exists) {
 
@@ -157,12 +157,12 @@ sub rebuildSeqAssembly
          print $cgi->center("Blasting sequence $seq_name..."),
                $cgi->br,"\n";
       
-         `$PELEMENT_BIN/runBlast.pl -protocol release3 -quiet $seq_name`;
-         `$PELEMENT_BIN/runBlast.pl -protocol release5 -quiet $seq_name`;
-         `$PELEMENT_BIN/runBlast.pl -protocol te -quiet $seq_name`;
-         `$PELEMENT_BIN/runBlast.pl -protocol vector -quiet $seq_name`;
-         `$PELEMENT_BIN/alignSeq.pl -release 3 -quiet $seq_name`;
-         `$PELEMENT_BIN/alignSeq.pl -release 5 -quiet $seq_name`;
+         `$PELEMENT_BIN/runBlast.pl -protocol release3 $seq_name`;
+         `$PELEMENT_BIN/runBlast.pl -protocol release5 $seq_name`;
+         `$PELEMENT_BIN/runBlast.pl -protocol te $seq_name`;
+         `$PELEMENT_BIN/runBlast.pl -protocol vector $seq_name`;
+         `$PELEMENT_BIN/alignSeq.pl -release 3 $seq_name`;
+         `$PELEMENT_BIN/alignSeq.pl -release 5 $seq_name`;
        } else {
          print $cgi->center("No sequence imported. Blasting not done."),
                $cgi->br,"\n";
@@ -203,16 +203,16 @@ sub rebuildSeqAssembly
        }
        $import_command = '-lane_id '.$thelane_id;
 
-       `$PELEMENT_BIN/seqImporter.pl -quiet $import_command`;
+       `$PELEMENT_BIN/seqImporter.pl $import_command`;
 
        print $cgi->center("Blasting...");
-       `$PELEMENT_BIN/runBlast.pl -protocol release3 -quiet $seq_name`;
-       `$PELEMENT_BIN/runBlast.pl -protocol release5 -quiet $seq_name`;
-       `$PELEMENT_BIN/runBlast.pl -protocol te -quiet $seq_name`;
-       `$PELEMENT_BIN/runBlast.pl -protocol vector -quiet $seq_name`;
+       `$PELEMENT_BIN/runBlast.pl -protocol release3 $seq_name`;
+       `$PELEMENT_BIN/runBlast.pl -protocol release5 $seq_name`;
+       `$PELEMENT_BIN/runBlast.pl -protocol te $seq_name`;
+       `$PELEMENT_BIN/runBlast.pl -protocol vector $seq_name`;
        print $cgi->center("Aligning...");
-       `$PELEMENT_BIN/alignSeq.pl -release 3 -quiet $seq_name`;
-       `$PELEMENT_BIN/alignSeq.pl -release 5 -quiet $seq_name`;
+       `$PELEMENT_BIN/alignSeq.pl -release 3 $seq_name`;
+       `$PELEMENT_BIN/alignSeq.pl -release 5 $seq_name`;
        print $cgi->center("Processing completed.");
 
      } elsif ($action eq 'build') {
@@ -258,16 +258,16 @@ sub rebuildSeqAssembly
              $cgi->br,"\n";
 
        print $cgi->center("Reassembling..."),$cgi->br,"\n";
-       `$PELEMENT_BIN/buildConsensus.pl -quiet $build_command`;
+       `$PELEMENT_BIN/buildConsensus.pl $build_command`;
 
        print $cgi->center("Blasting..."),$cgi->br,"\n";
-       `$PELEMENT_BIN/runBlast.pl -protocol release3 -quiet $seq_name`;
-       `$PELEMENT_BIN/runBlast.pl -protocol release5 -quiet $seq_name`;
-       `$PELEMENT_BIN/runBlast.pl -protocol te -quiet $seq_name`;
-       `$PELEMENT_BIN/runBlast.pl -protocol vector -quiet $seq_name`;
+       `$PELEMENT_BIN/runBlast.pl -protocol release3 $seq_name`;
+       `$PELEMENT_BIN/runBlast.pl -protocol release5 $seq_name`;
+       `$PELEMENT_BIN/runBlast.pl -protocol te $seq_name`;
+       `$PELEMENT_BIN/runBlast.pl -protocol vector $seq_name`;
        print $cgi->center("Aligning..."),$cgi->br,"\n";
-       `$PELEMENT_BIN/alignSeq.pl -release 3 -quiet $seq_name`;
-       `$PELEMENT_BIN/alignSeq.pl -release 5 -quiet $seq_name`;
+       `$PELEMENT_BIN/alignSeq.pl -release 3 $seq_name`;
+       `$PELEMENT_BIN/alignSeq.pl -release 5 $seq_name`;
        print $cgi->center("Processing completed.");
 
      } elsif ($action eq 'merge') {
