@@ -199,13 +199,13 @@ sub shift_obj {
 
 sub insert {
    my $self = shift;
-   $_->insert for @{$self->{_objects}};
+   $_->insert(@_) for @{$self->{_objects}};
    return $self;
 }
 
 sub delete {
    my $self = shift;
-   $_->delete for @{$self->{_objects}};
+   $_->delete(@_) for @{$self->{_objects}};
    return $self;
 }
 
