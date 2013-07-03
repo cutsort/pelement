@@ -49,6 +49,7 @@ my $appendFile;
 my $minLength = 10;
 my $update = 1;
 my $release = 5;
+my $collection;
 
 # only submit aligned strains?
 my $ifAligned = 1;
@@ -65,6 +66,7 @@ GetOptions('out=s'      => \$outFile,
            'test!'      => \$test,
            'update!'    => \$update,
            'release=i'  => \$release,
+           'collection=s' => \$collection,
           );
 
 if ($appendFile && -e $appendFile) {
@@ -198,7 +200,6 @@ foreach my $arg (@ARGV) {
    my $stock = $session->Stock_Record({-strain_name=>$strain})->select_if_exists;
 
    foreach my $insert (keys %insertions) {
-
       # simplify the hash derefencing
       my %ends = %{$insertions{$insert}->{ends}};
       next unless exists $insertions{$insert}->{pos};
@@ -206,40 +207,47 @@ foreach my $arg (@ARGV) {
 
       # both ends are separate submissions
       foreach my $end (qw(3 5)) {
-         if ( exists($ends{$end}) && length($ends{$end}) >= $minLength ) {
-            my $gb = (
-              grep {$_->p_end =~ /$end/}
-              map {(my $p_end = $_->p_end) =~ s/<ENDDESCR>/$end/; $_->p_end($p_end); $_}
-              GenBank_Submission_InfoSet->new($session,{-collection=>$st->collection})->select->as_list)[0]
-                or $session->die("Could not find genbank_submission_info record for collection ".$st->collection.", end $end");
+        if ( exists($ends{$end}) && length($ends{$end}) >= $minLength ) {
+          my $collection = $collection || $st->collection;
+          my $vector_trimmed = 1 <= $pos{$end} && $pos{$end} <= length($ends{$end});
 
-            $gb->gss($insert.'-'.$end.'prime');
+          my @gb =
+            grep {!defined($_->vector_trimmed) || !$vector_trimmed eq !$_->vector_trimmed}
+            grep {$_->p_end =~ /$end/}
+            map {(my $p_end = $_->p_end) =~ s/<ENDDESCR>/$end/; $_->p_end($p_end); $_}
+            GenBank_Submission_InfoSet->new($session,{-collection=>$collection})->select->as_list;
+          $session->die("Could not find genbank_submission_info record ".
+                          "for collection $collection, end $end, vector_trimmed $vector_trimmed") if !@gb;
+          $session->die("Multiple genbank_submission_info records ".
+                          "for collection $collection, end $end, vector_trimmed $vector_trimmed") if @gb>1;
+          my $gb = $gb[0];
 
-            # was this submitted before?
-            if (new Submitted_Seq($session,{-seq_name=>$insert.'-'.$end})->db_exists) {
-              next unless $update;
-              $gb->status('Update');
-            }
+          $gb->gss($insert.'-'.$end.'prime');
 
-            if ($stock && $stock->fbti) {
-              $gb->add_xref('FlyBase',$stock->fbti);
-            } else {
-              $gb->add_xref('BDGP_INS',$insert);
-            }
+          # was this submitted before?
+          if (new Submitted_Seq($session,{-seq_name=>$insert.'-'.$end})->db_exists) {
+            next unless $update;
+            $gb->status('Update');
+          }
 
-            if( $stock && $stock->stock_name) {
-              $gb->comment($gb->comment.
-                   ' The Bloomington Drosophila Stock Center identifier is '.
-                   $stock->stock_name.'.');
-            }
+          if ($stock && $stock->fbti) {
+            $gb->add_xref('FlyBase',$stock->fbti);
+          } else {
+            $gb->add_xref('BDGP_INS',$insert);
+          }
 
-            $gb->add_seq($end,$ends{$end},$pos{$end});
-            print FIL $gb->print ,"\n";
-         }
+          if ( $stock && $stock->stock_name) {
+            $gb->comment($gb->comment.
+                           ' The Bloomington Drosophila Stock Center identifier is '.
+                             $stock->stock_name.'.');
+          }
+
+          $gb->add_seq($end,$ends{$end},$pos{$end});
+          print FIL $gb->print ,"\n";
+        }
       }
+      $session->log($Session::Info,"Submission info for $arg generated.");
    }
-   $session->log($Session::Info,"Submission info for $arg generated.");
-
 }
 
 close(FIL);

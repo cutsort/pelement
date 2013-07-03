@@ -428,7 +428,9 @@ create table genbank_submission_info (
            citation varchar(64),
            library varchar(64),
            class varchar(64),
-           comment varchar(255)
+           p_end varchar(54),
+           comment varchar(512),
+           vector_trimmed boolean
                  );
 grant select on genbank_submission_info to public;
 
