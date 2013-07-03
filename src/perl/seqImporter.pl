@@ -85,6 +85,7 @@ my $length = 0;
 my $insertion_offset;
 my @attributes;
 my $test = 0;      # test mode only. No inserts or updates.
+my $suffix;
 
 GetOptions('gel=s'      => \$gel_name,
            'gel_id=i'   => \$gel_id,
@@ -100,6 +101,7 @@ GetOptions('gel=s'      => \$gel_name,
            'attr=s@'    => \@attributes,
            'test!'      => \$test,
            'insert=i'   => \$insertion_offset,
+           'suffix=s'   => \$suffix,
           );
 
 
@@ -384,7 +386,7 @@ sub insertNewRecord
    my ($session,$seqRecord,$phred_seq,$force) = @_;
  
    my $newRecord = new Seq($session);
-   $newRecord->seq_name($seqRecord->seq_name);
+   $newRecord->seq_name($seqRecord->seq_name.(defined($suffix)?".$suffix":''));
 
    my $s_a = new Seq_Assembly($session,{ -src_seq_id => $phred_seq->id,
                                         -src_seq_src => 'phred_seq'});
