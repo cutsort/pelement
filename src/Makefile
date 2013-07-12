@@ -48,7 +48,7 @@ htmlinstall:
 	cd "$(SRCDIR)" && \
 	for I in $(IMAGES) ; do mkdir -p "$(HTMLINSTALLDIR)/images" && cp -v "$$I" "$(HTMLINSTALLDIR)/images"; done && \
 	for I in $(CSS) ; do mkdir -p "$(HTMLINSTALLDIR)" && cp -v "$$I" "$(HTMLINSTALLDIR)"; done
-	
+
 install: scriptcheck
 	test "$(INSTALLDIR)" != ""
 	cd "$(SRCDIR)" && \
