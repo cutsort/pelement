@@ -1,4 +1,5 @@
-#!/usr/local/bin/perl -w
+#!/usr/bin/env perl
+use FindBin::libs 'base=modules';
 
 use strict;
 use GD;

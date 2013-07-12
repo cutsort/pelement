@@ -1,4 +1,5 @@
-#!/usr/local/bin/perl -w
+#!/usr/bin/env perl
+use FindBin::libs 'base=modules';
 #
 # A quickie to retrieve the sequence form genbank so that we can compare
 # it to our local copy

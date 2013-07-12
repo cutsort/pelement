@@ -6,25 +6,52 @@ INSTALLDIR = /data/pelement
 WEBINSTALLDIR = /srv/www/cgi-bin/pelement
 HTMLINSTALLDIR = /srv/www/htdocs/pelement
 
-check:
-	for I in perl cgi modules ; do (cd $$I; make check ); done
+SHELL = /bin/bash
+SRCDIR = $(dir $(lastword $(MAKEFILE_LIST)))
 
-all:
-	for I in perl cgi modules ; do (cd $$I; make all ); done
+PERL_SCRIPTS = $(shell cd "$(SRCDIR)" && find perl -name '*.pl')
+PERL_CGI = $(shell cd "$(SRCDIR)" && find cgi -name '*.pl')
+PERL_MODULES = $(shell cd "$(SRCDIR)" && find modules -name '*.pm')
+JAVASCRIPT = $(shell cd "$(SRCDIR)" && find html -name '*.js')
+IMAGES = $(shell cd "$(SRCDIR)" && find html -name '*.png' -o -name '*.xpm')
+CSS = $(shell cd "$(SRCDIR)" && find html -name '*.css')
 
-webinstall: cgiinstall htmlinstall
+check: scriptcheck cgicheck
+
+scriptcheck: modulecheck
+	cd "$(SRCDIR)" && \
+	for I in $(PERL_SCRIPTS); do test -e .scriptcheck -a .scriptcheck -nt "$$I" || perl -c "$$I" --installdeps; done && \
+	touch .scriptcheck
+
+cgicheck: modulecheck
+	cd "$(SRCDIR)" && \
+	for I in $(PERL_CGI); do test -e .cgicheck -a .cgicheck -nt "$$I" || perl -c "$$I" --installdeps; done && \
+	touch .cgicheck
+
+modulecheck:
+	cd "$(SRCDIR)" && \
+	for I in $(PERL_MODULES); do test -e .modulecheck -a .modulecheck -nt "$$I" || perl -Imodules -c "$$I" --installdeps; done && \
+	touch .modulecheck
+
+webinstall: cgiinstall htmlinstall jsinstall
+cgiinstall: cgicheck
+	test "$(WEBINSTALLDIR)" != ""
+	cd "$(SRCDIR)" && \
+	for I in $(PERL_CGI) ; do mkdir -p "$(WEBINSTALLDIR)" && cp -v "$$I" "$(WEBINSTALLDIR)"; done && \
+	for I in $(PERL_MODULES) ; do mkdir -p "$(WEBINSTALLDIR)/$$(dirname "$$I")" && cp -v "$$I" "$(WEBINSTALLDIR)/$$I"; done
+jsinstall:
+	test "$(HTMLINSTALLDIR)" != ""
+	cd "$(SRCDIR)" && \
+	for I in $(JAVASCRIPT) ; do mkdir -p "$(HTMLINSTALLDIR)" && cp -v "$$I" "$(HTMLINSTALLDIR)"; done
+htmlinstall:
+	test "$(HTMLINSTALLDIR)" != ""
+	cd "$(SRCDIR)" && \
+	for I in $(IMAGES) ; do mkdir -p "$(HTMLINSTALLDIR)/images" && cp -v "$$I" "$(HTMLINSTALLDIR)/images"; done && \
+	for I in $(CSS) ; do mkdir -p "$(HTMLINSTALLDIR)" && cp -v "$$I" "$(HTMLINSTALLDIR)"; done
 	
-cgiinstall: hostcheck
-	for I in cgi modules ; do (cd $$I; INSTALLDIR=$(WEBINSTALLDIR) make install ); done
+install: scriptcheck
+	test "$(INSTALLDIR)" != ""
+	cd "$(SRCDIR)" && \
+	for I in $(PERL_SCRIPTS) ; do mkdir -p "$(INSTALLDIR)/scripts" && cp -v "$$I" "$(INSTALLDIR)/scripts"; done && \
+	for I in $(PERL_MODULES) ; do mkdir -p "$(INSTALLDIR)/$$(dirname "$$I")" && cp -v "$$I" "$(INSTALLDIR)/$$I"; done
 
-htmlinstall: hostcheck
-	for I in html ; do (cd $$I; INSTALLDIR=$(HTMLINSTALLDIR) make install ); done
-	
-install:
-	for I in perl modules ; do (cd $$I; INSTALLDIR=$(INSTALLDIR) make install ); done
-
-hostcheck:
-	#hostname | grep boss
-
-dist: hostcheck
-	tar czvf pelement_src.tgz `./cvsFileList.pl`

@@ -1,4 +1,5 @@
-#!/usr/local/bin/perl -I../modules/
+#!/usr/bin/env perl
+use FindBin::libs 'base=modules';
 
 =head1 NAME
 
