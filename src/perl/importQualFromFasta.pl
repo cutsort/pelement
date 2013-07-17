@@ -1,5 +1,5 @@
 #!/usr/bin/env perl
-use FindBin::libs 'base=modules';
+use FindBin::libs qw(base=modules realbin);
 
 use Session;
 use Gel;

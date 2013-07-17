@@ -1,5 +1,5 @@
 #!/usr/bin/env perl
-use FindBin::libs 'base=modules';
+use FindBin::libs qw(base=modules realbin);
 #
 # A quickie to retrieve the sequence form genbank so that we can compare
 # it to our local copy
