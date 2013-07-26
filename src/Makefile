@@ -5,6 +5,7 @@
 INSTALLDIR = /data/pelement
 WEBINSTALLDIR = /srv/www/cgi-bin/pelement
 HTMLINSTALLDIR = /srv/www/htdocs/pelement
+CPANM_CONFIG = --sudo,--notest,--mirror,/share/cpan,--mirror,http://www.cpan.org
 
 SHELL = /bin/bash
 SRCDIR = $(dir $(lastword $(MAKEFILE_LIST)))
@@ -20,17 +21,17 @@ check: scriptcheck cgicheck
 
 scriptcheck: modulecheck
 	@cd "$(SRCDIR)" && \
-	for I in $(PERL_SCRIPTS); do test -e .scriptcheck -a .scriptcheck -nt "$$I" || perl -c "$$I" --installdeps; done && \
+	for I in $(PERL_SCRIPTS); do test -e .scriptcheck -a .scriptcheck -nt "$$I" || perl -MFile::Spec -Mlib::xi="$(CPANM_CONFIG)" -c "$$I"; done && \
 	touch .scriptcheck
 
 cgicheck: modulecheck
 	@cd "$(SRCDIR)" && \
-	for I in $(PERL_CGI); do test -e .cgicheck -a .cgicheck -nt "$$I" || perl -c "$$I" --installdeps; done && \
+	for I in $(PERL_CGI); do test -e .cgicheck -a .cgicheck -nt "$$I" || perl -MFile::Spec -Mlib::xi="$(CPANM_CONFIG)" -c "$$I"; done && \
 	touch .cgicheck
 
 modulecheck:
 	@cd "$(SRCDIR)" && \
-	for I in $(PERL_MODULES); do test -e .modulecheck -a .modulecheck -nt "$$I" || perl -Imodules -c "$$I" --installdeps; done && \
+	for I in $(PERL_MODULES); do test -e .modulecheck -a .modulecheck -nt "$$I" || perl -MFile::Spec -Mlib::xi="$(CPANM_CONFIG)" -Imodules -c "$$I"; done && \
 	touch .modulecheck
 
 webinstall: cgiinstall htmlinstall jsinstall
