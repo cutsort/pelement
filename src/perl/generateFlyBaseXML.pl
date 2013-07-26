@@ -118,7 +118,14 @@ foreach my $strain_name (@ARGV) {
                                                     unless $strain->db_exists;
 
    $strain->select;
-   if ($coll ne $strain->collection) {
+   my $strain_submit_info = new FlyBase_Submission_Info($session,{-collection=>$strain->collection})->select;
+   if ($coll ne $strain->collection && !(
+     $submit_info->originating_lab eq $strain_submit_info->originating_lab &&
+     $submit_info->contact_person eq $strain_submit_info->contact_person &&
+     $submit_info->contact_person_email eq $strain_submit_info->contact_person_email &&
+     $submit_info->project_name eq $strain_submit_info->project_name &&
+     $submit_info->fbrf eq $strain_submit_info->fbrf))
+   {
       $session->die("Flybase submission is limited to a single collection per file.");
    }
 
@@ -315,7 +322,7 @@ foreach my $strain_name (@ARGV) {
       # we're sure there is data to go there.
       my $addedThisInsert = 0;
       $insert = new XML::Insertion(
-                            {transposon_symbol => $submit_info->transposon_symbol });
+                            {transposon_symbol => $strain_submit_info->transposon_symbol });
 
       # locate the stock record info by either the seq name or the strain name
       my $s = new Stock_Record($session,{-insertion=>$seq->seq_name});
