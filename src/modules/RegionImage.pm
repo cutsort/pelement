@@ -177,8 +177,12 @@ sub makePanel
                      $scaffold,$start_pos,$end_pos)->select;
       $chado_session->exit;
     } else {
-      $chado = $session->GeneModelSet($scaffold,
-                                    $start_pos,$end_pos)->select;
+      $chado = $session->flybase::Gene_ModelSet({
+          scaffold_uniquename=>$scaffold,
+          -less_than_or_equal=>{transcript_start=>$end_pos},
+          -greater_than_or_equal=>{transcript_end=>$start_pos},
+          -rtree_bin=>{transcript_bin=>[$start_pos,$end_pos]},
+        })->select;
     }
   }
 
@@ -193,8 +197,8 @@ sub makePanel
       $models{$exon->transcript_name} = {start=>$exon->exon_start,
                                            end=>$exon->exon_end,
                                         strand=>$exon->exon_strand,
-                                   start_codon=>'',
-                                    stop_codon=>'',
+                                   start_codon=>$exon->cds_strand<0? $exon->cds_max : $exon->cds_min,
+                                    stop_codon=>$exon->cds_strand<0? $exon->cds_min : $exon->cds_max,
                      exons=>[[$exon->exon_start,$exon->exon_end]] };
     } else {
       $models{$exon->transcript_name}->{start} = $exon->exon_start
@@ -210,17 +214,6 @@ sub makePanel
   }
 
   foreach my $g ( keys %models ) {
-    # and the start and stop codons?
-    # this is anathema to the whole chado spirit
-    # since we're using names to identify things.
-    foreach my $end (qw(start stop)) {
-      my $f = $session->Feature({-name=>$g.'_'.$end})->select_if_exists;
-      if ($f && $f->feature_id) {
-        my $fs = $session->FeatureLoc({-feature_id=>$f->feature_id,-srcfeature_id=>$scaffold_id})->select_if_exists;
-        $models{$g}->{$end.'_codon'} = $fs->fmin if $fs && $fs->fmin ne '';
-      }
-    }
-      
     my $gene = new Bio::SeqFeature::Gene::Transcript(
                                        -start=>$models{$g}->{start},
                                        -end=>$models{$g}->{end});

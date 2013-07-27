@@ -45,9 +45,9 @@ foreach my $arm (qw(X 2L 2R 3L 3R 4)) {
       # and the start and stop codons?
       # this is anathema to the whole chado spirit
       foreach my $end (qw(start stop)) {
-        my $f = $session->Feature({-name=>$exon->transcript_name.'_'.$end})->select_if_exists;
+        my $f = $session->flybase::Feature({-name=>$exon->transcript_name.'_'.$end})->select_if_exists;
         if ($f && $f->feature_id) {
-          my $fs = $session->FeatureLoc({-feature_id=>$f->feature_id})->select_if_exists;
+          my $fs = $session->flybase::FeatureLoc({-feature_id=>$f->feature_id})->select_if_exists;
           $models{$exon->transcript_name}->{$end.'_codon'} = $fs->fmin if $fs && $fs->fmin ne '';
         }
       }

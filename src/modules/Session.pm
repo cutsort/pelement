@@ -47,6 +47,7 @@ BEGIN {
    $Session::SQL      = 5;
 }
 
+our $instance;
 
 =head1 PUBLIC METHODS
 
@@ -130,9 +131,15 @@ sub new
     $self->log($Session::Info,"$caller started.");
   }
 
+  $self->create_schema_packages();
 
+  $instance ||= $blessed_self;
   return $blessed_self;
+}
 
+sub get_instance {
+  my $class = shift;
+  return $instance ? $instance : $class ? $class->new : Session->new;
 }
 
 =head2 db_begin db_commit db_rollback
@@ -421,6 +428,27 @@ sub DESTROY
   $self->exit;
 }
 
+sub create_schema_packages {
+  my $self = shift;
+
+  my @schemas = $self->db->list_schemas();
+  for my $schema (@schemas) {
+    $schema = $schema =~ /^"(.*)"$/ ? $1 : $schema;
+    eval {require "$schema.pm";};
+    if ($@) {
+      eval qq(
+        package $schema;
+        sub AUTOLOAD {
+          my \$self = shift;
+          CORE::die "\$self is not an object." unless ref(\$self);
+          \$Session::AUTOLOAD = \$${schema}::AUTOLOAD;
+          return \$self->Session::AUTOLOAD(\@_);
+        }
+      );
+    }
+  }
+}
+
 sub table {
   my $self = shift;
   $Session::AUTOLOAD = shift or return;
@@ -432,27 +460,31 @@ sub AUTOLOAD
   my $self = shift;
   CORE::die "$self is not an object." unless ref($self);
 
-  my $name = $Session::AUTOLOAD;
-
-  $name =~ s/.*://;
+  my $modulename = $Session::AUTOLOAD;
+  $modulename =~ s/^Session:://;
+  my @package = split '::', $modulename;
+  my $packagename = $modulename =~ /^([^:]+::)/ ? $1 : '';
+  my $name = $package[-1];
+  my $packagedir = join '/',@package[0..$#package-1];
   my @packageClass;
 
   if ($name =~ /^([A-Z].*)Set/ ) {
-    push @packageClass, ($1,'DbObject',$name,'DbObjectSet');
+    push @packageClass, ($packagename.$1,'DbObject',$packagename.$name,'DbObjectSet');
   } elsif ($name =~ /^([A-Z].*)Cursor/ ) {
-    push @packageClass, ($1,'DbObject',$name,'DbObjectCursor');
+    push @packageClass, ($packagename.$1,'DbObject',$packagename.$name,'DbObjectCursor');
   } elsif ($name =~ /^([A-Z].*)/ ) {
-    push @packageClass, ($name,'DbObject');
+    push @packageClass, ($packagename.$name,'DbObject');
   }
 
   $self->die("No such method $name.") unless @packageClass;
 
   my $loaded = 0;
   foreach my $dir (@INC) {
-    if (-e $dir.'/'.$name.'.pm') {
-       require $name.'.pm';
-       $loaded = 1;
-       last;
+    if (-e $dir.'/'.$packagedir.'/'.$name.'.pm') {
+      my $pmname = ($packagedir ne ''? $packagedir.'/': '').$name.'.pm';
+      require $pmname;
+      $loaded = 1;
+      last;
     }
   }
 
@@ -464,7 +496,7 @@ sub AUTOLOAD
     }
   }
 
-  my $thingy = $name->new($self,@_);
+  my $thingy = $modulename->new($self,@_);
   return $thingy;
 
 }

@@ -25,30 +25,8 @@
 package GeneModelSet;
 
 use base 'SQLObjectSet';
-
-BEGIN {
-  # these change between shapshots only; it may speed up queries to code these.
-  # release 4.3 values
-  # $GeneModelSet::part_of = 59639;
-  # $GeneModelSet::derives_from = 59647;
-  # $GeneModelSet::exon_type_id = 59812;
-  # $GeneModelSet::transcript_type_id = '(59899,59917,59918,59939,59940,59941,60320)';
-  # $GeneModelSet::gene_type_id = 60369;
-  # $GeneModelSet::polypeptide_type_id = 59769;
-  # $GeneModelSet::start_codon_type_id = 59983;
-  # $GeneModelSet::stop_codon_type_id = 59984;
-  # release 5.1
-  $GeneModelSet::part_of = 26;
-  $GeneModelSet::derives_from = 27;
-  $GeneModelSet::exon_type_id = 257;
-  $GeneModelSet::transcript_type_id = '(475,438,368,450,456,461,426)';
-  $GeneModelSet::polypeptide_type_id = 61282;
-  $GeneModelSet::gene_type_id = 219;
-  $GeneModelSet::start_codon_type_id = 260;
-  $GeneModelSet::stop_codon_type_id = 264;
-  $GeneModelSet::max_feature_id = 26413779;
-  $GeneModelSet::organism_id = 1;
-}
+use flybase::Cvterm ':all';
+use Pelement;
 
 =head1 new
 
@@ -90,9 +68,9 @@ sub new
                       l.fmax as exon_end,
                       l.strand as exon_strand
                       from
-                      feature a, feature g, feature t, feature e,
-                      feature_relationship gt, feature_relationship te,
-                      featureloc i, featureloc j, featureloc l
+                      $FLYBASE_VERSION.feature a, $FLYBASE_VERSION.feature g, $FLYBASE_VERSION.feature t, $FLYBASE_VERSION.feature e,
+                      $FLYBASE_VERSION.feature_relationship gt, $FLYBASE_VERSION.feature_relationship te,
+                      $FLYBASE_VERSION.featureloc i, $FLYBASE_VERSION.featureloc j, $FLYBASE_VERSION.featureloc l
                where e.type_id=$GeneModelSet::exon_type_id and
                      t.type_id in $GeneModelSet::transcript_type_id and
                      g.type_id=$GeneModelSet::gene_type_id and
