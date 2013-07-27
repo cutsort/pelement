@@ -7,7 +7,7 @@ WEBINSTALLDIR = /srv/www/cgi-bin/pelement
 HTMLINSTALLDIR = /srv/www/htdocs/pelement
 CPANM_CONFIG = --sudo,--notest,--mirror,/share/cpan,--mirror,http://www.cpan.org
 
-SHELL = /bin/bash
+SHELL = /bin/bash -e
 SRCDIR = $(dir $(lastword $(MAKEFILE_LIST)))
 
 PERL_SCRIPTS = $(shell cd "$(SRCDIR)" && find perl -name '*.pl')
@@ -21,18 +21,18 @@ check: scriptcheck cgicheck
 
 scriptcheck: modulecheck
 	@cd "$(SRCDIR)" && \
-	for I in $(PERL_SCRIPTS); do test -e .scriptcheck -a .scriptcheck -nt "$$I" || perl -MFile::Spec -Mlib::xi="$(CPANM_CONFIG)" -c "$$I"; done && \
-	touch .scriptcheck
+	for I in $(PERL_SCRIPTS); do test -e .scriptcheck -a .scriptcheck -nt "$$I" || perl -MFile::Spec -Mlib::xi="$(CPANM_CONFIG)" -c "$$I"; done
+	@cd "$(SRCDIR)" && touch .scriptcheck
 
 cgicheck: modulecheck
 	@cd "$(SRCDIR)" && \
-	for I in $(PERL_CGI); do test -e .cgicheck -a .cgicheck -nt "$$I" || perl -MFile::Spec -Mlib::xi="$(CPANM_CONFIG)" -c "$$I"; done && \
-	touch .cgicheck
+	for I in $(PERL_CGI); do test -e .cgicheck -a .cgicheck -nt "$$I" || perl -MFile::Spec -Mlib::xi="$(CPANM_CONFIG)" -c "$$I"; done
+	@cd "$(SRCDIR)" && touch .cgicheck
 
 modulecheck:
 	@cd "$(SRCDIR)" && \
-	for I in $(PERL_MODULES); do test -e .modulecheck -a .modulecheck -nt "$$I" || perl -MFile::Spec -Mlib::xi="$(CPANM_CONFIG)" -Imodules -c "$$I"; done && \
-	touch .modulecheck
+	for I in $(PERL_MODULES); do test -e .modulecheck -a .modulecheck -nt "$$I" || perl -MFile::Spec -Mlib::xi="$(CPANM_CONFIG)" -Imodules -c "$$I"; done
+	@cd "$(SRCDIR)" && touch .modulecheck
 
 webinstall: cgiinstall htmlinstall jsinstall
 cgiinstall: cgicheck
