@@ -123,6 +123,11 @@ sub new
     $dbh = new PelementDBI($self,$dbistr);
     $self->{db} = $dbh;
     $self->{db_tx} = 0;
+
+    # set the flybase tables on the search_path
+    if ($dbh->{dbh}{Driver}{Name} eq 'Pg') {
+      $dbh->do('set search_path='.join(',', map {$dbh->quote_identifier($_)} ('public', $FLYBASE_SCHEMA)));
+    }
   }
 
   if (@::ARGV) {

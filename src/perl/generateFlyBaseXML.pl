@@ -28,7 +28,6 @@ use Seq_AlignmentSet;
 use Seq_AssemblySet;
 use Gene_AssociationSet;
 use Gene_Association;
-use GeneModelSet;
 use Stock_Record;
 use Stock_RecordSet;
 use Phenotype;
@@ -726,7 +725,13 @@ sub getGeneHit
    $start = ($start<0)?0:$start;
    my $end =  $pos[-1] + $grabSize;
 
-   my $geneSet = new GeneModelSet($session,$arm,$start,$end)->select;
+
+   my $geneSet = $session->flybase::Gene_ModelSet({
+      scaffold_uniquename=>$arm,
+      -less_than_or_equal=>{transcript_start=>$end},
+      -greater_than_or_equal=>{transcript_end=>$start},
+      -rtree_bin=>{transcript_bin=>[$start,$end]},
+    })->select;
 
    my @annot;
    $session->log($Session::Info,"Found ".$geneSet->count." genes.");
