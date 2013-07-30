@@ -4,8 +4,6 @@ use Pelement;
 use Session;
 use strict;
 
-use ChadoGeneModelSet;
-
 # graphics
 
 use lib '/usr/local/bdgp/labtrack';
@@ -170,26 +168,18 @@ sub makePanel
   # get the genes
   my $chado;
   if ($rel == 5) {
-    if (my $grab_from_real_chado = 0 ) {
-      my $chado_session = new Session({-log_level=>0,
-                    -dbistr=>'dbi:Pg:dbname=chacrm_4_2;host=mastermind.lbl.gov'});
-      $chado = new ChadoGeneModelSet($chado_session,
-                     $scaffold,$start_pos,$end_pos)->select;
-      $chado_session->exit;
-    } else {
-      $chado = $session->flybase::Gene_ModelSet({
-          scaffold_uniquename=>$scaffold,
-          -less_than_or_equal=>{transcript_start=>$end_pos},
-          -greater_than_or_equal=>{transcript_end=>$start_pos},
-          -rtree_bin=>{transcript_bin=>[$start_pos,$end_pos]},
-        })->select;
-    }
+    $chado = $session->flybase::Gene_ModelSet({
+        scaffold_uniquename=>$scaffold,
+        -less_than_or_equal=>{transcript_start=>$end_pos},
+        -greater_than_or_equal=>{transcript_end=>$start_pos},
+        -rtree_bin=>{transcript_bin=>[$start_pos,$end_pos]},
+      })->select;
   }
 
   # repackage these to group the exons into transcripts.
   my %models;
   my $scaffold_id; # we need this later
-  foreach my $exon ($chado->as_list) {
+  foreach my $exon ($chado->as_list? $chado->as_list : ()) {
     # why is chado messed up?
     $exon->transcript_name($exon->transcript_uniquename)
                                      if $exon->transcript_name =~ /^-/;
