@@ -79,6 +79,7 @@ my ($gel_name,$gel_id);
 # is there a specific gel version to process? The default is
 # the highest number only.
 my $version = '';
+my $files;
 
 GetOptions('lane=s@'     => $comment_db{lane},
            'well=s@'     => $comment_db{well},
@@ -90,6 +91,7 @@ GetOptions('lane=s@'     => $comment_db{lane},
            'gel=s'       => \$gel_name,
            'gel_id=i'    => \$gel_id,
            'version=i'   => \$version,
+           'file=s@'     => \$files,
           );
 map { $comment_db{$_} = $def_comment_db{$_} unless scalar(@{$comment_db{$_}}) } keys %def_comment_db;
 
@@ -135,7 +137,7 @@ unless ( -e $dir && -d $dir ) {
    $session->die("Cannot find or open directory $dir for ".$gel->name.".");
 }
  
-my @files = (glob("$dir/*.ab1"),glob("$dir/*.scf"),glob("$dir/*.SCF"));
+my @files = $files? @$files : (glob("$dir/*.ab1"),glob("$dir/*.scf"),glob("$dir/*.SCF"));
  
 $session->log($Session::Info,"There are ".scalar(@files)." lane files to process");
 foreach my $file (@files) {
@@ -186,6 +188,7 @@ foreach my $file (@files) {
       $session->log($Session::Info,"This chromat has been processed before.");
       if ( $force ) {
          $session->log($Session::Info,"Replacing old sequence.");
+         $lane->select;
          $lane->delete('id');
       } else {
          $session->log($Session::Info,"Retaining old sequence.");
