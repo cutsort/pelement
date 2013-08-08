@@ -92,7 +92,11 @@ sub reportStrain
                             $cgi->submit(-name=>"update",-value=>'Permanent')]),
                        $cgi->td({-align=>"center"},
                            ['Declare the status '.$cgi->em('discard'),
-                            $cgi->submit(-name=>"update",-value=>'Discard')]) ]
+                            $cgi->submit(-name=>"update",-value=>'Discard')]),
+                       $cgi->td({-align=>"center"},
+                           ['Declare the status '.$cgi->em('carnegie'),
+                            $cgi->submit(-name=>"update",-value=>'Carnegie')]),
+                     ]
                     ),"\n",                          
                  ),"\n",
                  $cgi->end_form(),"\n",
@@ -120,7 +124,7 @@ sub updateStatus
       
       my $new_status = lc($cgi->param('update'));
       
-      if ($new_status eq 'new' || $new_status eq 'discard' || $new_status eq 'permanent')  {
+      if ($new_status eq 'new' || $new_status eq 'discard' || $new_status eq 'permanent' || $new_status eq 'carnegie')  {
          $strain->status($new_status);
          $strain->update('strain_name');
       }
