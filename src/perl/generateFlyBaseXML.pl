@@ -726,7 +726,7 @@ sub getGeneHit
    my $end =  $pos[-1] + $grabSize;
 
 
-   my $geneSet = $session->flybase::Gene_ModelSet({
+   my $geneSet = $session->Gene_ModelSet({
       scaffold_uniquename=>$arm,
       -less_than_or_equal=>{transcript_start=>$end},
       -greater_than_or_equal=>{transcript_end=>$start},
