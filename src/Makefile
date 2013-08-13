@@ -18,7 +18,7 @@ IMAGES = $(shell cd "$(SRCDIR)" && find html -name '*.png' -o -name '*.xpm')
 CSS = $(shell cd "$(SRCDIR)" && find html -name '*.css')
 
 pull:
-	@git pull
+	@cd "$(SRCDIR)" && git pull
 
 check: scriptcheck cgicheck
 
