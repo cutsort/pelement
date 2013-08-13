@@ -6,14 +6,14 @@ begin transaction;
 
 
 create table person (
-            login varchar(8) primary key not null unique,
-            first_name varchar(32),
-            initials varchar(10),
-            last_name varchar(32) not null,
-            suffix varchar(10),
-            code varchar(64) not null,
-            ison varchar(4),
-            email varchar(255)
+            login text primary key not null unique,
+            first_name text,
+            initials text,
+            last_name text not null,
+            suffix text,
+            code text not null,
+            ison text,
+            email text
                );
 
 create index person_login_I on person (login);
@@ -21,8 +21,8 @@ grant select on person to public;
 
 
 create table enzyme (
-            enzyme_name varchar(10) primary key not null unique,
-            recognize_seq varchar(32)
+            enzyme_name text primary key not null unique,
+            recognize_seq text
               );
 create index enzyme_enzyme_name_I on enzyme (enzyme_name);
 grant select on enzyme to public;
@@ -30,8 +30,8 @@ grant all privileges on enzyme to web;
            
 create table batch (
             id serial primary key,
-            description varchar(64),
-            user_login varchar(8) references person(login) deferrable,
+            description text,
+            user_login text references person(login) deferrable,
             batch_date date
                );
 grant select on batch to public;
@@ -41,8 +41,8 @@ grant all privileges on batch to web;
 create table sample (
             id serial primary key,
             batch_id int not null references batch(id) deferrable,
-            well varchar(3) not null,
-            strain_name varchar(32) not null
+            well text not null,
+            strain_name text not null
              );
 create index sample_batch_id_I on sample(batch_id);
 create index sample_strain_name_I on sample(strain_name);
@@ -50,8 +50,8 @@ grant select on sample to public;
 grant all privileges on sample to web;
 
 create table strain_alias (
-            strain_name varchar(32) not null references strain(strain_name),
-            alias varchar(32) not null unique
+            strain_name text not null references strain(strain_name),
+            alias text not null unique
              );
 
 grant select on strain_alias to public;
@@ -59,11 +59,11 @@ grant all privileges on strain_alias to web;
 
 create table digestion (
             id serial primary key,
-            name varchar(10) not null unique,
+            name text not null unique,
             batch_id integer not null references batch(id) deferrable,
-            enzyme1 varchar(10) not null references enzyme(enzyme_name) deferrable,
-            enzyme2 varchar(10) references enzyme(enzyme_name) deferrable,
-            user_login varchar(8) references person(login) deferrable,
+            enzyme1 text not null references enzyme(enzyme_name) deferrable,
+            enzyme2 text references enzyme(enzyme_name) deferrable,
+            user_login text references person(login) deferrable,
             digestion_date date
                );
 create index digestion_name_I on digestion(name);
@@ -72,9 +72,9 @@ grant all privileges on digestion to web;
 
 create table ligation (
             id serial primary key,
-            name varchar(13) not null unique,
-            digestion_name varchar(10) not null references digestion(name) deferrable,
-            user_login varchar(8) references person(login) deferrable,
+            name text not null unique,
+            digestion_name text not null references digestion(name) deferrable,
+            user_login text references person(login) deferrable,
             ligation_date date
                 );
 create index ligation_name_I on ligation(name);
@@ -83,13 +83,13 @@ grant all privileges on ligation to web;
 
 create table ipcr (
             id serial primary key,
-            name varchar(16) not null unique,
-            ligation_name varchar(13) not null references ligation(name) deferrable,
-            primer1 varchar(20) not null,
-            primer2 varchar(20) not null,
-            end_type varchar(4),
+            name text not null unique,
+            ligation_name text not null references ligation(name) deferrable,
+            primer1 text not null,
+            primer2 text not null,
+            end_type text,
             ipcr_date date,
-            user_login varchar(8)
+            user_login text
                );
 create index ipcr_name_I on ipcr(name);
 grant select on ipcr to public;
@@ -98,12 +98,12 @@ grant all privileges on ipcr to web;
 
 create table gel (
             id serial primary key,
-            name varchar(10),
-            ipcr_id varchar(16) not null references ipcr(name) deferrable,
+            name text,
+            ipcr_id text not null references ipcr(name) deferrable,
             gel_date date,
             failure boolean default 'f',
-            user_login varchar(8) references person(login) deferrable,
-            seq_primer varchar(20)
+            user_login text references person(login) deferrable,
+            seq_primer text
                );
 create index gel_gel_name_I on gel(name);
 grant select on gel to public;
@@ -111,15 +111,15 @@ grant all privileges on gel to web;
 
 create table lane (
             id serial primary key,
-            seq_name varchar(32),
+            seq_name text,
             gel_id int references gel(id) deferrable on delete cascade,
-            well varchar(3),
-            directory varchar(256) not null,
-            file varchar(256) not null,
+            well text,
+            directory text not null,
+            file text not null,
             lane int,
             run_date datetime,
-            end_sequenced varchar(20),
-            machine varchar(32)
+            end_sequenced text,
+            machine text
                );
 
 create index lane_seq_name_I on lane (seq_name);
@@ -132,7 +132,7 @@ grant all privileges on lane to web;
 -- process a lane even if the primer is not (yet) in the table
 create table primer (
             id serial primary key,
-            name varchar(20),
+            name text,
             end_type char(1) not null,
             seq_primer bool not null,
             direction char(1)
@@ -172,8 +172,8 @@ grant select on phred_qual to public;
 --
 create table vector (
             id serial primary key,
-            vector_name varchar(32) unique,
-            sequence varchar(255) not null
+            vector_name text unique,
+            sequence text not null
                );
 create index vector_name_I on vector(vector_name);
 grant select on vector to public;
@@ -181,7 +181,7 @@ grant all privileges on vector to web;
 
 create table trimming_protocol (
              id serial primary key,
-             protocol_name varchar(32),
+             protocol_name text,
              vector_id int not null references vector(id) deferrable,
              vector_offset int not null default 0,
              insertion_offset int not null default 0
@@ -191,8 +191,8 @@ grant all privileges on trimming_protocol to web;
 
 create table collection_protocol (
              id serial primary key,
-             collection varchar(4) not null,
-             end_sequenced varchar(2) not null default '35',
+             collection text not null,
+             end_sequenced text not null default '35',
              protocol_id int not null references trimming_protocol(id) deferrable
                );
 create index collection_protocol_collection_I on collection_protocol(collection);
@@ -201,10 +201,10 @@ grant all privileges on collection_protocol to web;
 
 
 create table strain (
-            strain_name varchar(32) primary key not null unique,
-            collection varchar(32),
+            strain_name text primary key not null unique,
+            collection text,
             registry_date date,
-            status varchar(12)
+            status text
                     );
 create index strain_strain_name_I on strain (strain_name);
 grant select on strain to public;
@@ -213,11 +213,11 @@ grant all privileges on strain to web;
 -- control are "special" samples which check for plate orientation
 -- we will not process these sequence except to check for orientation
 create table control (
-            name varchar(32) primary key not null unique references strain(strain_name) deferrable,
-            original_strain varchar(32) not null unique references strain(strain_name) deferrable,
-            collection varchar(32) not null,
-            five_prime_seq varchar(500),
-            three_prime_seq varchar(500)
+            name text primary key not null unique references strain(strain_name) deferrable,
+            original_strain text not null unique references strain(strain_name) deferrable,
+            collection text not null,
+            five_prime_seq text,
+            three_prime_seq text
                  );
 
 create index control_name_I on control(name);
@@ -226,14 +226,14 @@ grant select on control to web;
              
 create table phenotype (
             id serial primary key,
-            strain_name varchar(32) not null
+            strain_name text not null
                         references strain(strain_name) deferrable,
             is_homozygous_viable char(1),
             is_homozygous_fertile char(1),
             is_multiple_insertion char(1),
-            associated_aberration varchar(255),
-            phenotype varchar(255),
-            derived_cytology varchar(32),
+            associated_aberration text,
+            phenotype text,
+            derived_cytology text,
             strain_comment text,
             phenotype_comment text );
 create index phenotype_strain_name_I on phenotype(strain_name);
@@ -243,10 +243,10 @@ grant all privileges on phenotype to web;
 
 create table strain_comment (
             id serial primary key,
-            strain_name varchar(32) not null references strain(strain_name) deferrable,
-            author varchar(64) not null references person(login) deferrable,
+            strain_name text not null references strain(strain_name) deferrable,
+            author text not null references person(login) deferrable,
             date date not null,
-            status varchar(64),
+            status text,
             details text
                         );
 create index strain_comment_strain_name_I on strain_comment(strain_name);
@@ -254,8 +254,8 @@ grant select on strain_comment to public;
 
 
 create table seq (
-            seq_name varchar(32) primary key not null unique,
-            strain_name varchar(32) not null references strain(strain_name) deferrable,
+            seq_name text primary key not null unique,
+            strain_name text not null references strain(strain_name) deferrable,
             sequence text,
             last_update date not null default 'today'
                   );
@@ -273,7 +273,7 @@ grant all privileges on seq_id_seq to web;
 
 create table seq_assembly (
             phred_seq_id int not null references phred_seq(id),
-            seq_name varchar(32) not null references seq(seq_name) deferrable,
+            seq_name text not null references seq(seq_name) deferrable,
             assembly_date date not null default 'today'
                    );
 create index seq_assembly_phred_seq_id_I on seq_assembly(phred_seq_id);
@@ -288,9 +288,9 @@ grant select on seq to public;
 
 create table blast_run (
             id serial primary key,
-            seq_name varchar(32) not null references seq(seq_name) deferrable
+            seq_name text not null references seq(seq_name) deferrable
                                  on delete cascade,
-            db varchar(50) not null,
+            db text not null,
             date timestamp );
 
 create index blast_run_seq_name_I on blast_run (seq_name);
@@ -300,10 +300,10 @@ create index blast_run_db_I on blast_run (db);
 create table blast_hit (
             id serial primary key,
             run_id int references blast_run(id) deferrable on delete cascade,
-            name varchar(80) not null,
-            db varchar(20),
-            accession varchar(20),
-            description varchar(255) );
+            name text not null,
+            db text,
+            accession text,
+            description text );
 
 create index blast_hit_run_id_I on blast_hit (run_id);
 create index blast_hit_name_I on blast_hit (name);
@@ -350,14 +350,14 @@ grant select on blast_report to public;
 
 create table seq_alignment (
            id serial primary key,
-           seq_name varchar(32) not null,
-           scaffold varchar(32) not null,
+           seq_name text not null,
+           scaffold text not null,
            p_start integer not null,
            p_end integer not null,
            s_start integer not null,
            s_end integer not null,
            s_insert integer not null,
-           status varchar(20),
+           status text,
            hsp_id integer references blast_hsp(id) deferrable
                    );
 
@@ -372,26 +372,26 @@ grant select on seq_alignment_id_seq to public;
 
 create table alignment_transfer (
            id serial primary key,
-           seq_name varchar(32) not null,
-           old_scaffold varchar(32) not null,
+           seq_name text not null,
+           old_scaffold text not null,
            old_insert integer not null,
-           old_status varchar(20) not null,
+           old_status text not null,
            old_release integer not null,
-           new_scaffold varchar(32),
+           new_scaffold text,
            new_insert integer,
-           new_status varchar(20),
+           new_status text,
            new_release integer not null,
            success boolean not null,
-           transfer_status varchar(50) not null,
+           transfer_status text not null,
            transfer_timestamp timestamp(0) default current_timestamp );
 create index alignment_transfer_seq_name_I on alignment_transfer(seq_name);
 
 create table gene_association (
            id serial primary key,
-           strain_name varchar(32) not null,
-           cg varchar(32) not null,
-           transcript varchar(4),
-           login varchar(8) not null references person(login),
+           strain_name text not null,
+           cg text not null,
+           transcript text,
+           login text not null references person(login),
            annotation_date date not null default 'today',
            comment text
                      );
@@ -401,19 +401,19 @@ create index gene_association_cg_I on gene_association (cg);
 grant select on gene_association to public;
 
 create table gadfly_syn (
-           pelement_scaffold varchar(32) not null,
-           gadfly_scaffold varchar(32) not null
+           pelement_scaffold text not null,
+           gadfly_scaffold text not null
              );
 create index gadfly_syn_pelement_scaffold_I on gadfly_syn(pelement_scaffold);
 create index gadfly_syn_gadfly_scaffold_I on gadfly_syn(gadfly_scaffold);
 grant select on gadfly_syn to public;
 
 create table genbankscaffold (
-           accession varchar(32) not null unique,
-           arm varchar(32),
+           accession text not null unique,
+           arm text,
            start int,
            stop int,
-           cytology varchar(32)
+           cytology text
               );
 
 create index genbankscaffold_arm_I on genbankscaffold(arm);
@@ -423,22 +423,22 @@ grant select on genbankscaffold to public;
 grant all privileges on genbankscaffold to web;
 
 create table genbank_submission_info (
-           collection varchar(4) not null unique,
-           cont_name varchar(64),
-           citation varchar(64),
-           library varchar(64),
-           class varchar(64),
-           p_end varchar(54),
-           comment varchar(512),
+           collection text not null unique,
+           cont_name text,
+           citation text,
+           library text,
+           class text,
+           p_end text,
+           comment text,
            vector_trimmed boolean
                  );
 grant select on genbank_submission_info to public;
 
 create table cytology (
-           scaffold varchar(32) not null,
+           scaffold text not null,
            start int,
            stop int,
-           band varchar(32)
+           band text
                  );
 create index cytology_scaffold_I on cytology(scaffold);
 create index cytology_start_I on cytology(start);
@@ -448,32 +448,32 @@ grant select on cytology to web;
 
 create table stock_record (
            stock_number int not null,
-           strain_name varchar(32),
-           genotype varchar(256),
-           insertion varchar(32)
+           strain_name text,
+           genotype text,
+           insertion text
                           );
 create index stock_record_stock_number_I on stock_record(stock_number);
 create index stock_record_strain_name on stock_record(strain_name);
 grant select on stock_record to public;
 
 create table flybase_submission_info (
-           collection varchar(4) not null unique,
-           originating_lab varchar(64),
-           contact_person varchar(64),
-           contact_person_email varchar(64),
-           project_name varchar(64),
-           publication_citation varchar(64),
-           FBrf varchar(64),
-           comment varchar(64),
-           transposon_symbol varchar(64)
+           collection text not null unique,
+           originating_lab text,
+           contact_person text,
+           contact_person_email text,
+           project_name text,
+           publication_citation text,
+           FBrf text,
+           comment text,
+           transposon_symbol text
                          );
 grant select on flybase_submission_info to public;
 
 
 create table submitted_seq (
-           seq_name varchar(32) not null references seq(seq_name) deferrable,
-           gb_acc varchar(12) not null,
-           dbgss_id varchar(12),
+           seq_name text not null references seq(seq_name) deferrable,
+           gb_acc text not null,
+           dbgss_id text,
            submission_date date
                            );
 create index submitted_seq_gb_acc_I on submitted_seq(gb_acc);
@@ -481,7 +481,7 @@ grant select on submitted_seq  to public;
 
 create table websession (
            webid char(22) not null unique,
-           login varchar(8) not null references person(login) deferrable,
+           login text not null references person(login) deferrable,
            timestamp integer );
 
 create index websession_webid_I on websession(webid);
@@ -490,9 +490,9 @@ grant select on websession to public;
 
 create table webcache (
            id serial primary key,
-           script varchar(32) not null,
-           param varchar(32) not null,
-           format varchar(6) not null default 'html',
+           script text not null,
+           param text not null,
+           format text not null default 'html',
            creation_time timestamp not null default 'now',
            expiration timestamp not null default 'infinity'
                );
@@ -508,21 +508,21 @@ grant all privileges on webcache_id_seq to web;
 --
 -- A table for the processing steps
 create table task (
-            task_name varchar(24) primary key not null unique,
-            next_task varchar(24),
-            failure_task varchar(24)
+            task_name text primary key not null unique,
+            next_task text,
+            failure_task text
                );
 --
 -- A table that shows the processing steps of different items
 --
 create table processing (
             id serial primary key,
-            item_id varchar(24) not null,
-            item_src varchar(24),
-            task_name varchar(24),
+            item_id text not null,
+            item_src text,
+            task_name text,
             time_entered datetime not null default 'now',
             time_processed datetime,
-            process_lock varchar(24)
+            process_lock text
                );
 
 create index processing_item_name_I on processing (item_id);
