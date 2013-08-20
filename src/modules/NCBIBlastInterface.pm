@@ -299,7 +299,7 @@ sub parse {
   $q_name =~ s/\s*\([0-9,]+ letters\)\s*$// if defined $q_name;
 
   # if there was an error, we cannot parse the db name
-  my $db_name = $result ? $result->database_name : $self->{db};
+  my $db_name = $self->{db};
   $db_name =~ s/\Q$db_dir\E// if defined $db_name;
 
   my $program_version = $result ? $result->algorithm_version : undef;
