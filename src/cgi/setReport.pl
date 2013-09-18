@@ -626,7 +626,7 @@ sub getCytoAndGene
       my $up = $in->{strand}==1?0:0;
 
       my @geneSet = map {$_->gene_name, $_->gene_uniquename, $_->gene_start, $_->gene_end}
-        $session->flybase::Gene_ModelSet({
+        $session->Gene_ModelSet({
           scaffold_uniquename=>$arm,
           -less_than_or_equal=>{gene_start=>$end+$up},
           -greater_than_or_equal=>{gene_end=>$start-$down},
@@ -726,7 +726,7 @@ sub classifyPosition
     my @vals;
 
     push @{$resultsHash{coding_class}}, uniq map {$_->transcript_name}
-      $session->flybase::Gene_ModelSet({
+      $session->Gene_ModelSet({
           scaffold_uniquename=>$arm,
           -in=>{transcript_type_id=>\@transcript_type_ids},
           -greater_than_or_equal=>{exon_end=>$pos, cds_max=>$pos},
@@ -737,7 +737,7 @@ sub classifyPosition
     push @{$resultsHash{utr_5exon_class}}, uniq map {$_->transcript_name}
       grep {($_->cds_min > $pos && $_->exon_strand > 0)
               || ($_->cds_max < $pos && $_->exon_strand < 0)} 
-      $session->flybase::Gene_ModelSet({
+      $session->Gene_ModelSet({
           scaffold_uniquename=>$arm,
           -in=>{transcript_type_id=>\@transcript_type_ids},
           -greater_than_or_equal=>{exon_end=>$pos},
@@ -748,7 +748,7 @@ sub classifyPosition
     push @{$resultsHash{utr_3exon_class}}, uniq map {$_->transcript_name}
       grep {($_->cds_min > $pos && $_->exon_strand < 0)
               || ($_->cds_max < $pos && $_->exon_strand > 0)} 
-      $session->flybase::Gene_ModelSet({
+      $session->Gene_ModelSet({
           scaffold_uniquename=>$arm,
           -in=>{transcript_type_id=>\@transcript_type_ids},
           -greater_than_or_equal=>{exon_end=>$pos},
@@ -757,7 +757,7 @@ sub classifyPosition
         })->select->as_list;
         
     push @{$resultsHash{coding_intron_class}}, uniq map {$_->transcript_name}
-      $session->flybase::Gene_ModelSet({
+      $session->Gene_ModelSet({
           scaffold_uniquename=>$arm,
           -in=>{transcript_type_id=>\@transcript_type_ids},
           -greater_than_or_equal=>{cds_max=>$pos},
@@ -768,7 +768,7 @@ sub classifyPosition
     push @{$resultsHash{utr_5intron_class}}, uniq map {$_->transcript_name}
       grep {($_->cds_min > $pos && $_->transcript_strand > 0)
               || ($_->cds_max < $pos && $_->transcript_strand < 0)}
-      $session->flybase::Gene_ModelSet({
+      $session->Gene_ModelSet({
           scaffold_uniquename=>$arm,
           -in=>{transcript_type_id=>\@transcript_type_ids},
           -greater_than_or_equal=>{transcript_end=>$pos},
@@ -779,7 +779,7 @@ sub classifyPosition
     push @{$resultsHash{utr_3intron_class}}, uniq map {$_->transcript_name}
       grep {($_->cds_min > $pos && $_->transcript_strand < 0)
               || ($_->cds_max < $pos && $_->transcript_strand > 0)}
-      $session->flybase::Gene_ModelSet({
+      $session->Gene_ModelSet({
           scaffold_uniquename=>$arm,
           -in=>{transcript_type_id=>\@transcript_type_ids},
           -greater_than_or_equal=>{transcript_end=>$pos},
@@ -788,7 +788,7 @@ sub classifyPosition
         })->select->as_list;
         
     push @{$resultsHash{upstream5_class}}, uniq map {$_->transcript_name}
-      ($session->flybase::Gene_ModelSet({
+      ($session->Gene_ModelSet({
           scaffold_uniquename=>$arm,
           -in=>{transcript_type_id=>\@transcript_type_ids},
           -greater_than=>{transcript_strand=>0},
@@ -796,7 +796,7 @@ sub classifyPosition
           -less_than_or_equal=>{transcript_start=>$pos+$upstream},
           -rtree_bin=>{transcript_bin=>[$pos, $pos+$upstream]},
         })->select->as_list,
-       $session->flybase::Gene_ModelSet({
+       $session->Gene_ModelSet({
           scaffold_uniquename=>$arm,
           -in=>{transcript_type_id=>\@transcript_type_ids},
           -less_than=>{transcript_strand=>0},
@@ -806,7 +806,7 @@ sub classifyPosition
         })->select->as_list);
         
     push @{$resultsHash{downstream3_class}}, uniq map {$_->transcript_name}
-      ($session->flybase::Gene_ModelSet({
+      ($session->Gene_ModelSet({
           scaffold_uniquename=>$arm,
           -in=>{transcript_type_id=>\@transcript_type_ids},
           -greater_than=>{transcript_strand=>0},
@@ -814,7 +814,7 @@ sub classifyPosition
           -less_than_or_equal=>{transcript_end=>$pos},
           -rtree_bin=>{transcript_bin=>[$pos-$upstream, $pos]},
         })->select->as_list,
-       $session->flybase::Gene_ModelSet({
+       $session->Gene_ModelSet({
           scaffold_uniquename=>$arm,
           -in=>{transcript_type_id=>\@transcript_type_ids},
           -less_than=>{transcript_strand=>0},

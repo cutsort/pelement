@@ -83,40 +83,13 @@ sub initialize_self
     scalar(@{$self->{_cols} 
       = [ @{$self->{_session}{cols}{$self->{_module}}} ]}) )) 
   {
-     # do a table name lookup. This is done because table names are quoted, 
-     # and must be entered case-sensitively. This way we can allow case-insensitive
-     # lookups.
-     my %tables = map {$_=>$_} $self->{_session}->db->list_tables(
-       $self->{_schema}
-     );
-     my %lctables = map {lc($_)=>$_} keys %tables;
-
-     # perform the lookup and set _tablename
-     $self->{_tablename} = 
-       $tables{$self->{_tablename}} 
-       || $lctables{lc($self->{_tablename})} 
-       || $tables{$self->_qi($self->{_tablename})} 
-       || $lctables{$self->_qi(lc($self->{_tablename}))} 
-       || $self->{_session}->die("$self->{_tablename} is not a known table"
-         .($self->{_schema} ? " for schema $self->{_schema}":'').".");
-
-     # _table is _tablename with the schema prepended
-     $self->{_table} = 
-       ($self->{_schema} ? ($self->_qi($self->{_schema}).'.') : '')
-       .$self->{_tablename};
-
-     # Do a lookup to get the list of columns.
-     # For some reason, if the tablename you got from list_tables is quoted,
-     # and you try to pass it in to list_cols verbatim, it doesn't return anything.
-     # So, at least for Postgres, remove the quotes first.
-     my $tablename = $self->{_tablename};
-     if ($session->db->{dbh}->{Driver}->{Name} eq 'Pg') {
-       $tablename = $1 if $self->{_tablename} =~ /^"(.*)"$/;
-     }
-     $self->{_cols} = [
-       $self->{_session}->db->list_cols($tablename, $self->{_schema})
-     ];
-
+    # get the column names for the table
+    my $sql = "select * from $self->{_table} where false";
+    my $st = $session->db->prepare($sql);
+    $st->execute;
+    $session->die("$DBI::errstr in processing SQL: $sql") if $session->db->state;
+    $self->{_cols} ||= \@{$st->{NAME}};
+    
      # cache the table name and column names for fast lookup next time
      $self->{_session}{tables_hash}{$self->{_module}} = $self->{_tablename};
      $self->{_session}{cols}{$self->{_module}} = $self->{_cols};

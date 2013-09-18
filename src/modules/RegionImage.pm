@@ -168,7 +168,7 @@ sub makePanel
   # get the genes
   my $chado;
   if ($rel == 5) {
-    $chado = $session->flybase::Gene_ModelSet({
+    $chado = $session->Gene_ModelSet({
         scaffold_uniquename=>$scaffold,
         -less_than_or_equal=>{transcript_start=>$end_pos},
         -greater_than_or_equal=>{transcript_end=>$start_pos},
