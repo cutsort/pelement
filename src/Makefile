@@ -5,9 +5,9 @@
 INSTALLDIR = /data/pelement
 WEBINSTALLDIR = /srv/www/cgi-bin/pelement
 HTMLINSTALLDIR = /srv/www/htdocs/pelement
-CPANM_CONFIG = --sudo,--notest,--mirror,/share/cpan,--mirror,http://www.cpan.org
+CPANM_CONFIG = --notest,--mirror,/share/cpan,--mirror,http://www.cpan.org
 
-SHELL = /bin/bash -e
+SHELL = /usr/bin/env bash -e
 SRCDIR = $(dir $(lastword $(MAKEFILE_LIST)))
 
 PERL_SCRIPTS = $(shell cd "$(SRCDIR)" && find perl -name '*.pl')
@@ -17,10 +17,23 @@ JAVASCRIPT = $(shell cd "$(SRCDIR)" && find html -name '*.js')
 IMAGES = $(shell cd "$(SRCDIR)" && find html -name '*.png' -o -name '*.xpm')
 CSS = $(shell cd "$(SRCDIR)" && find html -name '*.css')
 
+, := ,
+$(subst ,, ) := $(subst ,, )
+CPANM_CONFIG := $(CPANM_CONFIG)$(if $(SUDO),$(if $(CPANM_CONFIG),$(,),)--sudo,)
+
 pull:
 	@-cd "$(SRCDIR)" && git pull
 
+clean:
+	@-rm .scriptcheck .cgicheck .modulecheck 2>/dev/null || exit 0
+
+recheck: clean check
+
 check: scriptcheck cgicheck
+
+install_prereqs:
+	@hash cpanm &>/dev/null || ( echo -e 'Please install cpanminus:\n  $$ cpan App::cpanminus' >&2; exit 1 )
+	@perl '-Mlib::xi' -e1 || cpanm $(subst $(,),$( ),$(CPANM_CONFIG)) 'lib::xi'
 
 scriptcheck: modulecheck
 	@cd "$(SRCDIR)" && \
