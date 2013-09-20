@@ -2,20 +2,20 @@
 # a simple makefile for traversing the directory path and checking
 # and installing scripts and modules
 
-INSTALLDIR = /data/pelement
-WEBINSTALLDIR = /srv/www/cgi-bin/pelement
-HTMLINSTALLDIR = /srv/www/htdocs/pelement
-CPANM_CONFIG = --notest,--mirror,/share/cpan,--mirror,http://www.cpan.org
+INSTALLDIR := /data/pelement
+WEBINSTALLDIR := /srv/www/cgi-bin/pelement
+HTMLINSTALLDIR := /srv/www/htdocs/pelement
+CPANM_CONFIG := --notest,--mirror,/share/cpan,--mirror,http://www.cpan.org
 
-SHELL = /usr/bin/env bash -e
-SRCDIR = $(dir $(lastword $(MAKEFILE_LIST)))
+SHELL := /usr/bin/env bash -e
+SRCDIR := $(dir $(lastword $(MAKEFILE_LIST)))
 
-PERL_SCRIPTS = $(shell cd "$(SRCDIR)" && find perl -name '*.pl')
-PERL_CGI = $(shell cd "$(SRCDIR)" && find cgi -name '*.pl')
-PERL_MODULES = $(shell cd "$(SRCDIR)" && find modules -name '*.pm')
-JAVASCRIPT = $(shell cd "$(SRCDIR)" && find html -name '*.js')
-IMAGES = $(shell cd "$(SRCDIR)" && find html -name '*.png' -o -name '*.xpm')
-CSS = $(shell cd "$(SRCDIR)" && find html -name '*.css')
+PERL_SCRIPTS := $(shell cd "$(SRCDIR)" && find perl -name '*.pl')
+PERL_CGI := $(shell cd "$(SRCDIR)" && find cgi -name '*.pl')
+PERL_MODULES := $(shell cd "$(SRCDIR)" && find modules -name '*.pm')
+JAVASCRIPT := $(shell cd "$(SRCDIR)" && find html -name '*.js')
+IMAGES := $(shell cd "$(SRCDIR)" && find html -name '*.png' -o -name '*.xpm')
+CSS := $(shell cd "$(SRCDIR)" && find html -name '*.css')
 
 , := ,
 $(subst ,, ) := $(subst ,, )
