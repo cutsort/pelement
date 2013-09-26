@@ -43,7 +43,6 @@ use Gadfly_Syn;
 use File::Basename;
 
 # gadfly modules
-use lib $ENV{FLYBASE_MODULE_PATH};
 use GeneralUtils::XML::Generator;
 
 my $session = new Session();

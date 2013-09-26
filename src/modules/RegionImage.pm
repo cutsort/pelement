@@ -6,7 +6,6 @@ use strict;
 
 # graphics
 
-use lib '/usr/local/bdgp/labtrack';
 use Bio::Graphics;
 use Bio::SeqFeature::Generic;
 use Bio::SeqFeature::Gene::Transcript;

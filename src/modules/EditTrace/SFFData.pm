@@ -20,7 +20,6 @@ no warnings 'redefine';
 use FileHandle;
 use List::Util qw(min max);
 #use bignum; # for the 64-bit index_offset field
-use lib '..';
 use EditTrace::TraceData;
 our @ISA = qw(EditTrace::TraceData);
 
