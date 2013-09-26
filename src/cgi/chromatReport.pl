@@ -12,8 +12,6 @@ use Session;
 use WebCache;
 use Lane;
 
-use lib '/usr/local/bdgp/labtrack';
-use lib '/usr/local/bdgp/lib/perl';
 use EditTrace::ABIData;
 use EditTrace::SCFData;
 use EditTrace::GDInterface;

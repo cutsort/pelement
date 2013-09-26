@@ -29,7 +29,6 @@ use Getopt::Long;
 
     $FLYBASE_MODULE_PATH
     $FLYBASE_SCHEMA
-    $BDGP_MODULE_PATH
 
     $NCBI_BLAST_BIN_DIR
     $BLAST_DB
@@ -93,7 +92,6 @@ $ENV{BLASTMAT} = "$BLAST_PATH/matrix";
 $ENV{BLASTFILTER} = "$BLAST_PATH/filter";
 
 # path to bdgp 'common' modules
-$BDGP_MODULE_PATH = "/usr/local/bdgp/lib/perl";
 $FLYBASE_MODULE_PATH = $ENV{FLYBASE_MODULE_PATH} || $PELEMENT_HOME."software/perl-modules/";
 $ENV{FLYBASE_MODULE_PATH} = $FLYBASE_MODULE_PATH;
 

@@ -23,7 +23,6 @@ use PhredInterface;
 use Phred_Seq;
 use Phred_Qual;
 use IPCR;
-use lib '/usr/local/bdgp/lib/perl';
 use EditTrace::TraceData;
 use EditTrace::ABIData;
 use EditTrace::SCFData;
