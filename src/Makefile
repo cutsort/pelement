@@ -5,7 +5,7 @@
 INSTALLDIR := /data/pelement
 WEBINSTALLDIR := /srv/www/cgi-bin/pelement
 HTMLINSTALLDIR := /srv/www/htdocs/pelement
-CPANM_CONFIG := --notest,--mirror,/share/cpan,--mirror,http://www.cpan.org
+CPANM_CONFIG := --notest,--verbose
 
 SHELL := /usr/bin/env bash -e
 SRCDIR := $(dir $(lastword $(MAKEFILE_LIST)))
