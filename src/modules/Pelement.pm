@@ -1,6 +1,7 @@
 package Pelement;
 require Exporter;
 use Getopt::Long;
+use File::Basename qw(dirname);
 
 @ISA = qw(Exporter);
 @EXPORT = qw(
@@ -33,6 +34,7 @@ use Getopt::Long;
     $BLAST_DB
     $BLAST_PATH
 
+    $MODULES_DIR
   ); 
 
 # high level directory locations
@@ -94,5 +96,7 @@ $ENV{BLASTFILTER} = "$BLAST_PATH/filter";
 $ENV{FLYBASE_MODULE_PATH} = $FLYBASE_MODULE_PATH;
 
 $FLYBASE_SCHEMA = 'fb2013_04';
+
+$MODULES_DIR = dirname(__FILE__);
 
 1;

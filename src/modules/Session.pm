@@ -483,18 +483,12 @@ sub AUTOLOAD
 
   $self->die("No such method $name.") unless @packageClass;
 
-  my $loaded = 0;
-  foreach my $dir (@INC) {
-    if (-e $dir.'/'.$packagedir.'/'.$name.'.pm') {
-      my $pmname = ($packagedir ne ''? $packagedir.'/': '').$name.'.pm';
-      require $pmname;
-      $loaded = 1;
-      last;
-    }
+  if (-e $Pelement::MODULES_DIR.'/'.$packagedir.'/'.$name.'.pm') {
+    my $pmname = ($packagedir ne ''? $packagedir.'/': '').$name.'.pm';
+    require $pmname;
   }
-
   # fallback
-  unless ($loaded) {
+  else {
     while (@packageClass) {
       my ($a,$b) = splice(@packageClass,0,2);
       eval "package $a; use base '$b';";
