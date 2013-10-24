@@ -109,8 +109,8 @@ sub new
   $self->{options} = defined($self->{options})
     ? {%{$wublast_defaults{$self->{program}}||{}}, shellwords($self->{options})}
     : $default_options{$self->{program}}||{};
-  # extract the min_hit_score pseudo-option
-  $self->{$_} = delete $self->{options}{"-$_"} for qw(min_hit_score);
+  # extract the pseudo-options
+  $self->{$_} = delete $self->{options}{"-$_"} for qw(min_hit_score max_hsp max_sub);
 
   $self->{output} = File::Temp->new(
     DIR=>$tmp_dir,
