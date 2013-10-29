@@ -783,14 +783,15 @@ sub _tablename {
   return $self->{_tablename};
 }
 
+my $NONEXISTENT = \undef;
+
 sub _cols_values_lists {
   my $self = shift;
   my $sql='';
   my $sqlVal='';
 
   for my $col (@{$self->{_cols}}) {
-    next if $col eq "id";
-    next if !exists $self->{$col};
+    next if !exists $self->{$col} || (ref($self->{$col}) eq 'SCALAR' && $self->{$col} eq $NONEXISTENT);
     $self->{$col} = $self->resolve_ref($self->{$col});
 
     $sql .= $col.",";
@@ -810,8 +811,7 @@ sub _cols_values {
   my $self = shift;
   my $sql = '';  
   for my $col (@{$self->{_cols}}) {
-    next if $col eq "id";
-    next if !exists $self->{$col};
+    next if !exists $self->{$col} || (ref($self->{$col}) eq 'SCALAR' && $self->{$col} eq $NONEXISTENT);
     $self->{$col} = $self->resolve_ref($self->{$col});
 
     if (!defined($self->{$col})) {
@@ -830,14 +830,14 @@ sub _mappings {
   my @cols = @_ ? map {$self->_convert_col($_)} @_ : @{$self->{_cols}};
   my $sql = '';
 
-  for (@cols) { 
-    next if !exists($self->{$_});
+  for my $col (@cols) { 
+    next if !exists $self->{$col} || (ref($self->{$col}) eq 'SCALAR' && $self->{$col} eq $NONEXISTENT);
 
-    if (!defined($self->{$_})) {
-      $sql .= " ".$_." is NULL and";
+    if (!defined($self->{$col})) {
+      $sql .= " ".$col." is NULL and";
     }
     else {
-      $sql .= " ".$_."=".$self->{_session}->db->quote($self->{$_})." and";
+      $sql .= " ".$col."=".$self->{_session}->db->quote($self->{$col})." and";
     }
   }
   return $sql;
@@ -932,6 +932,7 @@ sub ref_of
    if (!$self->has_col($name)) {
      $self->{_session}->error("$name is not a column for ".ref($self).".");
    }
+   $self->{$name} = $NONEXISTENT if !exists($self->{$name});
    return \$self->{$name};
 }
 
