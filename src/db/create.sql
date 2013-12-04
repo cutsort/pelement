@@ -4,6 +4,10 @@
 
 begin transaction;
 
+grant all on all tables in schema public to labtrack;
+grant all on all sequences in schema public to labtrack;
+grant all on all functions in schema public to labtrack;
+grant select on all tables in schema public to public;
 
 create table person (
             login text primary key not null unique,
