@@ -66,6 +66,10 @@ Check for abnormal behavior or many error messages
 
 3) run blastMaster.pl
 
+If this is a recheck batch, then you also need to run autoCurate:
+
+4) autoCurate.pl -gel PT_gel1; autoCurate.pl -gel PT_gel2
+
 
 III) Curation
 
