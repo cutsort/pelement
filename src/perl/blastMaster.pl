@@ -54,6 +54,8 @@ foreach my $task ($to_do->as_list) {
     $session->verbose(shell("./alignSeq.pl -release 3 ".$seq_name));
     $session->verbose(shell("./runBlast.pl -protocol release5 -delete ".$seq_name));
     $session->verbose(shell("./alignSeq.pl -release 5 ".$seq_name));
+    $session->verbose(shell("./runBlast.pl -protocol release6 -delete ".$seq_name));
+    $session->verbose(shell("./alignSeq.pl -release 6 ".$seq_name));
 
   } elsif ($task->database eq 'na_te.dros') {
     shell("./runBlast.pl -protocol te ".$seq_name);
@@ -83,6 +85,18 @@ foreach my $task ($to_do->as_list) {
     my $new_aSet = $session->Seq_AlignmentSet({-seq_name=>$task->seq_name,
                                                -seq_release=>5})->select;
     reconcile($session,$old_aSet,$new_aSet,5);
+  } elsif ($task->database eq 'release6_genomic') {
+    # need to look for deselected/curated alignments
+    my $old_aSet = $session->Seq_AlignmentSet({-seq_name=>$task->seq_name,
+                                               -seq_release=>6})->select;
+    $session->verbose("We have ".$old_aSet->count." old alignments.");
+    # we're going to delete these from the db; but we still have the objects
+    $old_aSet->delete;
+    shell("./runBlast.pl -protocol release6 -delete ".$seq_name);
+    $session->verbose(shell("./alignSeq.pl -release 6 ".$seq_name));
+    my $new_aSet = $session->Seq_AlignmentSet({-seq_name=>$task->seq_name,
+                                               -seq_release=>6})->select;
+    reconcile($session,$old_aSet,$new_aSet,6);
   }
 }
 

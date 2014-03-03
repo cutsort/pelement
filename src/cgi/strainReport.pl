@@ -161,6 +161,7 @@ sub reportStrain
 
    my %db_name = (## "release3_genomic" => "Release 3 Genomic",
                    "release5_genomic" => "Release 5 Genomic",
+                   "release6_genomic" => "Release 6 Genomic",
                    "vector"           => "Vector Contaminates",
                    "na_te.dros"       => "Transposable Elements",
                 );
@@ -302,7 +303,7 @@ sub reportStrain
    my $ctr = 1;
 
    #foreach my $release (qw( 3 5 )) {
-   foreach my $release (qw( 5 )) {
+   foreach my $release (qw( 5 6 )) {
      # I gotta get these table joins to work.
      my @tableRows = ();
      foreach my $seq ($seqSet->as_list) {
@@ -453,6 +454,8 @@ sub reportStrain
                            if ($db =~ /release3_genomic/);
                     return $cgi->br.$cgi->a({-href=>"hitMaker.pl?rel=5&seq=".$seq,-target=>'_hit'},'Manual Alignment')
                            if ($db =~ /release5_genomic/);
+                    return $cgi->br.$cgi->a({-href=>"hitMaker.pl?rel=6&seq=".$seq,-target=>'_hit'},'Manual Alignment')
+                           if ($db =~ /release6_genomic/);
                  }
      } else {
         print $cgi->center($cgi->em("No recorded blast hits to $db_name{$db}.")),$cgi->br,"\n";
