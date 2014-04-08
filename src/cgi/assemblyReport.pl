@@ -160,10 +160,12 @@ sub rebuildSeqAssembly
       
          `$PELEMENT_BIN/runBlast.pl -protocol release3 $seq_name`;
          `$PELEMENT_BIN/runBlast.pl -protocol release5 $seq_name`;
+         `$PELEMENT_BIN/runBlast.pl -protocol release6 $seq_name`;
          `$PELEMENT_BIN/runBlast.pl -protocol te $seq_name`;
          `$PELEMENT_BIN/runBlast.pl -protocol vector $seq_name`;
          `$PELEMENT_BIN/alignSeq.pl -release 3 $seq_name`;
          `$PELEMENT_BIN/alignSeq.pl -release 5 $seq_name`;
+         `$PELEMENT_BIN/alignSeq.pl -release 6 $seq_name`;
        } else {
          print $cgi->center("No sequence imported. Blasting not done."),
                $cgi->br,"\n";
@@ -209,11 +211,13 @@ sub rebuildSeqAssembly
        print $cgi->center("Blasting...");
        `$PELEMENT_BIN/runBlast.pl -protocol release3 $seq_name`;
        `$PELEMENT_BIN/runBlast.pl -protocol release5 $seq_name`;
+       `$PELEMENT_BIN/runBlast.pl -protocol release6 $seq_name`;
        `$PELEMENT_BIN/runBlast.pl -protocol te $seq_name`;
        `$PELEMENT_BIN/runBlast.pl -protocol vector $seq_name`;
        print $cgi->center("Aligning...");
        `$PELEMENT_BIN/alignSeq.pl -release 3 $seq_name`;
        `$PELEMENT_BIN/alignSeq.pl -release 5 $seq_name`;
+       `$PELEMENT_BIN/alignSeq.pl -release 6 $seq_name`;
        print $cgi->center("Processing completed.");
 
      } elsif ($action eq 'build') {
@@ -264,11 +268,13 @@ sub rebuildSeqAssembly
        print $cgi->center("Blasting..."),$cgi->br,"\n";
        `$PELEMENT_BIN/runBlast.pl -protocol release3 $seq_name`;
        `$PELEMENT_BIN/runBlast.pl -protocol release5 $seq_name`;
+       `$PELEMENT_BIN/runBlast.pl -protocol release6 $seq_name`;
        `$PELEMENT_BIN/runBlast.pl -protocol te $seq_name`;
        `$PELEMENT_BIN/runBlast.pl -protocol vector $seq_name`;
        print $cgi->center("Aligning..."),$cgi->br,"\n";
        `$PELEMENT_BIN/alignSeq.pl -release 3 $seq_name`;
        `$PELEMENT_BIN/alignSeq.pl -release 5 $seq_name`;
+       `$PELEMENT_BIN/alignSeq.pl -release 6 $seq_name`;
        print $cgi->center("Processing completed.");
 
      } elsif ($action eq 'merge') {
