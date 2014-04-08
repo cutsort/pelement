@@ -116,8 +116,8 @@ sub selectArm
                                         -onClick=>'displayArm()',
                                                    })),
                      $cgi->radio_group({ -name=>'rel',
-                                         -values=>['3','5'],
-                                         -labels=>{'3'=>'Release 3','5'=>'Release 5'},
+                                         -values=>['3','5','6'],
+                                         -labels=>{'3'=>'Release 3','5'=>'Release 5','6'=>'Release 6'},
                                          -default=>'5'}),
                  $cgi->td({-align=>'right'},'Centered at:').$cgi->td({-align=>'left',-colspan=>4},
                               $cgi->input({-name=>'center',-value=>1,-size=>12,onChange=>'resetJmp()'})),
@@ -334,8 +334,9 @@ sub alignSeq
    my $end = int($center + $region/2 + .5);
    my $arm = $cgi->param('arm');
    # particular to genomic
-   $arm = 'arm_'.$arm if ($arm eq '2L' || $arm eq '2R' || $arm eq '3L' ||
-                                  $arm eq '3R' || $arm eq 'X' || $arm eq '4');
+   $arm = 'arm_'.$arm
+     if $rel <= 5
+       && ($arm eq '2L' || $arm eq '2R' || $arm eq '3L' || $arm eq '3R' || $arm eq 'X' || $arm eq '4');
 
    my $strand = $cgi->param('strand');
    $strand = 0 unless $strand eq '1' || $strand eq '-1';
