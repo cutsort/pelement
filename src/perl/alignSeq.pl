@@ -30,6 +30,8 @@ my $length_threshold = 25;
 my $test = 0;
 my $verbose = 0;
 my $release = 5;
+my $hsp_id;
+my $status = 'unique';
 
 # a configurable parameter of whether to extrapolate the insertion
 # position beyond the HSP. If false, the last position of the HSP
@@ -48,6 +50,8 @@ GetOptions( 'percent=i'    => \$percent_threshold,
             'extrapolate!' => \$extrapolate,
             'delete!'      => \$deleteOld,
             'release=i'    => \$release,
+            'hsp_id=i'     => \$hsp_id,
+            'status=s'     => \$status,
            );
 
 my $seq_name = $ARGV[0];
@@ -64,8 +68,11 @@ $session->die("Sequence does not have an insertion position.")
                                    unless (defined($insert_pos));
 
 
-my $bRS = new Blast_ReportSet($session,{-seq_name=>$seq->seq_name,
-                                          -db=>'release'.$release.'_genomic'})->select;
+my $bRS = new Blast_ReportSet($session,{
+  -seq_name=>$seq->seq_name,
+  -db=>'release'.$release.'_genomic',
+  $hsp_id? (id=>$hsp_id) : (),
+})->select;
 
 # lets be careful and make sure that we are only dealing with the
 # most recent blast run.
@@ -119,12 +126,12 @@ foreach my $bH ($bRS->as_list) {
    my $q_align = $bH->query_align;
    my $s_align = $bH->subject_align;
    
-   next if $percent < $percent_threshold;
-   next if $length < $length_threshold;
+   next if !$hsp_id && ($percent < $percent_threshold || $length < $length_threshold);
    
-   if ( ($length > $seq_length-10 && $length < $seq_length+10 ) &&
-        ($seq_length > 100  || $length/$seq_length >= .85)       ) {
-
+   if ($hsp_id ||
+        (($length > $seq_length-10 && $length < $seq_length+10 ) &&
+         ($seq_length > 100  || $length/$seq_length >= .85)))
+   {
       # here is the mapping of the insertion position onto the genomic
       # we want to find the exact location of the insert within the hsp
       # make sure that the insert is within the hit first
@@ -197,9 +204,9 @@ foreach my $bH ($bRS->as_list) {
   
 my $numHits = $nsaSet->count;
 if( $numHits == 1 ) {
-   $session->verbose("Declaring this alignment unique.");
+   $session->verbose("Declaring this alignment $status.");
    # map over the one element in the alignment
-   map {$_->status('unique') } $nsaSet->as_list;
+   map {$_->status($status) } $nsaSet->as_list;
 }
 
 # now do the insert
