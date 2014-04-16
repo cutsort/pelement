@@ -125,6 +125,10 @@ foreach my $arg (@ARGV) {
          next ARG;
       }
       $seq->select;
+      unless ($seq->sequence && ($seq->insertion_pos ne '') ) {
+        $session->warn("Sequence record for ".$seq->seq_name." is missing information. Skipping.");
+        next ARG;
+      }
       if ($ifAligned) {
          # see if there is an alignment
          my $sA_curated = new Seq_Alignment($session,{-seq_name=>$seq->seq_name,
