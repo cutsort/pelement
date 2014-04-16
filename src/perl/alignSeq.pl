@@ -32,6 +32,7 @@ my $verbose = 0;
 my $release = 5;
 my $hsp_id;
 my $status = 'unique';
+my $insert_range;
 
 # a configurable parameter of whether to extrapolate the insertion
 # position beyond the HSP. If false, the last position of the HSP
@@ -52,6 +53,7 @@ GetOptions( 'percent=i'    => \$percent_threshold,
             'release=i'    => \$release,
             'hsp_id=i'     => \$hsp_id,
             'status=s'     => \$status,
+            'insert_range=s' => \$insert_range,
            );
 
 my $seq_name = $ARGV[0];
@@ -184,6 +186,19 @@ foreach my $bH ($bRS->as_list) {
                                                       if ($extrapolate)
       } else {
          $session->die("internal inconsistency with insert position.");
+      }
+
+      if ($insert_range) {
+        my ($chr, $start, $end) = $insert_range =~ /^([^:]+):([0-9]+)(?:\.\.|-)([0-9]+)$/;
+        $session->die("Could not parse insert range $insert_range")
+          if !defined($chr) || !defined($start) || !defined($end);
+
+        $chr =~ s/^chr|^[aA]rm_?//;
+        (my $scaffold = $name) =~ s/^chr|^[aA]rm_?//;
+        if ($chr ne $scaffold || !($start <= $s_insert && $s_insert <= $end)) {
+          $session->warn("Insert_position $s_insert not in range $insert_range, skipping");
+          next;
+        }
       }
 
       my $seqA = new Seq_Alignment($session,
