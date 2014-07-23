@@ -178,7 +178,7 @@ sub makePanel
   # repackage these to group the exons into transcripts.
   my %models;
   my $scaffold_id; # we need this later
-  foreach my $exon ($chado->as_list? $chado->as_list : ()) {
+  foreach my $exon ($chado && $chado->as_list? $chado->as_list : ()) {
     # why is chado messed up?
     $exon->transcript_name($exon->transcript_uniquename)
                                      if $exon->transcript_name =~ /^-/;
