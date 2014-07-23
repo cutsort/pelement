@@ -211,7 +211,7 @@ sub selectSet
                                      -values => ['3','5','6'],
                                      -labels => {3=>'Use Release 3 Alignments',
                                                  5=>'Use Release 5 Alignments',
-                                                 5=>'Use Release 6 Alignments'},
+                                                 6=>'Use Release 6 Alignments'},
                                      -default =>'6')]),
               $cgi->td({-align=>'center'},
                   [$cgi->submit(-name=>'action',
