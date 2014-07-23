@@ -208,10 +208,11 @@ sub selectSet
                         ]),
               $cgi->td({-align=>'left'},
                   [$cgi->radio_group(-name => 'release',
-                                     -values => ['3','5'],
+                                     -values => ['3','5','6'],
                                      -labels => {3=>'Use Release 3 Alignments',
-                                                 5=>'Use Release 5 Alignments'},
-                                     -default =>'5')]),
+                                                 5=>'Use Release 5 Alignments',
+                                                 5=>'Use Release 6 Alignments'},
+                                     -default =>'6')]),
               $cgi->td({-align=>'center'},
                   [$cgi->submit(-name=>'action',
                                        -value=>'Report'),
@@ -237,7 +238,7 @@ sub reportSet
    my @mergedStrains = ();
    my @stockList = ();
    my $fastaSeq;
-   my $release = $cgi->param('release') || '5';
+   my $release = $cgi->param('release') || '6';
 
    my %reports;
    my @reports = $cgi->param('view');
