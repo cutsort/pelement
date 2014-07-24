@@ -159,7 +159,7 @@ sub selectSet
      $cgi->center(
       $cgi->h3("Enter the Strain identifiers, separated by spaces or commas:"),
        "\n",
-       $cgi->start_form(-method=>"get",-action=>"setReport.pl"),"\n",
+       $cgi->start_form(-method=>"post",-action=>"setReport.pl"),"\n",
           $cgi->table( {-class=>'unboxed'},
              $cgi->Tr( [
               $cgi->td({-colspan=>2,-align=>'center'},
