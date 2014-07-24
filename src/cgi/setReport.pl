@@ -208,6 +208,7 @@ sub selectSet
                         ]),
               $cgi->td({-align=>'left'},
                   [$cgi->radio_group(-name => 'release',
+                                     -linebreak => 'true',
                                      -values => ['3','5','6'],
                                      -labels => {3=>'Use Release 3 Alignments',
                                                  5=>'Use Release 5 Alignments',
