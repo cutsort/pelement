@@ -176,6 +176,16 @@ sub makePanel
         -rtree_bin=>{transcript_bin=>[$start_pos,$end_pos]},
       })->select;
   }
+  elsif ($rel == 5) {
+    eval {
+      $chado = $session->fb2013_04::Gene_ModelSet({
+          scaffold_uniquename=>$scaffold,
+          -less_than_or_equal=>{transcript_start=>$end_pos},
+          -greater_than_or_equal=>{transcript_end=>$start_pos},
+          -rtree_bin=>{transcript_bin=>[$start_pos,$end_pos]},
+        })->select;
+    };
+  }
 
   # repackage these to group the exons into transcripts.
   my %models;
