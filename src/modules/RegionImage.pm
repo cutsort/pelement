@@ -16,13 +16,15 @@ sub makePanel
   my $scaffold = shift;
   my $center = shift || return;
   my $range = shift || 5000;
-  my $rel = shift || 5;
+  my $rel = shift || 6;
   my $showall = shift || 0;
 
   my $session = new Session({-log_level=>0});
 
   # add the arm_ prefix if need be.
-  map { $scaffold = 'arm_'.$scaffold if $scaffold eq $_ } (qw(2L 2R 3L 3R 4 X));
+  if ($rel <= 5) {
+    map { $scaffold = 'arm_'.$scaffold if $scaffold eq $_ } (qw(2L 2R 3L 3R 4 X));
+  }
   my $insHits = $session->Seq_AlignmentSet(
                              {-scaffold => $scaffold,
                            -seq_release => $rel,
@@ -166,7 +168,7 @@ sub makePanel
   
   # get the genes
   my $chado;
-  if ($rel == 5) {
+  if ($rel == 6) {
     $chado = $session->Gene_ModelSet({
         scaffold_uniquename=>$scaffold,
         -less_than_or_equal=>{transcript_start=>$end_pos},
