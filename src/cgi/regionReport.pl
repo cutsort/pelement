@@ -99,7 +99,7 @@ sub reportRegion
   my $scaffold = $form->param('scaffold');
   my $center = $form->param('center');
   my $range = $form->param('range') || 10000;
-  my $rel = $form->param('release') || 5;
+  my $rel = $form->param('release') || 6;
   my $showall = $form->param('showall') || 0;
 
   my $panel = RegionImage::makePanel($scaffold,$center,$range,$rel,$showall);
