@@ -56,7 +56,7 @@ my $force = 0;
 my $use = 0;
 my $ifAligned = 1;
 my $test = 0;
-my $release = 5;
+my $release = 6;
 GetOptions('use=i'     => \$use,
            'force!'    => \$force,
            'ifaligned!'=> \$ifAligned,

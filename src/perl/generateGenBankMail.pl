@@ -49,7 +49,7 @@ my $outFile;
 my $appendFile;
 my $minLength = 10;
 my $update = 1;
-my $release = 5;
+my $release = 6;
 my $collection;
 
 # only submit aligned strains?

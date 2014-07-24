@@ -26,7 +26,7 @@ my $seq_name = $cgi->param('seq');
 my $arm = $cgi->param('arm');
 my $center = $cgi->param('center');
 my $region = $cgi->param('region');
-my $rel = $cgi->param('rel') || 5;
+my $rel = $cgi->param('rel') || 6;
 
 print $cgi->header;
 print $cgi->init_page({-title=>"$seq_name Hit Maker",
@@ -424,7 +424,7 @@ sub alignSeq
               $cgi->hidden(-name=>'center',-value=>$cgi->param('center')),"\n",
               $cgi->hidden(-name=>'region',-value=>$cgi->param('region')),"\n",
               $cgi->hidden(-name=>'strand',-value=>$cgi->param('strand')),"\n",
-              $cgi->hidden(-name=>'rel',-value=>($cgi->param('rel')||'5')),"\n",
+              $cgi->hidden(-name=>'rel',-value=>($cgi->param('rel')||'6')),"\n",
               $cgi->submit(-name=>'Align',-value=>'Save'),"\n",
               " button to record the results."),
               $cgi->end_form(),"\n";

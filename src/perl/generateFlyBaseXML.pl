@@ -53,7 +53,7 @@ my $stop_without_4;       # stop if we cannot map alignment forward
 my $phenotype = 1;        # do we require a pheontype record?
 my $outFile;
 my $update = 0;           # mark ALL insertion data as 'is_update=Y'
-my $release = 5;          # which alignment release to work with
+my $release = 6;          # which alignment release to work with
 my $submit_consensus = 0;
 GetOptions('ifaligned!' => \$ifAligned,
            'phenotype!' => \$phenotype,

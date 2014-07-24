@@ -161,7 +161,7 @@ sub reportBatch
 
 
    # which to report?
-   my $release = $cgi->param('release') || 5;
+   my $release = $cgi->param('release') || 6;
 
    # are we going to show ALL alignments for these strains?
    my $allAlign = ($cgi->param('align') eq 'all')?1:0;
@@ -671,6 +671,10 @@ sub reportBatch
            $cgi->a(
                   {-href=>"batchReport.pl?batch=$batch&table=align&align=all&release=5"},
                   "Release 5"),
+           $cgi->nbsp,
+           $cgi->a(
+                  {-href=>"batchReport.pl?batch=$batch&table=align&align=all&release=6"},
+                  "Release 6"),
            $cgi->br,
            "View Alignments from this batch as Tab delimited list",$cgi->nbsp,
            $cgi->a({-href=>"batchReport.pl?batch=$batch&table=align&format=text&release=3"},
@@ -678,6 +682,9 @@ sub reportBatch
            $cgi->nbsp,
            $cgi->a({-href=>"batchReport.pl?batch=$batch&table=align&format=text&release=5"},
                   "Release 5"),
+           $cgi->nbsp,
+           $cgi->a({-href=>"batchReport.pl?batch=$batch&table=align&format=text&release=6"},
+                  "Release 6"),
            $cgi->br,
            "View Alignments of these strains from all batches as Tab delimited list",$cgi->nbsp,
            $cgi->a({-href=>"batchReport.pl?batch=$batch&table=align&align=all&format=text&release=3"},
@@ -685,6 +692,9 @@ sub reportBatch
            $cgi->nbsp,
            $cgi->a({-href=>"batchReport.pl?batch=$batch&table=align&align=all&format=text&release=5"},
                   "Release 5"),
+           $cgi->nbsp,
+           $cgi->a({-href=>"batchReport.pl?batch=$batch&table=align&align=all&format=text&release=6"},
+                  "Release 6"),
                   $cgi->br,"\n"),$cgi->br,"\n"
                         if (!$cgi->param('table') ||
                              $cgi->param('table') eq 'align');

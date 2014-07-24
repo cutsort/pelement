@@ -58,7 +58,7 @@ my $session = new Session();
 
 my ($gel_name,$gel_id,$lane_name,@lane_id);
 my $test = 0;
-my $release = 5;
+my $release = 6;
 my $threshold = 100;
 
 GetOptions('gel=s'      => \$gel_name,

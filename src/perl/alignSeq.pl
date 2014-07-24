@@ -29,7 +29,7 @@ my $percent_threshold = 95;
 my $length_threshold = 25;
 my $test = 0;
 my $verbose = 0;
-my $release = 5;
+my $release = 6;
 my $hsp_id;
 my $status = 'unique';
 my $insert_range;

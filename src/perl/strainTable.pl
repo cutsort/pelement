@@ -28,7 +28,7 @@ use Getopt::Long;
 
 my $file;
 my $out;
-my $release = 5;
+my $release = 6;
 
 GetOptions("in=s"      => \$file,
            "out=s"     => \$out,
