@@ -95,7 +95,7 @@ $ENV{BLASTFILTER} = "$BLAST_PATH/filter";
 # path to bdgp 'common' modules
 $ENV{FLYBASE_MODULE_PATH} = $FLYBASE_MODULE_PATH;
 
-$FLYBASE_SCHEMA = 'fb2013_04';
+$FLYBASE_SCHEMA = 'fb2014_04';
 
 $MODULES_DIR = dirname(__FILE__);
 
