@@ -565,6 +565,7 @@ sub getCytoAndGene
    my $session = shift;
    my $strain = shift;
    my $release = shift;
+   my $fb_schema = $release == 5? 'fb2013_04::' : '';
 
    # we need to look at the alignments for the unqualified sequences.
    # and look for if we have the mappable insertions.
@@ -628,7 +629,7 @@ sub getCytoAndGene
       my $up = $in->{strand}==1?0:0;
 
       my @geneSet = map {$_->gene_name, $_->gene_uniquename, $_->gene_start, $_->gene_end}
-        $session->Gene_ModelSet({
+        $session->${\"${fb_schema}Gene_ModelSet"}({
           scaffold_uniquename=>$arm,
           -less_than_or_equal=>{gene_start=>$end+$up},
           -greater_than_or_equal=>{gene_end=>$start-$down},
@@ -705,7 +706,7 @@ sub classifyInsert
   }
   return ('No Unique or Curated Alignments') unless keys %byPosition;
 
-  return classifyPosition($cgi,$session,keys %byPosition);
+  return classifyPosition($cgi,$session,$release,keys %byPosition);
 
 }
 
@@ -713,7 +714,9 @@ sub classifyPosition
 {
   my $cgi = shift;
   my $session = shift;
+  my $release = shift;
   my @locs = @_;
+  my $fb_schema = $release == 5? 'fb2013_04::' : '';
 
   my %return;
 
@@ -728,7 +731,7 @@ sub classifyPosition
     my @vals;
 
     push @{$resultsHash{coding_class}}, uniq map {$_->transcript_name}
-      $session->Gene_ModelSet({
+      $session->${\"${fb_schema}Gene_ModelSet"}({
           scaffold_uniquename=>$arm,
           -in=>{transcript_type_id=>\@transcript_type_ids},
           -greater_than_or_equal=>{exon_end=>$pos, cds_max=>$pos},
@@ -739,7 +742,7 @@ sub classifyPosition
     push @{$resultsHash{utr_5exon_class}}, uniq map {$_->transcript_name}
       grep {($_->cds_min > $pos && $_->exon_strand > 0)
               || ($_->cds_max < $pos && $_->exon_strand < 0)} 
-      $session->Gene_ModelSet({
+      $session->${\"${fb_schema}Gene_ModelSet"}({
           scaffold_uniquename=>$arm,
           -in=>{transcript_type_id=>\@transcript_type_ids},
           -greater_than_or_equal=>{exon_end=>$pos},
@@ -750,7 +753,7 @@ sub classifyPosition
     push @{$resultsHash{utr_3exon_class}}, uniq map {$_->transcript_name}
       grep {($_->cds_min > $pos && $_->exon_strand < 0)
               || ($_->cds_max < $pos && $_->exon_strand > 0)} 
-      $session->Gene_ModelSet({
+      $session->${\"${fb_schema}Gene_ModelSet"}({
           scaffold_uniquename=>$arm,
           -in=>{transcript_type_id=>\@transcript_type_ids},
           -greater_than_or_equal=>{exon_end=>$pos},
@@ -759,7 +762,7 @@ sub classifyPosition
         })->select->as_list;
         
     push @{$resultsHash{coding_intron_class}}, uniq map {$_->transcript_name}
-      $session->Gene_ModelSet({
+      $session->${\"${fb_schema}Gene_ModelSet"}({
           scaffold_uniquename=>$arm,
           -in=>{transcript_type_id=>\@transcript_type_ids},
           -greater_than_or_equal=>{cds_max=>$pos},
@@ -770,7 +773,7 @@ sub classifyPosition
     push @{$resultsHash{utr_5intron_class}}, uniq map {$_->transcript_name}
       grep {($_->cds_min > $pos && $_->transcript_strand > 0)
               || ($_->cds_max < $pos && $_->transcript_strand < 0)}
-      $session->Gene_ModelSet({
+      $session->${\"${fb_schema}Gene_ModelSet"}({
           scaffold_uniquename=>$arm,
           -in=>{transcript_type_id=>\@transcript_type_ids},
           -greater_than_or_equal=>{transcript_end=>$pos},
@@ -781,7 +784,7 @@ sub classifyPosition
     push @{$resultsHash{utr_3intron_class}}, uniq map {$_->transcript_name}
       grep {($_->cds_min > $pos && $_->transcript_strand < 0)
               || ($_->cds_max < $pos && $_->transcript_strand > 0)}
-      $session->Gene_ModelSet({
+      $session->${\"${fb_schema}Gene_ModelSet"}({
           scaffold_uniquename=>$arm,
           -in=>{transcript_type_id=>\@transcript_type_ids},
           -greater_than_or_equal=>{transcript_end=>$pos},
@@ -790,7 +793,7 @@ sub classifyPosition
         })->select->as_list;
         
     push @{$resultsHash{upstream5_class}}, uniq map {$_->transcript_name}
-      ($session->Gene_ModelSet({
+      ($session->${\"${fb_schema}Gene_ModelSet"}({
           scaffold_uniquename=>$arm,
           -in=>{transcript_type_id=>\@transcript_type_ids},
           -greater_than=>{transcript_strand=>0},
@@ -798,7 +801,7 @@ sub classifyPosition
           -less_than_or_equal=>{transcript_start=>$pos+$upstream},
           -rtree_bin=>{transcript_bin=>[$pos, $pos+$upstream]},
         })->select->as_list,
-       $session->Gene_ModelSet({
+      $session->${\"${fb_schema}Gene_ModelSet"}({
           scaffold_uniquename=>$arm,
           -in=>{transcript_type_id=>\@transcript_type_ids},
           -less_than=>{transcript_strand=>0},
@@ -808,7 +811,7 @@ sub classifyPosition
         })->select->as_list);
         
     push @{$resultsHash{downstream3_class}}, uniq map {$_->transcript_name}
-      ($session->Gene_ModelSet({
+      ($session->${\"${fb_schema}Gene_ModelSet"}({
           scaffold_uniquename=>$arm,
           -in=>{transcript_type_id=>\@transcript_type_ids},
           -greater_than=>{transcript_strand=>0},
@@ -816,7 +819,7 @@ sub classifyPosition
           -less_than_or_equal=>{transcript_end=>$pos},
           -rtree_bin=>{transcript_bin=>[$pos-$upstream, $pos]},
         })->select->as_list,
-       $session->Gene_ModelSet({
+      $session->${\"${fb_schema}Gene_ModelSet"}({
           scaffold_uniquename=>$arm,
           -in=>{transcript_type_id=>\@transcript_type_ids},
           -less_than=>{transcript_strand=>0},

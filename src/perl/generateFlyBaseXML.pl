@@ -15,6 +15,7 @@ use FindBin::libs qw(base=modules realbin);
 use Carp;
 use Getopt::Long;
 use strict;
+no strict 'refs';
 
 # modules for pelement processing
 use Pelement;
@@ -724,9 +725,9 @@ sub getGeneHit
    $start = ($start<0)?0:$start;
    my $end =  $pos[-1] + $grabSize;
 
-
-   my $geneSet = $session->Gene_ModelSet({
-      scaffold_uniquename=>$arm,
+   my $fb_schema = $release == 5? 'fb2013_04::' : '';
+   my $geneSet = $session->${\"${fb_schema}Gene_ModelSet"}({
+      -scaffold_uniquename=>$arm,
       -less_than_or_equal=>{transcript_start=>$end},
       -greater_than_or_equal=>{transcript_end=>$start},
       -rtree_bin=>{transcript_bin=>[$start,$end]},
