@@ -886,8 +886,18 @@ sub intronPhase
         $pos = $alignment->s_insert;
         $arm = $alignment->scaffold;
         $byPosition{$arm.':'.$pos} = 1;
-        my $phaseS = new PhaseSet($session,{-arm=>$arm,-less_than_or_equal=>{intron_start=>$pos},
-                                                 -greater_than_or_equal=>{intron_end=>$pos}})->select;
+        my $phaseS = $release <= 5?
+          $session->PhaseSet({
+            -arm=>$arm,
+            -less_than_or_equal=>{intron_start=>$pos},
+            -greater_than_or_equal=>{intron_end=>$pos},
+          })->select :
+          $session->Intron_PhaseSet({
+            -arm=>$arm,
+            -less_than_or_equal=>{intron_start=>$pos},
+            -greater_than_or_equal=>{intron_end=>$pos},
+          })->select;
+
         foreach my $phase ($phaseS->as_list) {
           if (exists($byTranscript{$phase->transcript_name}) ) {
             $byTranscript{$phase->transcript_name} = 'Multiple' if
