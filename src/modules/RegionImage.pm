@@ -170,7 +170,7 @@ sub makePanel
   # get the genes
   my $fb_schema = $rel == 5? 'fb2013_04::' : '';
   my $chado = $session->${\"${fb_schema}Gene_ModelSet"}({
-      scaffold_uniquename=>$scaffold,
+      arm=>$scaffold,
       -less_than_or_equal=>{transcript_start=>$end_pos},
       -greater_than_or_equal=>{transcript_end=>$start_pos},
       -rtree_bin=>{transcript_bin=>[$start_pos,$end_pos]},

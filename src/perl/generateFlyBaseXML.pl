@@ -727,7 +727,7 @@ sub getGeneHit
 
    my $fb_schema = $release == 5? 'fb2013_04::' : '';
    my $geneSet = $session->${\"${fb_schema}Gene_ModelSet"}({
-      -scaffold_uniquename=>$arm,
+      -arm=>$arm,
       -less_than_or_equal=>{transcript_start=>$end},
       -greater_than_or_equal=>{transcript_end=>$start},
       -rtree_bin=>{transcript_bin=>[$start,$end]},
