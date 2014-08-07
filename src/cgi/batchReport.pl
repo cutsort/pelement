@@ -556,10 +556,11 @@ sub reportBatch
          }
       }
    }
+   my $last_release = $release == 6? 5 : $release == 5? 3 : undef;
    print $cgi->center($cgi->h2("Sequence status for strains in batch $batch"),
                       $cgi->div("Release $release Alignments",
-                      $cgi->a({-href=>'batchReport.pl?batch='.$batch.'&release='.
-                               (8-$release)},'Show Release '.(8-$release))),
+                      $last_release? $cgi->a({-href=>'batchReport.pl?batch='.$batch.'&release='.$last_release},
+                                             'Show Release '.$last_release) : ()),
                        $cgi->br),"\n",
          $cgi->center($cgi->table({-border=>2,
                                    -width=>"80%",
