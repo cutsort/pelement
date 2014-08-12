@@ -146,7 +146,7 @@ foreach my $strain_name (@ARGV) {
    # and may have been deleted.
    my %align = (3 => [], 5 => [], b => [], o => []);
    foreach my $align (@seq_alignments) {
-      next unless $align->status eq 'unique' or $align->status eq 'curated';
+      next unless $align->status eq 'unique' or $align->status eq 'curated' || $align->status eq 'autocurated';
       my $end = Seq::end($align->seq_name);
       my $qual = Seq::qualifier($align->seq_name);
       # do not look at unconfirmed recheck seq.

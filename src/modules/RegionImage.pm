@@ -89,7 +89,7 @@ sub makePanel
 
   foreach my $s ($insHits->as_list) {
 
-    next unless ($s->status eq 'curated' || $s->status eq 'unique');
+    next unless ($s->status eq 'curated' || $s->status eq 'unique' || $s->status eq 'autocurated');
     next unless ($s->seq_release eq $rel);
     my $status = 'other';
 

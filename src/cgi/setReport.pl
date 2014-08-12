@@ -577,7 +577,7 @@ sub getCytoAndGene
                                    {-seq_name=>$seq->seq_name,
                                     -seq_release=>$release})->select;
       foreach my $sa ($saS->as_list) {
-         next unless $sa->status eq 'unique' || $sa->status eq 'curated';
+         next unless $sa->status eq 'unique' || $sa->status eq 'curated' || $sa->status eq 'autocurated';
 
          # keep track of release 4 number
          my $cyto_base = $sa->s_insert;
@@ -697,7 +697,7 @@ sub classifyInsert
                                             -seq_release=>$release});
     $aS->select;
     foreach my $alignment ($aS->as_list) {
-      if ($alignment->status eq 'unique' || $alignment->status eq 'curated') {
+      if ($alignment->status eq 'unique' || $alignment->status eq 'curated' || $alignment->status eq 'autocurated') {
         $pos = $alignment->s_insert;
         $arm = $alignment->scaffold;
         $byPosition{$arm.':'.$pos} = 1;

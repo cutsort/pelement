@@ -134,6 +134,9 @@ foreach my $arg (@ARGV) {
          my $sA_curated = new Seq_Alignment($session,{-seq_name=>$seq->seq_name,
                                                       -status=>'curated',
                                                       -seq_release=>$release});
+         my $sA_autocurated = new Seq_Alignment($session,{-seq_name=>$seq->seq_name,
+                                                      -status=>'autocurated',
+                                                      -seq_release=>$release});
          my $sA_unique = new Seq_Alignment($session,{-seq_name=>$seq->seq_name,
                                                      -status=>'unique',
                                                      -seq_release=>$release});
@@ -141,8 +144,8 @@ foreach my $arg (@ARGV) {
                                                      -status=>'unwanted',
                                                      -seq_release=>$release});
          ($session->warn("No alignments for $arg. Skipping.") and next ARG) unless 
-                          $sA_curated->db_exists || $sA_unique->db_exists || $sA_unwanted->db_exists;
-      }
+                          $sA_curated->db_exists || $sA_autocurated->db_exists || $sA_unique->db_exists || $sA_unwanted->db_exists;
+       }
 
       $insertions{$strain} = {ends=>{},pos=>{}} unless exists $insertions{$strain};
       $insertions{$strain}->{ends}{$end} = $seq->sequence;
@@ -183,6 +186,9 @@ foreach my $arg (@ARGV) {
             my $sA_curated = new Seq_Alignment($session,{-seq_name=>$seq->seq_name,
                                                          -status=>'curated',
                                                          -seq_release=>$release});
+            my $sA_autocurated = new Seq_Alignment($session,{-seq_name=>$seq->seq_name,
+                                                         -status=>'autocurated',
+                                                         -seq_release=>$release});
             my $sA_unique = new Seq_Alignment($session,{-seq_name=>$seq->seq_name,
                                                         -status=>'unique',
                                                          -seq_release=>$release});
@@ -190,7 +196,7 @@ foreach my $arg (@ARGV) {
                                                         -status=>'unwanted',
                                                         -seq_release=>$release});
            ($session->warn("No alignments for ".$seq->seq_name.". Skipping.") and next SEQ) unless 
-                            $sA_curated->db_exists || $sA_unique->db_exists || $sA_unwanted->db_exists;
+                            $sA_curated->db_exists || $sA_autocurated->db_exists || $sA_unique->db_exists || $sA_unwanted->db_exists;
          }
          $insertions{$this_strain} = {ends=>{},pos=>{}} unless exists $insertions{$this_strain};
          $insertions{$this_strain}->{ends}{$this_end} = $seq->sequence;

@@ -123,10 +123,10 @@ sub reconcile
       next unless (($old->p_start < $old->p_end) == ($new->p_start < $new->p_end));
       # something overlaps?
       next unless overlaps($old->s_start-$slop,$old->s_end+$slop,$new->s_start-$slop,$new->s_end+$slop);
-      if ($old->status eq 'curated') {
-        $session->verbose("An old curated alignment on ".$old->scaffold." at ".
+      if ($old->status eq 'curated' || $old->status eq 'autocurated') {
+        $session->verbose("An old ".$old->status." alignment on ".$old->scaffold." at ".
                                                          $old->s_insert." is being transfered.");
-        $new->status('curated');
+        $new->status($old->status);
         $new->update;
         # we reset the status on old so that 2 alignments do not get promoted
         $old->status('processed');
@@ -147,8 +147,8 @@ sub reconcile
   }
   # look for any un-processed curated alignments
   foreach my $old ($old_aSet->as_list) {
-    if ($old->status eq 'curated') {
-      $session->warn("UNTRANSFERRED CURATED ALIGNMENT of ".$old->seq_name." to ".$old->scaffold." at ".$old->s_insert);
+    if ($old->status eq 'curated' || $old->status eq 'autocurated') {
+      $session->warn("UNTRANSFERRED ".uc($old->status)." ALIGNMENT of ".$old->seq_name." to ".$old->scaffold." at ".$old->s_insert);
     }
   }
   return;

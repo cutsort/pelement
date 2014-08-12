@@ -143,7 +143,7 @@ foreach my $lane (@lanes) {
             my $otherAlignment = new Seq_AlignmentSet($session,{-seq_name=>$other_seq_name,-seq_release=>$release})->select;
             if ($otherAlignment->count) {
               foreach my $a1 ($otherAlignment->as_list) {
-                next unless $a1->status eq 'unique' || $a1->status eq 'curated';
+                next unless $a1->status eq 'unique' || $a1->status eq 'curated' || $a1->status eq 'autocurated';
                 foreach my $a2 ($alignment->as_list) {
                   if ($a1->scaffold eq $a2->scaffold && abs($a1->s_insert - $a2->s_insert) < $threshold
                           && ($a1->s_start-$a1->s_end)*($a1->s_start-$a1->s_end) > 0) {
