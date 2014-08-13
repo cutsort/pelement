@@ -736,7 +736,7 @@ sub map_pos {
     [$session->Map_ConcatFilesSet({
       arm=>$arm,
       -less_than_or_equal=>{pos_offset=>$pos},
-      -order_by=>['-pos_offset']
+      -order_by=>['-pos_offset'],
       -limit=>1,
     })->select->as_list]->[0];
   return $offset? ($offset->scaffold_uniquename, $pos - $offset->pos_offset) : ($arm, $pos);
