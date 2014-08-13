@@ -245,10 +245,15 @@ foreach my $strain_name (@ARGV) {
          $w = '3';
       }
       if ($w) {
-         $cyto = new Cytology($session,{scaffold=>$align{$w}->[0]->{scaffold},
+         my $scaffold = $align{$w}[0]{scaffold};
+         my $pos = $align{$w}[0]{position};
+         if ($release >= 6) {
+           ($scaffold, $pos) = map_pos($session, $scaffold, $pos);
+         }
+         $cyto = new Cytology($session,{scaffold=>$scaffold,
                                        -seq_release=>$release,
-                                       less_than=>{start=>$align{$w}->[0]->{position}},
-                           greater_than_or_equal=>{stop=>$align{$w}->[0]->{position}}})->select_if_exists;
+                                       less_than=>{start=>$pos},
+                           greater_than_or_equal=>{stop=>$pos}})->select_if_exists;
          if ($cyto) {
             $pheno->derived_cytology($cyto->band);
             if ($pheno->id) {
@@ -296,7 +301,7 @@ foreach my $strain_name (@ARGV) {
 
    # and add the annotated gene hits. We'll process this list and
    # assign them to the 'best' alignment.
-   my @annotatedHit = getAnnotatedHits($session,$strain->strain_name);
+   my @annotatedHit = getAnnotatedHits($session,$strain->strain_name,$release);
 
    # we'll keep a list of the insertion data. At the end, we'll tie together
    # the insertion data with the gene annotations and insert everything into the
@@ -463,6 +468,11 @@ foreach my $strain_name (@ARGV) {
          }
 
          (my $chrom = $arm) =~ s/arm_//;
+         if ($release >= 6) {
+           (undef, $pos_range[1]) = map_pos($session, $chrom, $pos_range[1]);
+           ($chrom, $pos_range[0]) = map_pos($session, $chrom, $pos_range[0]);
+         }
+
          if ( grep(/$chrom/,qw(X 2L 2R 3L 3R 4)) ) {
             # let's see if we can map it if this is release 3
             if ($release == 3) {
@@ -537,14 +547,18 @@ foreach my $strain_name (@ARGV) {
                                      comment        => 'Mapped heterochromatin'
                                       }));
          }
+         else {
+           $session->die("Disallowed scaffold for alignment ".$seq->seq_name.
+                           ": $chrom:$pos_range[0]..$pos_range[1]:".($strand>0?'p':'m'));
+         }
 
 
          # we'll report genes only if this is a single insertion
          # and there is not conflicting data.
-         my @geneHit = getGeneHit($session,$chrom,$strand,@pos_range);
+         my @geneHit = getGeneHit($session,$chrom,$strand,$release,@pos_range);
          map { $insertData->add($_) } @geneHit;
 
-         my $cyto = new Cytology($session,{scaffold=>$arm,
+         my $cyto = new Cytology($session,{scaffold=>$release >= 6? $chrom : $arm,
                                        -seq_release=>$release,
                                        less_than=>{start=>$pos_range[-1]},
                            greater_than_or_equal=>{stop=>$pos_range[0]}})->select_if_exists;
@@ -642,6 +656,7 @@ sub getAnnotatedHits
 {
    my $session = shift;
    my $strain = shift;
+   my $release = shift;
 
    my $geneSet = new Gene_AssociationSet($session,
                          {-strain_name=>$strain})->select;
@@ -683,13 +698,18 @@ sub getAnnotatedHits
                        qq(based on the location of the transposon ).
                        qq(insertion site within or in the proximity of ).
                        qq(the gene, as annotated in Release 3.1.);
-
+      
+      my ($arm, $start, $end) = ($g->scaffold_uniquename, $g->start, $g->end);
+      if ($release >= 6) {
+        (undef, $end) = map_pos($session, $arm, $end);
+        ($arm, $start) = map_pos($session, $arm, $start);
+      }
       push @geneHits, {name=>$gene->cg,
-                       arm=>$g->arm,
-                       start=>$g->start,
+                       arm=>$arm,
+                       start=>$start,
                        transcript=>$gene->transcript,
                        fbgn => $fbgn,
-                       end=>$g->end,
+                       end=>$end,
                        strand=> $g->strand,
                        comment=>($gene->comment || $defcomment) };
    }
@@ -697,6 +717,29 @@ sub getAnnotatedHits
    $gadflyDba->close;
    return @geneHits;
 
+}
+
+=head1 map_pos
+
+Release 6 sequences were mapped using concatenated 2CEN, 3CEN, Xmm, Ymm,
+XYmm, and U arms, but FlyBase uses the unconcatenated names. Use our
+mapping table to convert between them.
+
+=cut
+
+sub map_pos {
+  my $session = shift;
+  my $arm = shift;
+  my $pos = shift;
+  
+  my $offset = 
+    [$session->Map_ConcatFilesSet({
+      arm=>$arm,
+      -less_than_or_equal=>{pos_offset=>$pos},
+      -order_by=>['-pos_offset']
+      -limit=>1,
+    })->select->as_list]->[0];
+  return $offset? ($offset->scaffold_uniquename, $pos - $offset->pos_offset) : ($arm, $pos);
 }
 
 sub getGeneHit
@@ -707,6 +750,7 @@ sub getGeneHit
    my $arm = shift;
    $arm =~ s/arm_//;
    my $strand = shift;
+   my $release = shift;
    my @pos = @_;
 
    my $grabSize = 0;
