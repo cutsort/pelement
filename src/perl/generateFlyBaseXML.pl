@@ -790,14 +790,14 @@ sub getGeneHit
    my @geneDist3List = ();
    my %beenThere = (); ## done that
    foreach my $gene ($geneSet->as_list) {
-       $session->info( "Nearby gene ".$gene->gene_name()." from ".
-                             $gene->gene_start()." to ".$gene->gene_end);
-
        if ( $pos[0] >= $gene->gene_start && $pos[1] <= $gene->gene_end ) {
           # if this isn't a real gene, we gotta skip it
           next unless $gene->gene_uniquename =~ /FBgn/;
           next if exists $beenThere{$gene->gene_name};
           $beenThere{$gene->gene_name} = 1;
+          $session->info( "Nearby gene ".$gene->gene_name()." from ".
+                                $gene->gene_start()." to ".$gene->gene_end);
+
           push @geneNameList, $gene->gene_name;
           push @geneHitList, 'WithinGene';
           push @geneFbgnList, $gene->gene_uniquename;
