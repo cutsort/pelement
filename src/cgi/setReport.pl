@@ -622,8 +622,8 @@ sub getCytoAndGene
 
       my @annot = ();
 
-      my $down = $in->{strand}==1?0:500;
-      my $up = $in->{strand}==1?500:0;
+      #my $down = $in->{strand}==1?0:500;
+      #my $up = $in->{strand}==1?500:0;
  
       my $down = $in->{strand}==1?0:0;
       my $up = $in->{strand}==1?0:0;
@@ -633,7 +633,7 @@ sub getCytoAndGene
           arm=>$arm,
           -less_than_or_equal=>{gene_start=>$end+$up},
           -greater_than_or_equal=>{gene_end=>$start-$down},
-          -rtree_bin=>{gene_bin=>[$end+$up, $start-$down]},
+          -rtree_bin=>{gene_bin=>[$start-$down, $end+$up]},
         })->select->as_list;
 
       # look at each annotation and decide if we're inside it.
@@ -733,6 +733,7 @@ sub classifyPosition
     push @{$resultsHash{coding_class}}, uniq map {$_->transcript_name}
       $session->${\"${fb_schema}Gene_ModelSet"}({
           arm=>$arm,
+          -notnull=>['cds_min','cds_max'],
           -in=>{transcript_type_id=>\@transcript_type_ids},
           -greater_than_or_equal=>{exon_end=>$pos, cds_max=>$pos},
           -less_than_or_equal=>{exon_start=>$pos, cds_min=>$pos},
@@ -744,6 +745,7 @@ sub classifyPosition
               || ($_->cds_max < $pos && $_->exon_strand < 0)} 
       $session->${\"${fb_schema}Gene_ModelSet"}({
           arm=>$arm,
+          -notnull=>['cds_min','cds_max'],
           -in=>{transcript_type_id=>\@transcript_type_ids},
           -greater_than_or_equal=>{exon_end=>$pos},
           -less_than_or_equal=>{exon_start=>$pos},
@@ -755,6 +757,7 @@ sub classifyPosition
               || ($_->cds_max < $pos && $_->exon_strand > 0)} 
       $session->${\"${fb_schema}Gene_ModelSet"}({
           arm=>$arm,
+          -notnull=>['cds_min','cds_max'],
           -in=>{transcript_type_id=>\@transcript_type_ids},
           -greater_than_or_equal=>{exon_end=>$pos},
           -less_than_or_equal=>{exon_start=>$pos},
@@ -764,6 +767,7 @@ sub classifyPosition
     push @{$resultsHash{coding_intron_class}}, uniq map {$_->transcript_name}
       $session->${\"${fb_schema}Gene_ModelSet"}({
           arm=>$arm,
+          -notnull=>['cds_min','cds_max'],
           -in=>{transcript_type_id=>\@transcript_type_ids},
           -greater_than_or_equal=>{cds_max=>$pos},
           -less_than_or_equal=>{cds_min=>$pos},
@@ -775,6 +779,7 @@ sub classifyPosition
               || ($_->cds_max < $pos && $_->transcript_strand < 0)}
       $session->${\"${fb_schema}Gene_ModelSet"}({
           arm=>$arm,
+          -notnull=>['cds_min','cds_max'],
           -in=>{transcript_type_id=>\@transcript_type_ids},
           -greater_than_or_equal=>{transcript_end=>$pos},
           -less_than_or_equal=>{transcript_start=>$pos},
@@ -786,6 +791,7 @@ sub classifyPosition
               || ($_->cds_max < $pos && $_->transcript_strand > 0)}
       $session->${\"${fb_schema}Gene_ModelSet"}({
           arm=>$arm,
+          -notnull=>['cds_min','cds_max'],
           -in=>{transcript_type_id=>\@transcript_type_ids},
           -greater_than_or_equal=>{transcript_end=>$pos},
           -less_than_or_equal=>{transcript_start=>$pos},
