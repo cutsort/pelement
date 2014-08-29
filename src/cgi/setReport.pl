@@ -512,7 +512,7 @@ sub reportSet
    if ($reports{'stock'} ) {
       # replace null strings with nbsp's
       map { map { $_ = $_?$_:$cgi->nbsp } @$_ } @stockList;
-      print $cgi->center($cgi->div({-class=>'SectionTitle'},"Stock List (R$release Coords, R5.3 Genes)"),$cgi->br),"\n",
+      print $cgi->center($cgi->div({-class=>'SectionTitle'},"Stock List (R$release Coords, R".($release==6?'6.01':'5.52')." Genes)"),$cgi->br),"\n",
          $cgi->center(
            $cgi->table({-border=>2,-width=>"80%",
                                       -class=>'sortable',
@@ -650,10 +650,11 @@ sub getCytoAndGene
            #$gene_name_hash{$annot->gene_name.'('.$annot->gene_uniquename.')'} = 1;
            $gene_name_hash{$gene_name.'('.$gene_uniquename.')'} = 1;
         #} elsif ( !exists( $gene_name_hash{$annot->gene_name.'('.$annot->gene_uniquename.')'}) ) {
-        } elsif ( !exists( $gene_name_hash{$gene_name.'('.$gene_uniquename.')'}) ) {
-           #$gene_name_hash{$annot->gene_name.'('.$annot->gene_uniquename.')'} = 'near';
-           $gene_name_hash{$gene_name.'('.$gene_uniquename.')'} = 'near';
         }
+        #elsif ( !exists( $gene_name_hash{$gene_name.'('.$gene_uniquename.')'}) ) {
+        #   #$gene_name_hash{$annot->gene_name.'('.$annot->gene_uniquename.')'} = 'near';
+        #   $gene_name_hash{$gene_name.'('.$gene_uniquename.')'} = 'near';
+        #}
            
       }
       map { push @{$in->{gene}}, $_.(($gene_name_hash{$_} eq 'near')?'[near]':'') } sort keys %gene_name_hash;
