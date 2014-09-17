@@ -709,7 +709,7 @@ sub classifyInsert
           my ($loc_arm,$loc_pos) = split(/:/,$loc);
           my ($loc_min,$loc_max) = split /\.\./,$loc_pos;
           $loc_max = $loc_min if !defined $loc_max;
-          if ($loc_arm eq $arm && abs((($loc_max+$loc_min)/2)-$pos) < 100) {
+          if ($loc_arm eq $arm && max($loc_max,$pos)-min($loc_min,$pos) < 100) {
             my ($min,$max) = (min($loc_min,$pos), max($loc_max,$pos));
             my $seqs = $byPosition{$loc};
             delete $byPosition{$loc};
