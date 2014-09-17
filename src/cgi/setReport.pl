@@ -27,6 +27,7 @@ use Cytology;
 use PelementCGI;
 use PelementDBI;
 
+use List::Util qw(min max);
 use List::MoreUtils qw(uniq);
 
 use strict;
@@ -472,7 +473,7 @@ sub reportSet
 
    if ($reports{'class'}) {
        my @classes;
-       map { push @classes, [$_,classifyInsert($cgi,$session,$_,$release)] }  map {split /\s+/,$_} sort keys %seqSet;
+       map { push @classes, classifyInsert($cgi,$session,$_,$release) }  map {split /\s+/,$_} sort keys %seqSet;
          print $cgi->center($cgi->div({-class=>'SectionTitle'},"Position Classification"),$cgi->br),"\n",
             $cgi->center(
               $cgi->table({-border=>2,-width=>"80%",
@@ -480,10 +481,10 @@ sub reportSet
                                       -id=>'merged'},
               $cgi->Tr( [
                  $cgi->th(
-                         ["Strain","Coding Exon","5' UTR Exon","3' UTR Exon","Coding Intron",
+                         ["Strain","Seq Name","Insert Pos","Coding Exon","5' UTR Exon","3' UTR Exon","Coding Intron",
                           "5' UTR Intron","3' UTR Intron","5' Upstream","3' Downstream"] ),
                           (map { scalar(@$_)>2?$cgi->td({-align=>"center"}, $_ ):
-                            $cgi->td({-align=>"center"},[$_->[0]]).$cgi->td({-align=>"center",-colspan=>"8"},[$_->[1]]) } @classes),
+                            $cgi->td({-align=>"center"},[$_->[0]]).$cgi->td({-align=>"center",-colspan=>"10"},[$_->[1]]) } @classes),
                          ] )
                         )),$cgi->br,$cgi->hr({-width=>'70%'}),"\n";
 
@@ -687,7 +688,7 @@ sub classifyInsert
 
   my $seqS = new SeqSet($session,{-strain_name=>$strain})->select;
 
-  return ('No Sequence Records') unless $seqS->count;
+  return [$strain,'No Sequence Records'] unless $seqS->count;
 
   my $pos;
   my $arm;
@@ -701,14 +702,33 @@ sub classifyInsert
       if ($alignment->status eq 'unique' || $alignment->status eq 'curated' || $alignment->status eq 'autocurated') {
         $pos = $alignment->s_insert;
         $arm = $alignment->scaffold;
-        $byPosition{$arm.':'.$pos} = 1;
+
+        # merge coordinates if insert position is < 100 bp away
+        my $found;
+        for my $loc (sort keys %byPosition) {
+          my ($loc_arm,$loc_pos) = split(/:/,$loc);
+          my ($loc_min,$loc_max) = split /\.\./,$loc_pos;
+          $loc_max = $loc_min if !defined $loc_max;
+          if ($loc_arm eq $arm && abs((($loc_max-$loc_min)/2)-$pos) < 100) {
+            my ($min,$max) = (min($loc_min,$pos), max($loc_max,$pos));
+            my $seqs = $byPosition{$loc};
+            delete $byPosition{$loc};
+            $byPosition{$loc_arm.':'.($min == $max? $min : "$min..$max")} = [uniq(@$seqs, $seq->seq_name)];
+            $found = 1;
+            last;
+          }
+        }
+        push @{$byPosition{$arm.':'.$pos}}, $seq->seq_name if !$found;
       }
     }
   }
-  return ('No Unique or Curated Alignments') unless keys %byPosition;
+  return [$strain,'No Unique or Curated Alignments'] unless keys %byPosition;
 
-  return classifyPosition($cgi,$session,$release,keys %byPosition);
-
+  my @classes;
+  for my $loc (sort keys %byPosition) {
+    push @classes, [$strain,join(' ',sort @{$byPosition{$loc}}),$loc,classifyPosition($cgi,$session,$release,$loc)];
+  }
+  return @classes;
 }
 
 sub classifyPosition
@@ -728,7 +748,9 @@ sub classifyPosition
   
   foreach my $location (@locs) {
     my ($arm,$pos) = split(/:/,$location);
-    $arm =~ s/arm_//;
+    my ($min,$max) = split /\.\./, $pos;
+    $max = $min if !defined $max;
+    $arm =~ s/^[Aa]rm_?//;
     my @vals;
 
     push @{$resultsHash{coding_class}}, uniq map {$_->transcript_name}
@@ -736,33 +758,33 @@ sub classifyPosition
           arm=>$arm,
           -notnull=>['cds_min','cds_max'],
           -in=>{transcript_type_id=>\@transcript_type_ids},
-          -greater_than_or_equal=>{exon_end=>$pos, cds_max=>$pos},
-          -less_than_or_equal=>{exon_start=>$pos, cds_min=>$pos},
-          -rtree_bin=>{exon_bin=>[$pos, $pos], cds_bin=>[$pos, $pos]},
+          -greater_than_or_equal=>{exon_end=>$min, cds_max=>$min},
+          -less_than_or_equal=>{exon_start=>$max, cds_min=>$max},
+          -rtree_bin=>{exon_bin=>[$min, $max], cds_bin=>[$min, $max]},
         })->select->as_list;
       
     push @{$resultsHash{utr_5exon_class}}, uniq map {$_->transcript_name}
-      grep {($_->cds_min > $pos && $_->exon_strand > 0)
-              || ($_->cds_max < $pos && $_->exon_strand < 0)} 
+      grep {($_->cds_min > $min && $_->exon_strand > 0)
+              || ($_->cds_max < $max && $_->exon_strand < 0)} 
       $session->${\"${fb_schema}Gene_ModelSet"}({
           arm=>$arm,
           -notnull=>['cds_min','cds_max'],
           -in=>{transcript_type_id=>\@transcript_type_ids},
-          -greater_than_or_equal=>{exon_end=>$pos},
-          -less_than_or_equal=>{exon_start=>$pos},
-          -rtree_bin=>{exon_bin=>[$pos, $pos]},
+          -greater_than_or_equal=>{exon_end=>$min},
+          -less_than_or_equal=>{exon_start=>$max},
+          -rtree_bin=>{exon_bin=>[$min, $max]},
         })->select->as_list;
         
     push @{$resultsHash{utr_3exon_class}}, uniq map {$_->transcript_name}
-      grep {($_->cds_min > $pos && $_->exon_strand < 0)
-              || ($_->cds_max < $pos && $_->exon_strand > 0)} 
+      grep {($_->cds_min > $min && $_->exon_strand < 0)
+              || ($_->cds_max < $max && $_->exon_strand > 0)} 
       $session->${\"${fb_schema}Gene_ModelSet"}({
           arm=>$arm,
           -notnull=>['cds_min','cds_max'],
           -in=>{transcript_type_id=>\@transcript_type_ids},
-          -greater_than_or_equal=>{exon_end=>$pos},
-          -less_than_or_equal=>{exon_start=>$pos},
-          -rtree_bin=>{exon_bin=>[$pos, $pos]},
+          -greater_than_or_equal=>{exon_end=>$min},
+          -less_than_or_equal=>{exon_start=>$max},
+          -rtree_bin=>{exon_bin=>[$min, $max]},
         })->select->as_list;
         
     push @{$resultsHash{coding_intron_class}}, uniq map {$_->transcript_name}
@@ -770,33 +792,33 @@ sub classifyPosition
           arm=>$arm,
           -notnull=>['cds_min','cds_max'],
           -in=>{transcript_type_id=>\@transcript_type_ids},
-          -greater_than_or_equal=>{cds_max=>$pos},
-          -less_than_or_equal=>{cds_min=>$pos},
-          -rtree_bin=>{cds_bin=>[$pos, $pos]},
+          -greater_than_or_equal=>{cds_max=>$min},
+          -less_than_or_equal=>{cds_min=>$max},
+          -rtree_bin=>{cds_bin=>[$min, $max]},
         })->select->as_list;
         
     push @{$resultsHash{utr_5intron_class}}, uniq map {$_->transcript_name}
-      grep {($_->cds_min > $pos && $_->transcript_strand > 0)
-              || ($_->cds_max < $pos && $_->transcript_strand < 0)}
+      grep {($_->cds_min > $min && $_->transcript_strand > 0)
+              || ($_->cds_max < $max && $_->transcript_strand < 0)}
       $session->${\"${fb_schema}Gene_ModelSet"}({
           arm=>$arm,
           -notnull=>['cds_min','cds_max'],
           -in=>{transcript_type_id=>\@transcript_type_ids},
-          -greater_than_or_equal=>{transcript_end=>$pos},
-          -less_than_or_equal=>{transcript_start=>$pos},
-          -rtree_bin=>{transcript_bin=>[$pos, $pos]},
+          -greater_than_or_equal=>{transcript_end=>$min},
+          -less_than_or_equal=>{transcript_start=>$max},
+          -rtree_bin=>{transcript_bin=>[$min, $max]},
         })->select->as_list;
         
     push @{$resultsHash{utr_3intron_class}}, uniq map {$_->transcript_name}
-      grep {($_->cds_min > $pos && $_->transcript_strand < 0)
-              || ($_->cds_max < $pos && $_->transcript_strand > 0)}
+      grep {($_->cds_min > $min && $_->transcript_strand < 0)
+              || ($_->cds_max < $max && $_->transcript_strand > 0)}
       $session->${\"${fb_schema}Gene_ModelSet"}({
           arm=>$arm,
           -notnull=>['cds_min','cds_max'],
           -in=>{transcript_type_id=>\@transcript_type_ids},
-          -greater_than_or_equal=>{transcript_end=>$pos},
-          -less_than_or_equal=>{transcript_start=>$pos},
-          -rtree_bin=>{transcript_bin=>[$pos, $pos]},
+          -greater_than_or_equal=>{transcript_end=>$min},
+          -less_than_or_equal=>{transcript_start=>$max},
+          -rtree_bin=>{transcript_bin=>[$min, $max]},
         })->select->as_list;
         
     push @{$resultsHash{upstream5_class}}, uniq map {$_->transcript_name}
@@ -804,17 +826,17 @@ sub classifyPosition
           arm=>$arm,
           -in=>{transcript_type_id=>\@transcript_type_ids},
           -greater_than=>{transcript_strand=>0},
-          -greater_than_or_equal=>{transcript_start=>$pos},
-          -less_than_or_equal=>{transcript_start=>$pos+$upstream},
-          -rtree_bin=>{transcript_bin=>[$pos, $pos+$upstream]},
+          -greater_than_or_equal=>{transcript_start=>$min},
+          -less_than_or_equal=>{transcript_start=>$max+$upstream},
+          -rtree_bin=>{transcript_bin=>[$min, $max+$upstream]},
         })->select->as_list,
       $session->${\"${fb_schema}Gene_ModelSet"}({
           arm=>$arm,
           -in=>{transcript_type_id=>\@transcript_type_ids},
           -less_than=>{transcript_strand=>0},
-          -greater_than_or_equal=>{transcript_end=>$pos-$upstream},
-          -less_than_or_equal=>{transcript_end=>$pos},
-          -rtree_bin=>{transcript_bin=>[$pos-$upstream, $pos]},
+          -greater_than_or_equal=>{transcript_end=>$min-$upstream},
+          -less_than_or_equal=>{transcript_end=>$max},
+          -rtree_bin=>{transcript_bin=>[$min-$upstream, $max]},
         })->select->as_list);
         
     push @{$resultsHash{downstream3_class}}, uniq map {$_->transcript_name}
@@ -822,17 +844,17 @@ sub classifyPosition
           arm=>$arm,
           -in=>{transcript_type_id=>\@transcript_type_ids},
           -greater_than=>{transcript_strand=>0},
-          -greater_than_or_equal=>{transcript_end=>$pos-$upstream},
-          -less_than_or_equal=>{transcript_end=>$pos},
-          -rtree_bin=>{transcript_bin=>[$pos-$upstream, $pos]},
+          -greater_than_or_equal=>{transcript_end=>$min-$upstream},
+          -less_than_or_equal=>{transcript_end=>$max},
+          -rtree_bin=>{transcript_bin=>[$min-$upstream, $max]},
         })->select->as_list,
       $session->${\"${fb_schema}Gene_ModelSet"}({
           arm=>$arm,
           -in=>{transcript_type_id=>\@transcript_type_ids},
           -less_than=>{transcript_strand=>0},
-          -greater_than_or_equal=>{transcript_start=>$pos},
-          -less_than_or_equal=>{transcript_start=>$pos+$upstream},
-          -rtree_bin=>{transcript_bin=>[$pos, $pos+$upstream]},
+          -greater_than_or_equal=>{transcript_start=>$min},
+          -less_than_or_equal=>{transcript_start=>$max+$upstream},
+          -rtree_bin=>{transcript_bin=>[$min, $max+$upstream]},
         })->select->as_list);
   }
 
@@ -867,7 +889,7 @@ sub classifyPosition
           join_it(@{$resultsHash{downstream3_class}}));
 
   sub join_it{ my %hash;
-               map { s/-R.$//;
+               map { s/-R[A-Z]+$//;
                      $hash{$_} = 1;
                    } @_;
                    return join(' ',sort { $a cmp $b} keys %hash) || $cgi->nbsp }
