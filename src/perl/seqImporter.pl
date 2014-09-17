@@ -41,9 +41,6 @@ use Seq_AssemblySet;
 use Seq;
 use SeqSet;
 
-# George's sim4-er
-use GH::Sim4;
-
 use File::Basename;
 use Getopt::Long;
 use strict;
