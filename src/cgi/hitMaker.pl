@@ -417,7 +417,7 @@ sub alignSeq
         print $cgi->center("Inserting record into db."),"\n";
         $brS->insert({-program=>'sim4'});
      } else {
-        print $cgi->start_form(),
+        print $cgi->start_form(-method=>'GET', -action=>'hitMaker.pl'),
               $cgi->center("These results are not saved. Click the ",
               $cgi->hidden(-name=>'seq',-value=>$cgi->param('seq')),"\n",
               $cgi->hidden(-name=>'arm',-value=>$cgi->param('arm')),"\n",
