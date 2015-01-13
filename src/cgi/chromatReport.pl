@@ -50,8 +50,9 @@ sub serveImage
    return unless -e $PELEMENT_WEB_CACHE.$img.'.png';
    print "Content-type: image/png\n\n";
 
-   $cmd = "cat ".$PELEMENT_WEB_CACHE.$img.'.png';
-   print `$cmd`;
+   my @cmd = ("cat", $PELEMENT_WEB_CACHE.$img.'.png');
+   system(@cmd);
+   die "Exit code ".($?>>8)." returned from command \"@cmd\"" if ($?>>8);
 }
 
 
