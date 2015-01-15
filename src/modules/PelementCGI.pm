@@ -15,7 +15,8 @@
 package PelementCGI;
 
 use Exporter;
-use CGI qw(:html4 :imagemap);
+#use CGI qw(:html4 :imagemap);
+use CGI qw(:html4 :imagemap -debug);
 
 @ISA = qw(Exporter CGI);
 

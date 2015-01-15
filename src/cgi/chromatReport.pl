@@ -18,6 +18,8 @@ use EditTrace::GDInterface;
 use PelementCGI;
 use PelementDBI;
 
+use FileHandle;
+
 $cgi = new PelementCGI;
 
 if ($cgi->param('img')) {
@@ -48,11 +50,13 @@ sub serveImage
 
    return unless $img =~ /^\d+$/;
    return unless -e $PELEMENT_WEB_CACHE.$img.'.png';
-   print "Content-type: image/png\n\n";
 
-   my @cmd = ("cat", $PELEMENT_WEB_CACHE.$img.'.png');
-   system(@cmd);
-   die "Exit code ".($?>>8)." returned from command \"@cmd\"" if ($?>>8);
+   my $fh = FileHandle->new($PELEMENT_WEB_CACHE.$img.'.png')
+     or die "Could not open file: $PELEMENT_WEB_CACHE$img.png: $!";
+   $fh->binmode;
+   print "Content-type: image/png\n\n";
+   print do {local $/; <$fh>};
+   $fh->close;
 }
 
 
