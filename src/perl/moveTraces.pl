@@ -35,9 +35,11 @@ my $gel_name = '';
 my $version = 1;
 # delete the source after copying
 my $deleteSrc = 1;
+my $force;
 GetOptions( "gel=s"     => \$gel_name,
             "version=i" => \$version,
             "delete!"   => \$deleteSrc,
+            "force!"    => \$force,
            );
 
 # look at the inbox directory and search for directories of new gels
@@ -59,7 +61,7 @@ foreach my $dir (glob("$PELEMENT_INBOX/*")) {
       next if ($gel_name && $gel_name ne $gel_from_file);
       my $target = Gel::default_dir($gel_from_file,$version);
       $session->info("Looking for directory $target");
-      if ( -e $target && !$iMade{$target} ) {
+      if ( -e $target && !$iMade{$target} && !$force) {
          $session->info("Target directory for $gel_from_file exists. Assuming this was processed.");
          next GEL;
       } else {
