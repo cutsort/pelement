@@ -811,6 +811,10 @@ create function wellnum2code(num int, cols int default 12) returns text as $$
   select chr(ascii('A')+floor((num-1)/cols)::int)||to_char(((num-1)%cols)+1,'FM09')
 $$ language sql;
 
+create function wellnum2lcode(num int, cols int default 12) returns text as $$
+  select chr(ascii('a')+floor((num-1)/cols)::int)||to_char(((num-1)%cols)+1,'FM99')
+$$ language sql;
+
 create function wellcode2num(code text, cols int default 12) returns int as $$
   select ((ascii(upper(substring(code,'^[A-Za-z]+')))-ascii('A'))*cols)+substring(code,'[0-9]+$')::int
 $$ language sql;
