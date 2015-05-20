@@ -7,7 +7,7 @@ This project is a collaboration among the laboratories of Hugo Bellen (Baylor Co
 ### Authors
 
 - Benjamin W Booth [2012-2015]
-- Joseph W Carlson [200?-2012]
+- Joseph W Carlson [2003?-2012]
 
 ### Links
 
@@ -32,11 +32,13 @@ Tested on Ubuntu 14.04
 - perlbrew install perl-5.20.2
 - cpanm lib::xi DBD::Pg
 - a2enmod cgid
+- [phrap](http://www.phrap.org/consed/consed.html#howToGet) and cross_match
 
 ### Useful files and directories
 
 - http://gdp.example.com/cgi-bin/pelement/pelement.pl
 - /data/pelement/modules/Pelement.pm
+- /data/pelement/blast
 - /data/pelement/trace
 - /data/pelement/log
 - /var/log/apache2/error.log
